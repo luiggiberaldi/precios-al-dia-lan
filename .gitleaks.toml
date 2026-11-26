@@ -1,0 +1,23 @@
+# Configuración de gitleaks para Precios al Día Nube (baranda G1).
+# Usa las reglas por defecto. Cada excepción lleva su motivo.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Carpetas generadas y nombres de claves de almacenamiento local"
+paths = [
+    # Generadas o de terceros.
+    '''node_modules/''',
+    '''dist/''',
+    '''coverage/''',
+    '''test-results/''',
+    '''playwright-report/''',
+    '''bun\.lock''',
+    '''package-lock\.json''',
+]
+# La regla generic-api-key confunde los NOMBRES de claves de IndexedDB/localStorage
+# (p. ej. EMPLOYEES_KEY = 'bodega_employees_v1') con llaves. No son secretos.
+regexes = [
+    '''^(bodega|pda|pdn|abasto|my)_[a-z0-9_]+$''',
+]

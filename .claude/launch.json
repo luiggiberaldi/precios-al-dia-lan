@@ -1,0 +1,33 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nube-dev",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--mode",
+        "nube",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "5180",
+        "--strictPort"
+      ],
+      "port": 5180
+    },
+    {
+      "name": "estacion-3",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/Users/luigg/Desktop/sistemas generales/precios al dia final/estacion-maestra",
+        "run",
+        "dev"
+      ],
+      "port": 3001
+    }
+  ]
+}

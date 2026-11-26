@@ -1,0 +1,323 @@
+export const SUPERVISOR_SYNC_SCHEMA_VERSION = 1;
+
+export const SUPERVISOR_SYNC_STATES = Object.freeze({
+    IDLE: 'idle',
+    AUTHENTICATING: 'authenticating',
+    PULLING: 'pulling',
+    CONNECTED: 'connected',
+    DEGRADED: 'degraded',
+    ERROR: 'error',
+    REVOKED: 'revoked',
+});
+
+const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+export function buildSyncEnvelope(payload, updatedAt = new Date().toISOString(), { stockAsOf = null } = {}) {
+    return {
+        schemaVersion: SUPERVISOR_SYNC_SCHEMA_VERSION,
+        payload,
+        updatedAt,
+        // Fase 1 del plan de stock delta: el estado de stock de este payload ya
+        // incluye todos los efectos con `at <= stockAsOf` (solo el doc de
+        // productos). Los lectores legacy lo ignoran; los nuevos derivan el
+        // stock visible plegando sobre él solo los efectos posteriores.
+        ...(stockAsOf ? { stockAsOf } : {}),
+    };
+}
+
+/**
+ * Acepta el formato versionado nuevo y el formato legacy { payload } durante
+ * la migración. Nunca inventa un payload si el documento está incompleto.
+ */
+export function readSyncEnvelope(data) {
+    if (!isPlainObject(data) || !Object.prototype.hasOwnProperty.call(data, 'payload')) {
+        return { valid: false, error: 'Envelope de sincronización inválido' };
+    }
+
+    const schemaVersion = data.schemaVersion ?? 1;
+    if (schemaVersion !== SUPERVISOR_SYNC_SCHEMA_VERSION) {
+        return { valid: false, error: `Versión de schema no soportada: ${schemaVersion}` };
+    }
+
+    const updatedAt = data.updatedAt || null;
+    if (updatedAt && Number.isNaN(Date.parse(updatedAt))) {
+        return { valid: false, error: 'updatedAt inválido' };
+    }
+
+    // Campo aditivo (plan de stock delta): ausente o inválido → null, que el
+    // lector interpreta como "sin baseline: usar el payload tal cual".
+    const stockAsOf = typeof data.stockAsOf === 'string' && !Number.isNaN(Date.parse(data.stockAsOf))
+        ? data.stockAsOf
+        : null;
+
+    return {
+        valid: true,
+        error: null,
+        payload: data.payload,
+        schemaVersion,
+        updatedAt,
+        stockAsOf,
+    };
+}
+
+export function isNewerSyncDocument(incomingUpdatedAt, previousUpdatedAt) {
+    if (!incomingUpdatedAt) return !previousUpdatedAt;
+    if (!previousUpdatedAt) return true;
+    return Date.parse(incomingUpdatedAt) > Date.parse(previousUpdatedAt);
+}
+
+export function getSyncMetadataKey(docId) {
+    return `supervisor_sync_updated_at_${docId}`;
+}
+
+export function getSupervisorRecoveryIntervalMs() {
+    // Realtime es la vía primaria. El pull solo es un salvavidas cuando el
+    // canal está degradado, por eso no debe ejecutarse cada pocos segundos.
+    return 5 * 60_000;
+}
+
+// Fase 2 del plan de egress: el reconnect del monitor pasó de la tabla fija
+// [1s, 3s, 10s, 30s] a backoff exponencial con jitter (la fórmula del plan, con
+// la forma de getRecoveryDelayMs: el total jamás supera el máximo ni baja de la
+// base). El jitter desincroniza los reintentos de varios monitores tras un
+// mismo corte (sin tormenta coordinada de reconexiones). Base 5 s y tope 60 s
+// según el plan; la recuperación instantánea por red/visibilidad no usa este
+// backoff (handleOnline/handleVisibilityChange reinician el intento).
+export const MONITOR_RECONNECT_BASE_DELAY_MS = 5_000;
+export const MONITOR_RECONNECT_MAX_DELAY_MS = 60_000;
+
+/**
+ * Delay exponencial con jitter completo para el reconnect del monitor.
+ * `random` es inyectable para tests. attempt 0 → [base, 1.5·base); crece hasta
+ * el máximo. Nunca baja de la base ni supera el máximo.
+ */
+export function getMonitorReconnectDelayMs(attempt, random = Math.random) {
+    const safeAttempt = Math.max(0, Math.floor(Number(attempt) || 0));
+    const exp = Math.min(MONITOR_RECONNECT_MAX_DELAY_MS, MONITOR_RECONNECT_BASE_DELAY_MS * (2 ** safeAttempt));
+    const jitter = Math.floor(random() * exp * 0.5);
+    return Math.min(MONITOR_RECONNECT_MAX_DELAY_MS, exp + jitter);
+}
+
+/**
+ * Barrido de respaldo del monitor con Realtime "conectado" — el hueco
+ * simétrico al del receptor de la caja: un canal que dice SUBSCRIBED pero no
+ * entrega eventos (socket a medias, pestaña restringida, eventos perdidos
+ * durante un corte) no puede dejar al Supervisor sin el eco de la caja hasta
+ * recargar. El barrido usa el pull incremental (solo metadatos; el payload se
+ * pide únicamente para documentos realmente nuevos), así que con el eco al día
+ * la consulta queda vacía. Más frecuente que la recuperación degradada (5 min)
+ * y distinto del barrido de publicación de la caja (30 s) para no confundir
+ * contratos de timer. Fase 3 del plan de egress: espaciado a 90 s (antes 45 s) —
+ * Realtime ya entrega en vivo y el barrido es solo red de seguridad.
+ */
+export const MONITOR_CONNECTED_SWEEP_INTERVAL_MS = 90_000;
+
+/**
+ * El barrido conectado solo corre con Realtime vivo y sin un pull ya en vuelo:
+ * apilar consultas en una pestaña restringida no aporta nada (el pull
+ * incremental ya se deduplica, pero el gate evita acumular trabajo muerto).
+ */
+export function shouldRunMonitorConnectedSweep({
+    realtimeConnected,
+    pullInFlight = false,
+    documentVisible = true,
+} = {}) {
+    // Fase 2 (egress): con la pestaña oculta el barrido se suspende por
+    // completo; al volver a la vista el hook barre al instante, así que los
+    // eventos de un corte se recuperan sin dejar consultas corriendo de más.
+    return Boolean(realtimeConnected) && !pullInFlight && documentVisible !== false;
+}
+
+export function shouldRunSupervisorRecovery({
+    realtimeConnected,
+    recoveryInFlight = false,
+    lastRecoveryAt = 0,
+    now = Date.now(),
+    intervalMs = getSupervisorRecoveryIntervalMs(),
+} = {}) {
+    if (realtimeConnected || recoveryInFlight) return false;
+    if (!Number.isFinite(lastRecoveryAt) || lastRecoveryAt <= 0) return true;
+    return now - lastRecoveryAt >= intervalMs;
+}
+
+export function getChangedSyncDocumentIds(metadata = [], getPreviousUpdatedAt = () => null) {
+    return [...new Set((metadata || [])
+        .filter((doc) => doc?.doc_id && isNewerSyncDocument(
+            doc.updated_at,
+            getPreviousUpdatedAt(doc.doc_id),
+        ))
+        .map((doc) => doc.doc_id))];
+}
+
+// ── Política de pull completo vs incremental ─────────────────────────────────
+// El pull completo (`full: true`) descarga la columna `data` de TODOS los
+// documentos permitidos y fue el mayor componente del egress de PostgREST
+// (238 pulls ≈ 295 MB el 2026-10-23; ver REPORTE-CAUSA-RAIZ-EGRESS). Solo se
+// justifica cuando el cliente no tiene historial local (primera carga) y como
+// resync periódico: el watermark incremental no detecta borrados remotos (no
+// hay tombstones). Las reconexiones y remontajes usan el pull incremental.
+
+export const MONITOR_FULL_SYNC_AT_KEY = 'monitor_last_full_sync';
+export const FULL_SYNC_INTERVAL_MS = 24 * 60 * 60_000;
+
+export function shouldPullFullSync({
+    hasLocalHistory = false,
+    lastFullSyncAt = null,
+    now = Date.now(),
+    intervalMs = FULL_SYNC_INTERVAL_MS,
+} = {}) {
+    // Primera carga: sin historial local el paquete completo es el único arranque.
+    if (!hasLocalHistory) return true;
+    // Historial pero sin marca de full (clientes anteriores a esta política):
+    // un full de adopción, para no heredar paquetes incompletos.
+    if (!Number.isFinite(lastFullSyncAt) || lastFullSyncAt <= 0) return true;
+    // Resync periódico: cubre los borrados remotos que el watermark no ve.
+    return now - lastFullSyncAt >= intervalMs;
+}
+
+/**
+ * Realtime entrega el registro VACÍO (y `payload.errors` con "Error 413: Payload
+ * Too Large") cuando `sync_documents.data` supera `max_record_bytes` (~1 MB).
+ * Con catálogos de miles de productos ese es el caso normal de
+ * `bodega_products_v1`: el evento no trae cuerpo y NUNCA puede descartarse en
+ * silencio — el caller debe responder con un pull de respaldo.
+ */
+export function isOversizeRealtimePayload(realtimePayload) {
+    if (Array.isArray(realtimePayload?.errors) && realtimePayload.errors.length > 0) return true;
+    const doc = realtimePayload?.new;
+    return !doc || !doc.doc_id || !doc.data;
+}
+
+// ── Diagnóstico de sincronización (panel del supervisor) ─────────────────────
+// Estado puro que describe la recepción de ecos: el último documento con su
+// watermark y los eventos Realtime sin cuerpo (413) con los pulls de respaldo
+// que los resolvieron. Sin React ni red: así se prueba sin montar el hook.
+
+export function createSyncDiagnosticsState() {
+    return {
+        lastEcho: null,
+        oversizeEvents: 0,
+        oversizePulls: 0,
+        lastOversizeAt: null,
+        lastOversizePullAt: null,
+        lastPull: null,
+        // Plan de egress Realtime F3/F4: cómo llega Realtime y por qué se cae.
+        realtimeMode: null,
+        notifyEvents: 0,
+        realtimeCloses: 0,
+        lastRealtimeClose: null,
+        hiddenReleases: 0,
+    };
+}
+
+export function updateSyncDiagnostics(state, event) {
+    const current = state || createSyncDiagnosticsState();
+    switch (event?.type) {
+        case 'echo':
+            return {
+                ...current,
+                lastEcho: {
+                    docId: event.docId ?? null,
+                    updatedAt: event.updatedAt ?? null,
+                    receivedAt: event.receivedAt ?? null,
+                    source: event.source ?? 'realtime',
+                    applied: Boolean(event.applied),
+                    error: event.error ?? null,
+                },
+            };
+        case 'oversize_event':
+            return {
+                ...current,
+                oversizeEvents: current.oversizeEvents + 1,
+                lastOversizeAt: event.at ?? null,
+            };
+        case 'oversize_pull':
+            return {
+                ...current,
+                oversizePulls: current.oversizePulls + 1,
+                lastOversizePullAt: event.at ?? null,
+            };
+        case 'pull':
+            // Telemetría de egress: bytes del payload bajado en el último pull,
+            // para ver de un vistazo si fue completo (~MB) o incremental (~0).
+            return {
+                ...current,
+                lastPull: {
+                    at: event.at ?? null,
+                    source: event.source ?? 'pull',
+                    docs: event.docs ?? 0,
+                    bytes: event.bytes ?? 0,
+                    full: Boolean(event.full),
+                },
+            };
+        case 'realtime_mode':
+            return { ...current, realtimeMode: event.mode ?? null };
+        case 'notify':
+            return { ...current, notifyEvents: (current.notifyEvents || 0) + 1 };
+        case 'realtime_closed':
+            // Los cierres pedidos por la pestaña oculta (F3) no cuentan como caída.
+            if (event.released) return current;
+            return {
+                ...current,
+                realtimeCloses: (current.realtimeCloses || 0) + 1,
+                lastRealtimeClose: { status: event.status ?? null, at: event.at ?? null },
+            };
+        case 'hidden_release':
+            return { ...current, hiddenReleases: (current.hiddenReleases || 0) + 1 };
+        default:
+            return current;
+    }
+}
+
+/**
+ * Cada ciclo de vida usa un topic único para que React StrictMode, un cambio
+ * de dispositivo o una reconexión no intenten añadir callbacks a un canal ya
+ * suscrito.
+ */
+export function buildSupervisorRealtimeChannelName(deviceId, lifecycleId = 0) {
+    return `monitor:${String(deviceId)}:${String(lifecycleId)}`;
+}
+
+export async function withSyncRetry(task, {
+    attempts = 3,
+    baseDelayMs = 250,
+    maxDelayMs = 2000,
+    sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms)),
+} = {}) {
+    let lastError = null;
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        try {
+            return await task(attempt);
+        } catch (error) {
+            lastError = error;
+            if (attempt === attempts - 1) break;
+            const delay = Math.min(maxDelayMs, baseDelayMs * (2 ** attempt));
+            await sleep(delay);
+        }
+    }
+
+    throw lastError || new Error('La sincronización falló');
+}
+
+export default {
+    SUPERVISOR_SYNC_SCHEMA_VERSION,
+    SUPERVISOR_SYNC_STATES,
+    buildSyncEnvelope,
+    readSyncEnvelope,
+    isNewerSyncDocument,
+    getSyncMetadataKey,
+    getSupervisorRecoveryIntervalMs,
+    shouldRunSupervisorRecovery,
+    MONITOR_CONNECTED_SWEEP_INTERVAL_MS,
+    shouldRunMonitorConnectedSweep,
+    MONITOR_RECONNECT_BASE_DELAY_MS,
+    MONITOR_RECONNECT_MAX_DELAY_MS,
+    getMonitorReconnectDelayMs,
+    getChangedSyncDocumentIds,
+    MONITOR_FULL_SYNC_AT_KEY,
+    FULL_SYNC_INTERVAL_MS,
+    shouldPullFullSync,
+    buildSupervisorRealtimeChannelName,
+    withSyncRetry,
+};

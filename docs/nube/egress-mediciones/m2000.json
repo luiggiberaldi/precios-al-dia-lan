@@ -1,0 +1,62 @@
+{
+  "productos": 2000,
+  "niveles": 2000,
+  "medido": {
+    "stock_levels completo (fetchStockLevels)": {
+      "requests": 3,
+      "wire": 49000,
+      "body": 153998,
+      "headerBytes": 3612,
+      "rows": 2000,
+      "enc": "identity"
+    },
+    "customer_balances completo (ledger.pull)": {
+      "requests": 1,
+      "wire": 5548,
+      "body": 17108,
+      "headerBytes": 1146,
+      "rows": 200,
+      "enc": "gzip"
+    },
+    "customer_movements incremental vacío": {
+      "requests": 1,
+      "wire": 2,
+      "body": 2,
+      "headerBytes": 1263,
+      "rows": 0,
+      "enc": "identity"
+    },
+    "account_records incremental vacío ×5 colecciones": {
+      "requests": 5,
+      "wire": 10,
+      "body": 10,
+      "headerBytes": 6012,
+      "rows": 0,
+      "enc": "identity"
+    },
+    "account_records products completo (primer arranque)": {
+      "requests": 5,
+      "wire": 129186,
+      "body": 1114747,
+      "headerBytes": 6092,
+      "rows": 2000,
+      "enc": "identity"
+    },
+    "panel dueño: nombres de productos (loadNames)": {
+      "requests": 3,
+      "wire": 52477,
+      "body": 203464,
+      "headerBytes": 3573,
+      "rows": 2000,
+      "enc": "identity"
+    },
+    "estado del equipo (getDeviceStatus, 4 lecturas)": {
+      "requests": 4,
+      "wire": 467,
+      "body": 528,
+      "headerBytes": 4598,
+      "rows": 4,
+      "enc": "gzip"
+    }
+  }
+}

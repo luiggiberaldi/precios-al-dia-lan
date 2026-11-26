@@ -1,0 +1,52 @@
+<!-- Asunto: Confirma tu correo en Precios al Día -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light only">
+<title>Confirma tu correo en Precios al Día</title>
+</head>
+<body style="margin:0;padding:0;background:#eef2f7;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Activa tu cuenta de Precios al Día Nube con un clic.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eef2f7" style="background:#eef2f7;">
+    <tr><td align="center" style="padding:36px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;">
+        <tr><td align="center" style="padding:0 0 22px;">
+          <a href="https://preciosaldia-nube.vercel.app" target="_blank" style="text-decoration:none;"><img src="https://preciosaldia-nube.vercel.app/logo.png" alt="Precios al Día Nube" width="260" style="display:block;width:260px;max-width:80%;height:auto;border:0;outline:none;"></a>
+        </td></tr>
+        <tr><td bgcolor="#ffffff" style="background:#ffffff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td height="6" bgcolor="#2b59c3" style="height:6px;line-height:6px;font-size:0;background:#2b59c3;background-image:linear-gradient(90deg,#2b59c3,#6ea8ff);border-radius:20px 20px 0 0;">&nbsp;</td></tr>
+            <tr><td style="padding:34px 34px 30px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td style="padding:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.3;font-weight:bold;color:#0f172a;">¡Bienvenido a Precios al Día!</td></tr>
+              <tr><td style="padding:0 0 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.65;color:#334155;">Gracias por crear tu cuenta de dueño con <strong>{{ .Email }}</strong>. Solo falta un paso: confirma tu correo para activarla.</td></tr>
+              <tr><td align="center" style="padding:8px 0 28px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                  <td align="center" bgcolor="#2b59c3" style="border-radius:12px;background:#2b59c3;background-image:linear-gradient(135deg,#2b59c3,#4f86f7);">
+                    <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:15px 34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:12px;">Confirmar mi correo</a>
+                  </td>
+                </tr></table>
+              </td></tr>
+              <tr><td style="padding:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#64748b;">
+                ¿El botón no funciona? Copia y pega este enlace en tu navegador:
+              </td></tr>
+              <tr><td style="padding:0 0 24px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;word-break:break-all;">
+                <a href="{{ .ConfirmationURL }}" target="_blank" style="color:#2b59c3;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+              </td></tr>
+              <tr><td style="padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#475569;">&#128274; El enlace es personal y solo funciona una vez. Si ya confirmaste tu correo, entra directamente a la app con tu correo y contraseña.<br><br>Si no creaste esta cuenta, puedes ignorar este mensaje.</td></tr>
+              </table>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td align="center" style="padding:24px 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.7;color:#94a3b8;">
+          Precios al Día Nube · Tu negocio en la nube, en todas tus cajas<br>
+          Este es un correo automático, por favor no lo respondas.<br>
+          <a href="https://preciosaldia-nube.vercel.app" target="_blank" style="color:#64748b;text-decoration:underline;">preciosaldia-nube.vercel.app</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

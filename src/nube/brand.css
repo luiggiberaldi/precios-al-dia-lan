@@ -1,0 +1,39 @@
+/*
+ * Identidad visual de Precios al Día Nube.
+ *
+ * Bodega y Farmacia usan turquesa (H=192). La nube usa AZUL CIELO (H≈255) para
+ * que nadie la confunda en el teléfono ni en la caja. Solo sobreescribe las
+ * variables de marca de styles/tokens.css (se importa después), así ese archivo
+ * heredado queda intacto y las uniones con upstream no chocan (baranda G9).
+ */
+:root {
+  --primary:           oklch(0.50 0.150 262);  /* #2b59c3 azul nube */
+  --primary-hover:     oklch(0.44 0.145 262);  /* #234aa3 */
+  --primary-soft:      oklch(0.95 0.025 262);  /* #eaf0fb */
+  --primary-contrast:  oklch(0.99 0.005 262);
+
+  --color-primary-50:  234 240 251;  /* #eaf0fb */
+  --color-primary-100: 211 224 247;
+  --color-primary-200: 176 199 240;
+  --color-primary-300: 131 166 229;
+  --color-primary-400: 84 128 214;
+  --color-primary-500: 43 89 195;    /* #2b59c3 */
+  --color-primary-600: 35 74 163;    /* #234aa3 */
+  --color-primary-700: 29 61 134;
+  --color-primary-800: 24 50 108;
+  --color-primary-900: 19 40 86;
+}
+
+.dark {
+  --primary:           oklch(0.74 0.120 255);  /* #6ea8ff */
+  --primary-hover:     oklch(0.69 0.120 255);
+  --primary-soft:      oklch(0.26 0.050 262);
+  --color-primary-500: 110 168 255;  /* #6ea8ff azul nube claro */
+  --color-primary-600: 84 146 240;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not(.dark) {
+    --color-primary-500: 110 168 255;
+  }
+}

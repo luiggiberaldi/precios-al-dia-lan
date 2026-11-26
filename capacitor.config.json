@@ -1,0 +1,10 @@
+{
+  "appId": "com.preciosaldia.lan",
+  "appName": "Precios al Día LAN",
+  "webDir": "dist",
+  "androidScheme": "https",
+  "server": {
+    "cleartext": true,
+    "androidScheme": "https"
+  }
+}

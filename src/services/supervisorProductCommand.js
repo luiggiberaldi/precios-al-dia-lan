@@ -1,0 +1,424 @@
+import { findOtherProductWithCode } from '../utils/barcodeAssign';
+
+const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+// ── Publicación del catálogo tras un comando de producto ────────────────────
+// Un comando puede dejar el estado local aplicado y durable SIN confirmación de
+// publicación (pushCloudSync devuelve skipped cuando hay un cambio remoto en
+// aplicación o el sync no está activo). Tratar eso como éxito era el mismo
+// riesgo de "aplicado sin sincronizar" del flujo de inventario: el ACK decía
+// aplicado y el monitor nunca veía el cambio. La marca pendiente activa el
+// re-intento periódico hasta que la nube confirme.
+export const PRODUCT_PUBLISH_PENDING_KEY = 'pda_product_publish_pending_v1';
+
+export function markProductPublishPending(commandId = null, storage = globalThis.localStorage) {
+    try {
+        storage?.setItem(PRODUCT_PUBLISH_PENDING_KEY, JSON.stringify({ commandId, at: new Date().toISOString() }));
+    } catch { /* best effort: el barrido es una red de seguridad, no el camino principal */ }
+}
+
+export function clearProductPublishPending(storage = globalThis.localStorage) {
+    try {
+        storage?.removeItem(PRODUCT_PUBLISH_PENDING_KEY);
+    } catch { /* best effort */ }
+}
+
+export function readProductPublishPending(storage = globalThis.localStorage) {
+    try {
+        const raw = storage?.getItem(PRODUCT_PUBLISH_PENDING_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Clasifica el resultado de publicar el catálogo tras un comando de producto:
+ *  - ok (incluye 'Sin cambios') → publicado: el doc remoto refleja el cambio.
+ *  - skipped sin ok → NO publicado pero aplicado localmente: confirmación con
+ *    advertencia + re-publicación pendiente (sin revertir el cambio local).
+ *  - fallo real → nada confirma el cambio hacia el monitor: se revierte y el
+ *    comando falla (reintentable por el supervisor).
+ */
+export function classifyProductPublishResult(pushResult) {
+    if (pushResult?.ok) {
+        return { status: 'applied', published: true, pending: false, rollback: false };
+    }
+    if (pushResult?.skipped) {
+        return { status: 'applied_with_warnings', published: false, pending: true, rollback: false };
+    }
+    return { status: 'failed', published: false, pending: false, rollback: true };
+}
+
+function requireProductId(value) {
+    if (typeof value !== 'string' || value.trim() === '') {
+        throw new Error('Producto inválido');
+    }
+    return value;
+}
+
+function requireProduct(product) {
+    if (!isRecord(product)) throw new Error('Producto inválido');
+    const id = requireProductId(product.id);
+    if (typeof product.name !== 'string' || product.name.trim() === '') {
+        throw new Error('El nombre del producto es obligatorio');
+    }
+    return { ...product, id };
+}
+
+export const EDITABLE_PRODUCT_FIELDS = Object.freeze([
+    'name',
+    'barcode',
+    'priceUsd',
+    'priceUsdt',
+    'pricingMode',
+    'priceBsUsdRef',
+    'priceCop',
+    'costUsd',
+    'costBs',
+    'costFactor',
+    'unit',
+    'packagingType',
+    'granelUnit',
+    'unitsPerPackage',
+    'sellByUnit',
+    'unitPriceUsd',
+    'unitPriceCop',
+    'category',
+    'lowStockAlert',
+    'ivaRate',
+    'image',
+]);
+
+export function resolveEffectivePriceUsd(product = {}) {
+    if (!product || typeof product !== 'object') return null;
+    // Precedencia explícita: priceUsd prevalece sobre el alias histórico priceUsdt
+    const candidate = product.priceUsd !== undefined && product.priceUsd !== null
+        ? product.priceUsd
+        : product.priceUsdt;
+    if (candidate === undefined || candidate === null) return null;
+    const num = Number(candidate);
+    return Number.isFinite(num) ? num : null;
+}
+
+export function normalizeProductFieldValue(key, value, product = {}) {
+    // 1. Resolver alias de precio con precedencia explícita (priceUsd > priceUsdt)
+    // antes del chequeo de null/undefined. De esta forma, si product solo tiene
+    // priceUsd, solo tiene priceUsdt o ambos, ambos campos obtienen el mismo valor canónico.
+    if (key === 'priceUsd' || key === 'priceUsdt') {
+        return resolveEffectivePriceUsd(product);
+    }
+
+    if (value === undefined || value === null) return null;
+
+    switch (key) {
+        case 'name':
+        case 'category':
+        case 'unit':
+        case 'packagingType':
+        case 'granelUnit':
+        case 'image':
+            return typeof value === 'string' ? value.trim() : String(value);
+
+        case 'barcode': {
+            const str = typeof value === 'string' ? value.trim() : String(value);
+            return str.length > 0 ? str : null;
+        }
+
+        case 'priceBsUsdRef':
+        case 'priceCop':
+        case 'costUsd':
+        case 'costBs':
+        case 'costFactor':
+        case 'unitsPerPackage':
+        case 'unitPriceUsd':
+        case 'unitPriceCop':
+        case 'lowStockAlert':
+        case 'ivaRate': {
+            const num = Number(value);
+            return Number.isFinite(num) ? num : null;
+        }
+
+        case 'pricingMode':
+            return value === 'dual_usd' ? 'dual_usd' : 'tasa_dia';
+
+        case 'sellByUnit':
+            return Boolean(value);
+
+        default:
+            return value;
+    }
+}
+
+export function buildProductRevision(product) {
+    if (!product || typeof product !== 'object') return null;
+    const tuple = EDITABLE_PRODUCT_FIELDS.map(field =>
+        normalizeProductFieldValue(field, product[field], product)
+    );
+    return JSON.stringify(tuple);
+}
+
+export function extractEditableProductPatch(source = {}) {
+    if (!isRecord(source)) return {};
+    const patch = {};
+    for (const key of EDITABLE_PRODUCT_FIELDS) {
+        if (key in source && source[key] !== undefined) {
+            patch[key] = source[key];
+        }
+    }
+    return patch;
+}
+
+export function applySupervisorProductCommand(currentProducts, payload = {}, options = {}) {
+    const products = Array.isArray(currentProducts) ? currentProducts : [];
+    const { action, product, productId, baseUpdatedAt } = payload;
+    let baseRevision;
+    if (payload.baseRevision !== undefined && payload.product?.baseRevision !== undefined) {
+        baseRevision = payload.baseRevision === payload.product.baseRevision
+            ? payload.baseRevision
+            : null;
+    } else {
+        baseRevision = payload.baseRevision !== undefined ? payload.baseRevision : payload.product?.baseRevision;
+    }
+
+    if (!['create', 'edit', 'delete'].includes(action)) {
+        throw new Error('Acción de producto inválida');
+    }
+
+    if (action === 'delete') {
+        const id = requireProductId(productId);
+        const nextProducts = products.filter(item => item.id !== id);
+        return {
+            action,
+            productId: id,
+            product: null,
+            products: nextProducts,
+            changed: nextProducts.length !== products.length,
+        };
+    }
+
+    const requestedId = product?.id;
+    const existingIndex = products.findIndex(item => item.id === requestedId);
+
+    if (action === 'edit' && existingIndex === -1) {
+        throw new Error('Producto no encontrado en la caja');
+    }
+
+    if (action === 'create' && existingIndex !== -1) {
+        const existing = products[existingIndex];
+        // H2 (auditoría 2026-10-22): reintento tras un corte — la creación ya
+        // quedó aplicada y solo se perdió el ACK. Si el producto actual ya
+        // refleja exactamente lo pedido, es un no-op aplicado, jamás un falso
+        // conflicto. Un producto con el mismo id y contenido distinto sigue
+        // rechazándose. (El stock no forma parte de la revisión: una venta
+        // posterior no convierte la reaplicación en conflicto.)
+        if (buildProductRevision(existing) === buildProductRevision(product)) {
+            return {
+                action,
+                productId: existing.id,
+                product: existing,
+                products,
+                changed: false,
+                alreadyApplied: true,
+            };
+        }
+        throw new Error('El producto ya existe en la caja');
+    }
+
+    if (action === 'edit' && existingIndex !== -1) {
+        const existing = products[existingIndex];
+
+        // 1. Control temporal: baseUpdatedAt es metadato temporal. Si se envía,
+        // debe ser válida y no posterior al reloj de la caja (sin tolerancias arbitrarias).
+        if (baseUpdatedAt !== undefined && baseUpdatedAt !== null) {
+            const parsedBase = Date.parse(baseUpdatedAt);
+            if (Number.isNaN(parsedBase)) {
+                throw new Error('Fecha base inválida');
+            }
+            const getNow = typeof options?.now === 'function'
+                ? options.now
+                : () => (typeof options?.now === 'number' ? options.now : Date.now());
+            const currentNow = getNow();
+            if (parsedBase > currentNow) {
+                throw new Error('La fecha base no puede ser futura');
+            }
+        }
+
+        // 2. Control de concurrencia optimista determinista: OBLIGATORIO
+        // Rechaza revisión ausente, null, vacía, de tipo no string o distinta,
+        // aun si baseUpdatedAt está presente y parece válida. Sin fallback de timestamp.
+        if (typeof baseRevision !== 'string' || baseRevision.trim() === '') {
+            throw new Error('Revisión base ausente o inválida');
+        }
+
+        const currentRevision = buildProductRevision(existing);
+        if (currentRevision !== baseRevision) {
+            // H2 (auditoría 2026-10-22): si el producto actual YA refleja el
+            // patch, la orden se aplicó antes de un corte y solo se perdió el
+            // ACK: reaplicarla sería un no-op. Se responde «aplicado» en vez del
+            // falso conflicto «cambió mientras lo editabas» (falso negativo que
+            // empujaba al operador a reintentar a ciegas).
+            const patchProbe = extractEditableProductPatch(product);
+            const candidateProbe = { ...existing, ...patchProbe, id: existing.id };
+            if ('priceUsd' in patchProbe || 'priceUsdt' in patchProbe) {
+                const resolvedPrice = resolveEffectivePriceUsd(patchProbe);
+                if (resolvedPrice !== null) {
+                    candidateProbe.priceUsd = resolvedPrice;
+                    candidateProbe.priceUsdt = resolvedPrice;
+                }
+            }
+            if (buildProductRevision(candidateProbe) === currentRevision) {
+                return {
+                    action,
+                    productId: existing.id,
+                    product: existing,
+                    products,
+                    changed: false,
+                    alreadyApplied: true,
+                };
+            }
+            throw new Error('El producto cambió mientras lo editabas; vuelve a cargarlo');
+        }
+    }
+
+    let nextProduct;
+    if (action === 'edit') {
+        const existing = products[existingIndex];
+        const patch = extractEditableProductPatch(product);
+        const candidate = {
+            ...existing,
+            ...patch,
+            id: existing.id,
+            // Proteger estrictamente existencias, lotes e historial de la caja
+            stock: existing.stock,
+            stockInLotes: existing.stockInLotes,
+            lots: existing.lots,
+            movements: existing.movements,
+            initialStock: existing.initialStock,
+            // Generar timestamp local y nunca aceptar timestamps adversariales del payload
+            updatedAt: new Date().toISOString(),
+        };
+        // FIN-030: el par de alias de precio (priceUsdt/priceUsd) se mueve junto.
+        // Un patch parcial (cliente legacy que solo envía priceUsdt) no debe dejar
+        // el alias priceUsd con el precio anterior — el monitor lo leería y mostraría
+        // un precio viejo mientras la caja muestra el canónico.
+        if ('priceUsd' in patch || 'priceUsdt' in patch) {
+            const resolvedPrice = resolveEffectivePriceUsd(patch);
+            if (resolvedPrice !== null) {
+                candidate.priceUsd = resolvedPrice;
+                candidate.priceUsdt = resolvedPrice;
+            }
+        }
+        nextProduct = requireProduct(candidate);
+    } else {
+        // En creación se conserva el producto entrante incluyendo stock inicial
+        nextProduct = requireProduct(product);
+    }
+
+    if (typeof nextProduct.name !== 'string' || nextProduct.name.trim() === '') {
+        throw new Error('El nombre del producto es obligatorio');
+    }
+
+    // Un código de barras no puede repetirse entre productos (mismo control que la caja). Solo se
+    // valida si el código es nuevo o cambió, para no bloquear productos que ya lo comparten por datos viejos.
+    const nextCode = typeof nextProduct.barcode === 'string' || typeof nextProduct.barcode === 'number'
+        ? String(nextProduct.barcode).trim()
+        : '';
+    const savedCode = existingIndex === -1 ? '' : String(products[existingIndex].barcode ?? '').trim();
+    if (nextCode && nextCode !== savedCode) {
+        const owner = findOtherProductWithCode(products, nextCode, nextProduct.id);
+        if (owner) throw new Error(`El código ${nextCode} ya pertenece a «${owner.name}»`);
+    }
+
+    const nextProducts = existingIndex === -1
+        ? [nextProduct, ...products]
+        : products.map((item, index) => index === existingIndex ? nextProduct : item);
+
+    return {
+        action,
+        productId: nextProduct.id,
+        product: nextProduct,
+        products: nextProducts,
+        changed: true,
+    };
+}
+
+// ── Eco optimista del catálogo del monitor ──────────────────────────────────
+// Un comando de producto enviado desde el monitor muestra su resultado en la
+// lista AL INSTANTE (como el cambio de tasa), sin esperar el viaje completo
+// monitor → caja → nube → monitor. Esto es SOLO presentación: no escribe
+// almacenamiento ni la nube; la autoridad sigue siendo la caja. La entrada se
+// retira sola cuando el eco real llega (isOptimisticEchoSettled) o cuando la
+// caja rechaza/falla el comando (reversión en el llamador).
+export function applyOptimisticProductEcho(list, entry = {}) {
+    const products = Array.isArray(list) ? list : [];
+    const id = String(entry.productId ?? entry.product?.id ?? '');
+
+    if (entry.action === 'delete') {
+        return id ? products.filter(item => String(item.id) !== id) : products;
+    }
+
+    if (entry.action === 'create') {
+        const product = entry.product;
+        if (!product || !product.id || products.some(item => String(item.id) === String(product.id))) {
+            return products;
+        }
+        return [product, ...products];
+    }
+
+    if (entry.action === 'edit') {
+        const patch = extractEditableProductPatch(entry.patch || {});
+        return products.map(item => {
+            if (String(item.id) !== id) return item;
+            const merged = { ...item, ...patch, id: item.id };
+            // FIN-030: el par de alias de precio viaja junto, igual que en la caja.
+            if ('priceUsd' in patch || 'priceUsdt' in patch) {
+                const resolvedPrice = resolveEffectivePriceUsd(patch);
+                if (resolvedPrice !== null) {
+                    merged.priceUsd = resolvedPrice;
+                    merged.priceUsdt = resolvedPrice;
+                }
+            }
+            return merged;
+        });
+    }
+
+    return products;
+}
+
+/**
+ * ¿El eco real ya refleja el cambio (o lo hizo inútil)? Reglas por acción:
+ *   create → el producto ya apareció en la base.
+ *   delete → el producto ya no está en la base.
+ *   edit   → el producto desapareció o llegó una versión más nueva
+ *            (updatedAt distinto al capturado al enviar).
+ * Mientras no esté settled, la entrada optimista mantiene el valor enviado.
+ */
+export function isOptimisticEchoSettled(entry = {}, baseProducts) {
+    const products = Array.isArray(baseProducts) ? baseProducts : [];
+    const id = String(entry.productId ?? entry.product?.id ?? '');
+    const base = products.find(item => String(item.id) === id);
+
+    if (entry.action === 'delete') return !base;
+    if (entry.action === 'create') return Boolean(base);
+    if (entry.action === 'edit') {
+        return !base || String(base.updatedAt ?? '') !== String(entry.baseUpdatedAt ?? '');
+    }
+    return true;
+}
+
+export default {
+    applySupervisorProductCommand,
+    applyOptimisticProductEcho,
+    isOptimisticEchoSettled,
+    buildProductRevision,
+    extractEditableProductPatch,
+    resolveEffectivePriceUsd,
+    EDITABLE_PRODUCT_FIELDS,
+    normalizeProductFieldValue,
+    PRODUCT_PUBLISH_PENDING_KEY,
+    markProductPublishPending,
+    clearProductPublishPending,
+    readProductPublishPending,
+    classifyProductPublishResult,
+};

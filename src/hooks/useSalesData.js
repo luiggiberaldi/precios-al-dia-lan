@@ -1,0 +1,149 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { storageService } from '../utils/storageService';
+import { getActivePaymentMethods, INTERNAL_CREDIT_PAYMENT_METHOD } from '../config/paymentMethods';
+import { migrateCustomerLedger } from '../utils/customerMigration';
+import { isGranelProduct, normalizeCartQuantity } from '../utils/granel'; // GRANEL-001
+import { findOpenCashShift } from '../utils/cashShift';
+
+export const SALES_KEY = 'bodega_sales_v1';
+export const CUSTOMERS_KEY = 'bodega_customers_v1';
+
+function addInternalCreditMethod(methods) {
+    return [
+        ...(Array.isArray(methods) ? methods : []),
+        { ...INTERNAL_CREDIT_PAYMENT_METHOD },
+    ];
+}
+
+function sanitizeCart(rawCart) {
+    if (!Array.isArray(rawCart)) return [];
+    return rawCart
+        .filter(item => item && typeof item === 'object')
+        .map((item, idx) => {
+            const itemIsGranel = isGranelProduct(item);
+            const normalizedQty = normalizeCartQuantity(item.qty, itemIsGranel);
+            return {
+                ...item,
+                id: item.id ?? `legacy_cart_item_${idx}_${Date.now()}`,
+                name: item.name || 'Producto Sin Nombre',
+                // Corrige una cesta legacy: granel conserva 3 decimales; el resto
+                // queda en entero estricto antes de llegar a la UI.
+                qty: normalizedQty > 0 ? normalizedQty : 1,
+                priceUsd: typeof item.priceUsd === 'number' && !isNaN(item.priceUsd) ? item.priceUsd : 0,
+                isWeight: itemIsGranel,
+            };
+        });
+}
+
+export function useSalesData({ setCart, cartRef, isActive }) {
+    const [customers, setCustomers] = useState([]);
+    const [paymentMethods, setPaymentMethods] = useState([]);
+    const [isLoadingLocal, setIsLoadingLocal] = useState(true);
+    const [salesData, setSalesData] = useState([]);
+    const [todayAperturaData, setTodayAperturaData] = useState(null);
+
+    // Load data
+    useEffect(() => {
+        let mounted = true;
+        const load = async () => {
+            try {
+                await migrateCustomerLedger();
+            } catch (error) {
+                console.error('[useSalesData] No se pudo migrar la cartera:', error);
+            }
+            const [savedCustomers, methods, savedCart, savedSales] = await Promise.all([
+                storageService.getItem('bodega_customers_v1', []),
+                getActivePaymentMethods(),
+                storageService.getItem('bodega_pending_cart_v1', []),
+                storageService.getItem(SALES_KEY, [])
+            ]);
+            if (mounted) { setSalesData(savedSales); }
+            if (mounted) {
+                setCustomers(savedCustomers);
+                setPaymentMethods(addInternalCreditMethod(methods));
+
+                // Sanitizar el carrito de posibles ítems nulos o corruptos antes de cargarlo
+                const cleanCart = sanitizeCart(savedCart);
+                if (cleanCart.length > 0 && cartRef.current.length === 0) {
+                    setCart(cleanCart);
+                }
+
+                // La apertura permanece activa hasta el cierre manual, incluso si
+                // la jornada cruza medianoche.
+                const apertura = findOpenCashShift(savedSales);
+                setTodayAperturaData(apertura || null);
+
+                setIsLoadingLocal(false);
+
+            }
+        };
+        load();
+        return () => { mounted = false; };
+    }, []);
+
+    // Refresh payment methods and customers when tab becomes active (consolidates window focus + isActive)
+    // ERR-014: al cobrar, la venta se guarda antes que el saldo del cliente. Una
+    // recarga disparada por la venta podía leer el saldo viejo y pisar el nuevo
+    // (la pantalla mostraba el saldo a favor de antes del vuelto). Solo se aplica
+    // la recarga más reciente, y escribir clientes también recarga.
+    const reloadSeqRef = useRef(0);
+    const handleReloadContent = useCallback(() => {
+        if (!isActive) return;
+        const seq = ++reloadSeqRef.current;
+        Promise.all([
+            migrateCustomerLedger().catch(error => console.error('[useSalesData] Error migrando cartera:', error)),
+            getActivePaymentMethods(),
+            storageService.getItem('bodega_customers_v1', []),
+            storageService.getItem(SALES_KEY, [])
+        ]).then(([, methods, savedCustomers, savedSales]) => {
+            if (seq !== reloadSeqRef.current) return; // llegó una recarga más nueva
+            setPaymentMethods(addInternalCreditMethod(methods));
+            setCustomers(savedCustomers);
+            setSalesData(savedSales);
+
+            // La apertura permanece activa hasta el cierre manual, incluso si
+            // la jornada cruza medianoche.
+            const apertura = findOpenCashShift(savedSales);
+            setTodayAperturaData(apertura || null);
+        }).catch(err => console.error('[useSalesData] Error al recargar datos:', err));
+    }, [isActive]);
+
+    useEffect(() => {
+        handleReloadContent();
+    }, [handleReloadContent]);
+
+    // Recargar cuando la app vuelve desde el background en móviles (PWA) o cuando hay un cambio en el storage
+    useEffect(() => {
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                handleReloadContent();
+            }
+        };
+
+        const onStorageUpdate = (e) => {
+            if (e.detail && (e.detail.key === SALES_KEY || e.detail.key === CUSTOMERS_KEY)) {
+                // Pequeño timeout para dar margen a que IndexedDB haya persistido los datos
+                setTimeout(handleReloadContent, 50);
+            }
+        };
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        window.addEventListener('focus', handleReloadContent);
+        window.addEventListener('app_storage_update', onStorageUpdate);
+
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            window.removeEventListener('focus', handleReloadContent);
+            window.removeEventListener('app_storage_update', onStorageUpdate);
+        };
+    }, [handleReloadContent]);
+
+    return {
+        customers, setCustomers,
+        paymentMethods, setPaymentMethods,
+        isLoadingLocal,
+        salesData, setSalesData,
+        todayAperturaData, setTodayAperturaData,
+        refreshData: handleReloadContent,
+    };
+}

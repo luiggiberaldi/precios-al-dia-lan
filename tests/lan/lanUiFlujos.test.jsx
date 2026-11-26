@@ -1,0 +1,514 @@
+// @vitest-environment jsdom
+import React, { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createLanServer } from '../../desktop/server/lanServer.mjs';
+import { clearLanServerUrl, setLanServerUrl } from '../../src/lan/lanConfig';
+import * as svc from '../../src/nube/accountService';
+import { createLanClient } from '../../src/lan/lanClient';
+
+const mockState = vi.hoisted(() => ({
+    authState: { usuarioActivo: null },
+    setAuthState: vi.fn(),
+}));
+
+vi.mock('../../src/lan/lanConfig', async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        isLanModeEnabled: () => true,
+    };
+});
+
+vi.mock('../../src/nube/useNubeSync', () => ({
+    useNubeSync: () => ({ pending: 0, salesPending: 0, stockPending: 0, ledgerPending: 0, lastError: null }),
+}));
+
+vi.mock('../../src/nube/accountReset', async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        checkAccountReset: async () => ({ reset: false }),
+        wipeLocalData: async () => ({ discarded: 0 }),
+    };
+});
+
+vi.mock('../../src/hooks/store/useAuthStore', () => {
+    const useAuthStore = (selector) => (selector ? selector(mockState.authState) : mockState.authState);
+    useAuthStore.setState = (patch) => {
+        Object.assign(mockState.authState, patch);
+        mockState.setAuthState(patch);
+    };
+    return { useAuthStore };
+});
+
+import LanSetupScreen from '../../src/lan/LanSetupScreen';
+import LanPairingModal from '../../src/lan/LanPairingModal';
+import NubeGate from '../../src/nube/NubeGate';
+import { resetDeviceClient } from '../../src/nube/nubeSupabase';
+
+const cleanups = [];
+
+async function flush(ms = 40) {
+    await act(async () => {
+        await new Promise((r) => setTimeout(r, ms));
+    });
+}
+
+async function waitForSelector(rootEl, selector, timeoutMs = 4000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        const found = rootEl.querySelector(selector);
+        if (found) return found;
+        await flush(40);
+    }
+    return rootEl.querySelector(selector);
+}
+
+async function setInputValue(el, value) {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    await act(async () => {
+        setter.call(el, value);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+}
+
+describe('F-18 · Flujos de interfaz React LAN contra servidor real', () => {
+    let container;
+    let root;
+
+    beforeEach(() => {
+        localStorage.clear();
+        clearLanServerUrl();
+        resetDeviceClient();
+        mockState.authState.usuarioActivo = null;
+        delete window.electronAPI;
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        root = createRoot(container);
+    });
+
+    afterEach(async () => {
+        act(() => root.unmount());
+        container.remove();
+        while (cleanups.length) {
+            const fn = cleanups.pop();
+            await fn().catch(() => {});
+        }
+    });
+
+    it('LanSetupScreen conecta al servidor LAN real y reporta éxito', async () => {
+        const srv = await createLanServer({ port: 0, host: '127.0.0.1', enableDiscovery: false });
+        cleanups.push(() => srv.close());
+
+        const onConfigured = vi.fn();
+        await act(async () => {
+            root.render(<LanSetupScreen onConfigured={onConfigured} />);
+        });
+        await flush();
+
+        const input = container.querySelector('[data-testid="lan-server-url-input"]');
+        await setInputValue(input, srv.baseUrl);
+
+        await act(async () => {
+            container.querySelector('[data-testid="lan-connect-form"]').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+        await flush(120);
+
+        expect(onConfigured).toHaveBeenCalledWith(srv.baseUrl, 'client', expect.objectContaining({ ok: true }));
+    }, 60_000);
+
+    it('NubeGate recorre flujo completo LAN en Caja Principal SIN correo ni contraseña: setup → negocio → registrar caja → PIN → app abierta', async () => {
+        const srv = await createLanServer({ port: 0, host: '127.0.0.1', enableDiscovery: false });
+        cleanups.push(() => srv.close());
+
+        setLanServerUrl(srv.baseUrl, 'master');
+        resetDeviceClient();
+
+        await act(async () => {
+            root.render(<NubeGate><div data-testid="pos-open">POS LAN ACTIVO</div></NubeGate>);
+        });
+
+        // 1. Salta directo a "Crea tu negocio" sin pedir correo ni contraseña
+        const bizBtn = await waitForSelector(container, 'input[placeholder="Nombre del negocio"]', 6000);
+        expect(bizBtn).not.toBeNull();
+        expect(container.querySelector('[data-testid="nube-owner-email"]')).toBeNull();
+        expect(container.textContent).toContain('Crea tu negocio');
+        const inputsBiz = container.querySelectorAll('input');
+        await setInputValue(inputsBiz[0], 'Bodega UI LAN');
+        await setInputValue(inputsBiz[1], 'Principal');
+        await setInputValue(inputsBiz[2], 'Luigi');
+        await setInputValue(inputsBiz[3], '654321');
+        await setInputValue(inputsBiz[4], '654321');
+        await act(async () => {
+            container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+
+        // 2. Pantalla Este equipo es…
+        const regInput = await waitForSelector(container, 'input[placeholder^="Nombre (ej."]', 6000);
+        expect(regInput).not.toBeNull();
+        expect(container.textContent).toContain('Este equipo es');
+        await act(async () => {
+            container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+
+        // 3. Selector de empleados muestra «En red local», logo LAN y al dueño
+        const firstMemberBtn = await waitForSelector(container, 'button[data-testid^="nube-member-"]', 6000);
+        expect(firstMemberBtn).not.toBeNull();
+        const picker = container.querySelector('[data-testid="nube-member-picker"]');
+        expect(picker).not.toBeNull();
+        expect(picker.textContent).toContain('En red local');
+        expect(picker.textContent).toContain('LAN · todas tus cajas en red local');
+        expect(picker.textContent).toContain('Luigi');
+
+        // 4. Tocar al dueño y entrar con PIN 654321
+        await act(async () => { firstMemberBtn.click(); });
+
+        const pinInput = await waitForSelector(container, 'input[type="tel"]', 6000);
+        expect(pinInput).not.toBeNull();
+        await setInputValue(pinInput, '654321');
+
+        const posOpen = await waitForSelector(container, '[data-testid="pos-open"]', 6000);
+        expect(posOpen).not.toBeNull();
+    }, 60_000);
+
+    it('Caja adicional pide código QR directo y Caja Principal existente entra con PIN + reset local (sin correo)', async () => {
+        const srv = await createLanServer({ port: 0, host: '127.0.0.1', enableDiscovery: false });
+        cleanups.push(() => srv.close());
+
+        // Crear negocio desde Caja Principal
+        const owner = createLanClient({ baseUrl: srv.baseUrl, persistSession: false });
+        await owner.lan.bootstrapLocalOwner();
+        const accId = await svc.createAccount(owner, {
+            businessName: 'Abasto Sin Correo',
+            sedeName: 'Centro',
+            ownerName: 'Luigi',
+            ownerPin: '654321',
+        });
+        const pairing = await owner.lan.generatePairingCode(accId);
+
+        // 1. Caja adicional: arranca directo en código de 6 dígitos (cero correo/contraseña)
+        setLanServerUrl(srv.baseUrl, 'client');
+        resetDeviceClient();
+        await act(async () => {
+            root.render(<NubeGate><div data-testid="pos-open">POS OK</div></NubeGate>);
+        });
+        const codeInput = await waitForSelector(container, '[data-testid="lan-claim-code-input"]', 6000);
+        expect(codeInput).not.toBeNull();
+        expect(container.querySelector('[data-testid="nube-owner-email"]')).toBeNull();
+        expect(container.textContent).toContain('LAN · todas tus cajas en red local');
+
+        await setInputValue(codeInput, pairing.code);
+        await act(async () => {
+            container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+        const regInputClient = await waitForSelector(container, 'input[placeholder^="Nombre (ej."]', 6000);
+        expect(regInputClient).not.toBeNull();
+
+        // 2. Caja Principal ya configurada: pide PIN de dueño y permite restablecimiento local en esta PC
+        act(() => root.unmount());
+        localStorage.clear();
+        setLanServerUrl(srv.baseUrl, 'master');
+        resetDeviceClient();
+        root = createRoot(container);
+        await act(async () => {
+            root.render(<NubeGate><div data-testid="pos-open">POS OK</div></NubeGate>);
+        });
+
+        const ownerPinInput = await waitForSelector(container, '[data-testid="lan-owner-pin-input"]', 6000);
+        expect(ownerPinInput).not.toBeNull();
+        expect(container.querySelector('[data-testid="nube-owner-email"]')).toBeNull();
+
+        const openResetBtn = container.querySelector('[data-testid="lan-open-reset-pin"]');
+        expect(openResetBtn).not.toBeNull();
+        await act(async () => { openResetBtn.click(); });
+
+        await setInputValue(await waitForSelector(container, '[data-testid="lan-reset-pin1"]'), '112233');
+        await setInputValue(container.querySelector('[data-testid="lan-reset-pin2"]'), '112233');
+        await act(async () => {
+            container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+
+        const regAfterReset = await waitForSelector(container, 'input[placeholder^="Nombre (ej."]', 6000);
+        expect(regAfterReset).not.toBeNull();
+    }, 60_000);
+
+    it('LanPairingModal genera QR y código de 6 dígitos real contra el servidor', async () => {
+        const srv = await createLanServer({ port: 0, host: '127.0.0.1', enableDiscovery: false });
+        cleanups.push(() => srv.close());
+
+        const owner = createLanClient({ baseUrl: srv.baseUrl, persistSession: false });
+        await svc.ownerSignUp(owner, 'qr@ui.local', 'ClaveSegura123');
+        await svc.createAccount(owner, {
+            businessName: 'Abasto QR',
+            sedeName: 'Principal',
+            ownerName: 'Ana',
+            ownerPin: '142536',
+        });
+        const acc = await svc.getOwnerAccount(owner);
+
+        await act(async () => {
+            root.render(<LanPairingModal client={owner} accountId={acc.id} onClose={() => {}} />);
+        });
+        await flush(250);
+
+        for (let i = 0; i < 20 && !document.body.querySelector('img[alt="QR de conexión LAN"]'); i += 1) {
+            await flush(80);
+        }
+        const codeEl = document.body.querySelector('[data-testid="lan-pairing-code"]');
+        expect(codeEl?.textContent).toMatch(/^\d{6}$/);
+        expect(document.body.querySelector('img[alt="QR de conexión LAN"]')).not.toBeNull();
+    }, 60_000);
+
+    it('NubeGate permite entrar como Supervisor por internet en navegador móvil/PC (sin Electron)', async () => {
+        const realFetch = globalThis.fetch;
+        cleanups.push(async () => {
+            globalThis.fetch = realFetch;
+        });
+
+        globalThis.fetch = vi.fn(async (input) => {
+            const url = String(input || '');
+            if (url.includes('/rpc/lan_supervisor_login')) {
+                return new Response(
+                    JSON.stringify([{
+                        session_token: '33333333-3333-4333-8333-333333333333',
+                        account_id: '11111111-1111-4111-8111-111111111111',
+                        account_name: 'Bodega Remota',
+                        expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+                    }]),
+                    { status: 200, headers: { 'Content-Type': 'application/json' } },
+                );
+            }
+            if (url.includes('/rpc/lan_supervisor_get_snapshot')) {
+                return new Response(
+                    JSON.stringify([{
+                        account_id: '11111111-1111-4111-8111-111111111111',
+                        account_name: 'Bodega Remota',
+                        pushed_at: new Date().toISOString(),
+                        snapshot: {
+                            daySummary: [{ device_id: 'd1', caja_letter: 'A', sede_name: 'Centro', ventas: 4, ventas_usd: 45, cobros_usd: 0, egresos_usd: 0, caja_abierta: true }],
+                            sales: [],
+                            sedes: [],
+                            products: [],
+                            customers: [],
+                            stockLevels: [],
+                            customerBalances: [],
+                            discrepancies: [],
+                        },
+                        recent_commands: [],
+                    }]),
+                    { status: 200, headers: { 'Content-Type': 'application/json' } },
+                );
+            }
+            return new Response(JSON.stringify({ ok: true }), { status: 200 });
+        });
+
+        await act(async () => {
+            root.render(<NubeGate><div data-testid="pos-open">POS LAN ACTIVO</div></NubeGate>);
+        });
+        const openCloudBtn = await waitForSelector(container, '[data-testid="lan-open-cloud-supervisor"]');
+        expect(openCloudBtn).not.toBeNull();
+
+        await act(async () => { openCloudBtn.click(); });
+        const form = await waitForSelector(container, '[data-testid="lan-cloud-login-form"]');
+        await setInputValue(form.querySelector('input[placeholder="URL de Supabase puente"]'), 'https://puente.supabase.co');
+        await setInputValue(form.querySelector('input[placeholder="Llave anon pública"]'), 'anon-test');
+        await setInputValue(form.querySelector('[data-testid="lan-cloud-code-input"]'), 'SUP-123456');
+        await setInputValue(form.querySelector('[data-testid="lan-cloud-pin-input"]'), '753951');
+
+        await act(async () => {
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+
+        const summary = await waitForSelector(container, '[data-testid="nube-day-summary"]');
+        expect(summary).not.toBeNull();
+        expect(container.textContent).toContain('Bodega Remota');
+        expect(container.textContent).toContain('Dueño (Internet)');
+    }, 30_000);
+
+    it('LanSetupScreen busca cajas automáticamente al elegir Caja adicional y conecta en un clic', async () => {
+        const { LAN_PROTOCOL_VERSION } = await import('../../src/lan/lanConfig.js');
+        const waitUntil = async (pred) => {
+            for (let i = 0; i < 50; i += 1) {
+                if (pred()) return;
+                await act(async () => {
+                    await new Promise((r) => setTimeout(r, 15));
+                });
+            }
+        };
+
+        const discoverServers = vi.fn(async () => [
+            {
+                url: 'http://192.168.1.50:47800',
+                host: '192.168.1.50',
+                port: 47800,
+                businessName: 'Bodega Central',
+            },
+        ]);
+        const setClientMode = vi.fn(async ({ serverUrl }) => ({ ok: true, serverUrl }));
+        const onConfigured = vi.fn();
+
+        globalThis.fetch = vi.fn(async (input) => {
+            const url = typeof input === 'string' ? input : String(input?.url || '');
+            if (url.endsWith('/lan/health')) {
+                return new Response(
+                    JSON.stringify({
+                        ok: true,
+                        protocolVersion: LAN_PROTOCOL_VERSION,
+                        businessName: 'Bodega Central',
+                    }),
+                    { status: 200, headers: { 'Content-Type': 'application/json' } },
+                );
+            }
+            return new Response(JSON.stringify({ ok: false }), { status: 404 });
+        });
+
+        window.electronAPI = {
+            isElectron: true,
+            platform: 'win32',
+            lan: { discoverServers, setClientMode },
+        };
+
+        try {
+            await act(async () => {
+                root.render(<LanSetupScreen onConfigured={onConfigured} />);
+            });
+
+            const chooseClientBtn = await waitForSelector(container, '[data-testid="lan-choose-client"]');
+            expect(chooseClientBtn).not.toBeNull();
+
+            await act(async () => {
+                chooseClientBtn.click();
+            });
+
+            const list = await waitForSelector(container, '[data-testid="lan-discovered-list"]');
+            expect(list).not.toBeNull();
+            expect(discoverServers).toHaveBeenCalledTimes(1);
+            expect(list.textContent).toContain('Bodega Central');
+
+            const serverBtn = list.querySelector('button');
+            await act(async () => {
+                serverBtn.click();
+            });
+
+            await waitUntil(() => onConfigured.mock.calls.length === 1);
+            expect(setClientMode).toHaveBeenCalledWith({ serverUrl: 'http://192.168.1.50:47800' });
+            expect(onConfigured).toHaveBeenCalledWith(
+                'http://192.168.1.50:47800',
+                'client',
+                expect.objectContaining({ businessName: 'Bodega Central' }),
+            );
+        } finally {
+            delete window.electronAPI;
+            localStorage.clear();
+        }
+    });
+
+    it('LanPairingModal muestra botón de 1 clic para reparar el permiso de Firewall', async () => {
+        const waitUntil = async (pred) => {
+            for (let i = 0; i < 50; i += 1) {
+                if (pred()) return;
+                await act(async () => {
+                    await new Promise((r) => setTimeout(r, 15));
+                });
+            }
+        };
+        const repairFirewall = vi.fn(async () => ({ ok: true }));
+        const fakeClient = {
+            lan: {
+                generatePairingCode: vi.fn(async () => ({
+                    code: '654321',
+                    primaryUrl: 'http://192.168.1.50:47800',
+                    expiresAt: new Date(Date.now() + 600_000).toISOString(),
+                    lanUrls: ['http://192.168.1.50:47800'],
+                    supervisorUrls: [],
+                })),
+                getBridgeStatus: vi.fn(async () => ({ configured: false })),
+            },
+        };
+
+        window.electronAPI = {
+            isElectron: true,
+            platform: 'win32',
+            lan: { repairFirewall },
+        };
+
+        try {
+            await act(async () => {
+                root.render(<LanPairingModal client={fakeClient} accountId="acc-1" onClose={() => {}} />);
+            });
+
+            const repairBtn = await waitForSelector(container, '[data-testid="lan-repair-firewall-btn"]');
+            expect(repairBtn).not.toBeNull();
+            await waitUntil(() => !repairBtn.disabled);
+
+            await act(async () => {
+                repairBtn.click();
+            });
+
+            await waitUntil(() => container.textContent.includes('Permiso de red local listo'));
+            expect(repairFirewall).toHaveBeenCalledTimes(1);
+            expect(container.textContent).toContain('Permiso de red local listo');
+        } finally {
+            delete window.electronAPI;
+            localStorage.clear();
+        }
+    });
+
+    it('LanUpdateBanner muestra banner al descargar actualización y permite instalar y reiniciar', async () => {
+        const { default: LanUpdateBanner } = await import('../../src/lan/LanUpdateBanner.jsx');
+        const waitUntil = async (pred) => {
+            for (let i = 0; i < 50; i += 1) {
+                if (pred()) return;
+                await act(async () => {
+                    await new Promise((r) => setTimeout(r, 15));
+                });
+            }
+        };
+
+        let listener = null;
+        const installNow = vi.fn(async () => ({ ok: true }));
+        window.electronAPI = {
+            isElectron: true,
+            platform: 'win32',
+            updater: {
+                getState: vi.fn(async () => ({
+                    supported: true,
+                    currentVersion: '1.0.0',
+                    status: 'downloaded',
+                    availableVersion: '1.0.2',
+                    progressPercent: 100,
+                    downloaded: true,
+                    error: null,
+                })),
+                checkNow: vi.fn(async () => ({ ok: true })),
+                installNow,
+                onStateChange: (cb) => {
+                    listener = cb;
+                    return () => { listener = null; };
+                },
+            },
+        };
+
+        try {
+            await act(async () => {
+                root.render(<LanUpdateBanner />);
+            });
+
+            const installBtn = await waitForSelector(container, '[data-testid="lan-update-install-btn"]');
+            expect(installBtn).not.toBeNull();
+            expect(container.textContent).toContain('v1.0.2');
+
+            await act(async () => {
+                installBtn.click();
+            });
+            await waitUntil(() => installNow.mock.calls.length === 1);
+            expect(installNow).toHaveBeenCalledTimes(1);
+            expect(typeof listener === 'function' || listener === null).toBe(true);
+        } finally {
+            delete window.electronAPI;
+            localStorage.clear();
+        }
+    });
+});

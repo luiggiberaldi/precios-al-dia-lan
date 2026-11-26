@@ -1,0 +1,74 @@
+{
+  "config": {
+    "minutos": 3,
+    "cajas": 1,
+    "ventasPorMinuto": 2,
+    "itemsPorVenta": 3,
+    "fiadosPorMinuto": 1,
+    "pr14": false,
+    "productos": 5000
+  },
+  "minutosReales": 3.1227,
+  "ventas": 6,
+  "fiados": 3,
+  "arranque": {
+    "caja1:login": {
+      "req": 1,
+      "body": 1904,
+      "gzip": 1044,
+      "headers": 1200,
+      "rtMsgs": 0,
+      "rtBytes": 0
+    },
+    "caja1:arranque": {
+      "req": 21,
+      "body": 2886159,
+      "gzip": 402698,
+      "headers": 25200,
+      "rtMsgs": 0,
+      "rtBytes": 0
+    }
+  },
+  "regimen": {
+    "caja1:realtime stock_levels": {
+      "req": 0,
+      "body": 0,
+      "gzip": 0,
+      "headers": 0,
+      "rtMsgs": 18,
+      "rtBytes": 11439
+    },
+    "caja1:aviso stock_levels": {
+      "req": 23,
+      "body": 1403070,
+      "gzip": 430668,
+      "headers": 27600,
+      "rtMsgs": 0,
+      "rtBytes": 0
+    },
+    "caja1:tick 60 s": {
+      "req": 30,
+      "body": 861276,
+      "gzip": 230951,
+      "headers": 36000,
+      "rtMsgs": 0,
+      "rtBytes": 0
+    },
+    "caja1:realtime customer_balances": {
+      "req": 0,
+      "body": 0,
+      "gzip": 0,
+      "headers": 0,
+      "rtMsgs": 3,
+      "rtBytes": 1670
+    },
+    "caja1:aviso customer_balances": {
+      "req": 10,
+      "body": 343292,
+      "gzip": 106067,
+      "headers": 12000,
+      "rtMsgs": 0,
+      "rtBytes": 0
+    }
+  }
+}

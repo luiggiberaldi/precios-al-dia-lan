@@ -1,0 +1,51 @@
+name: Release Desktop Windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-win:
+    name: Build y publicar .exe Windows
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Instalar dependencias raíz
+        run: bun install --frozen-lockfile
+
+      - name: Instalar dependencias desktop
+        working-directory: desktop
+        run: npm ci
+
+      - name: Compilar frontend Electron
+        env:
+          ELECTRON_BUILD: 'true'
+          VITE_NUBE_ACCOUNTS: 'true'
+          VITE_LAN_MODE: 'true'
+          VITE_LAN_CLOUD_URL: ${{ vars.VITE_LAN_CLOUD_URL }}
+          VITE_LAN_CLOUD_KEY: ${{ vars.VITE_LAN_CLOUD_KEY }}
+        run: bun run build
+
+      - name: Verificar sin llaves heredadas
+        run: node scripts/nube/check-no-legacy-supabase.mjs dist
+
+      - name: Empaquetar y publicar en GitHub Releases
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish always

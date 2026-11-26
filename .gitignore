@@ -1,0 +1,130 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencias y Build
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ── SEGURIDAD: Variables de entorno (NUNCA commitear secretos) ──
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+
+# Sesiones anónimas de staging reutilizadas por las pruebas (credenciales)
+.staging-test-sessions.json
+
+# ── API serverless ──
+# Las funciones serverless van en /api pero NO se commitean con claves;
+# las claves se inyectan vía variables de entorno del platform (Vercel/Cloudflare).
+api/*.local.js
+api/secrets.*
+
+# ── Archivos de datos sensibles y binarios (INFRA-023) ──
+# Nunca commitear backups, inventarios reales, PDFs de cierres, videos, etc.
+backup_*.json
+*backup*.json
+backups/
+*.xls
+*.xlsx
+*.pdf
+*.mp4
+*.mov
+*.avi
+capturas_manual/
+frames/
+verify_financials.py
+inventario*.xls
+cierre_*.pdf
+cierre_*.txt
+
+# ── Assets con nombres problemáticos ──
+logo*.png
+logodark*.png
+"logo .png"
+"Manual Completo de Usuario*"
+Manual_Usuario_*.md
+
+# ── Docs internos y artefactos de auditoría ──
+PERFORMANCE_AUDIT.md
+EXPLICACION_ERRORES.md
+TASASALDIA_MANUAL_TEXTO.md
+"licencia tasas al dia.html"
+.agent/
+CONTEXT.md
+.vercel
+.wrangler/
+
+# ── OS y temporales ──
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.tmp
+*.bak
+
+# ── Test y herramientas ──
+test-results/
+test-results-af/
+dogfood-output/
+supabase/.temp/
+.freebuff/
+scratch/
+test_schema.sql
+
+.vercel
+
+
+# ── Binarios e instaladores externos ──
+*.exe
+
+# ── Datos y scripts temporales de extracción/análisis de catálogos ──
+candidate_other.json
+cosmeticos_*.json
+matches_cosmeticos.json
+temp_cosmeticos_*.json
+scripts/cosmeticos_extracted.json
+scripts/analyze_*.py
+scripts/generate_cosmetics_*.py
+scripts/inspect_merge.py
+scripts/merge_inventories.py
+scripts/extract_cosmetics.cjs
+
+# ── Scripts y catálogos sueltos locales en raíz ──
+prods_tmp.json
+seed_tmp.js
+inventario_extraido.json
+inventario_extraido.md
+check_discrepancies.py
+extract_frames.py
+find_numbers.py
+modularize_settings.py
+parse_pdf.py
+test_harina_pan.py
+db_estacion_maestra_setup.sql
+cuenta-prueba-nube.local
+tasas al dia*.png
+logodark (2).png
+imagenes productos/
+Manual Completo de Usuario*.json

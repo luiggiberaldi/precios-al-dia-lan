@@ -1,0 +1,42 @@
+{
+  "config": {
+    "minutos": 3,
+    "cajas": 1,
+    "ventasPorMinuto": 0,
+    "itemsPorVenta": 3,
+    "fiadosPorMinuto": 0,
+    "pr14": false,
+    "productos": 5000
+  },
+  "minutosReales": 3.1279833333333333,
+  "ventas": 0,
+  "fiados": 0,
+  "arranque": {
+    "caja1:login": {
+      "req": 1,
+      "body": 1905,
+      "gzip": 1046,
+      "headers": 1200,
+      "rtMsgs": 0,
+      "rtBytes": 0
+    },
+    "caja1:arranque": {
+      "req": 21,
+      "body": 2886159,
+      "gzip": 402698,
+      "headers": 25200,
+      "rtMsgs": 0,
+      "rtBytes": 0
+    }
+  },
+  "regimen": {
+    "caja1:tick 60 s": {
+      "req": 39,
+      "body": 1400262,
+      "gzip": 396438,
+      "headers": 46800,
+      "rtMsgs": 0,
+      "rtBytes": 0
+    }
+  }
+}
