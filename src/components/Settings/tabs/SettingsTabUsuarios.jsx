@@ -117,13 +117,13 @@ function SettingsTabUsuariosLocal({
                 </div>
             )}
 
-            <div className="col-span-full">
+            <div>
                 <SectionCard icon={Users} title="Usuarios y Roles" subtitle="Gestiona roles y configura el PIN de cada usuario" iconColor="text-brand">
                     <UsersManager triggerHaptic={triggerHaptic} />
                 </SectionCard>
             </div>
 
-            <div className="col-span-full">
+            <div>
                 <SectionCard icon={Lock} title="Seguridad Global" subtitle="Configuración general de acceso" iconColor="text-rose-500">
                     {/* Toggle login requerido */}
                     <div className="flex items-center justify-between gap-3 mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">

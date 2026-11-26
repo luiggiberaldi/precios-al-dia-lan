@@ -39,10 +39,13 @@ const env = {
 console.log('[release] 1/3 Compilando frontend Electron...');
 execSync('bun run build', { cwd: root, stdio: 'inherit', env });
 
-console.log('[release] 2/3 Verificando build sin llaves de Supabase heredadas...');
+console.log('[release] 2/4 Verificando build sin llaves de Supabase heredadas...');
 execSync('node scripts/nube/check-no-legacy-supabase.mjs dist', { cwd: root, stdio: 'inherit', env });
 
-console.log('[release] 3/3 Empaquetando y publicando release en GitHub...');
+console.log('[release] 3/4 Preparando dist-web para app.asar...');
+execSync('node scripts/lan/prepare-desktop.mjs', { cwd: root, stdio: 'inherit', env });
+
+console.log('[release] 4/4 Empaquetando y publicando release en GitHub...');
 const desktopDir = path.join(root, 'desktop');
 const ebBin = path.join(desktopDir, 'node_modules', '.bin', process.platform === 'win32' ? 'electron-builder.cmd' : 'electron-builder');
 execSync(`"${ebBin}" --win --publish always`, { cwd: desktopDir, stdio: 'inherit', env });

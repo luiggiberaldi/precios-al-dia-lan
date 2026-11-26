@@ -55,10 +55,10 @@ async function stopMasterServer() {
 }
 
 function resolveStaticDistDir() {
-  const candidate = app.isPackaged
-    ? path.join(process.resourcesPath, 'dist')
-    : path.join(__dirname, '../dist');
-  return fs.existsSync(candidate) ? candidate : null;
+  const candidates = app.isPackaged
+    ? [path.join(__dirname, 'dist-web'), path.join(process.resourcesPath, 'dist')]
+    : [path.join(__dirname, '../dist'), path.join(__dirname, 'dist-web')];
+  return candidates.find((dir) => fs.existsSync(dir)) || null;
 }
 
 async function startMasterServer(port = 47800) {
@@ -249,7 +249,9 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
 
   const indexPath = app.isPackaged
-    ? path.join(process.resourcesPath, 'dist/index.html')
+    ? (fs.existsSync(path.join(__dirname, 'dist-web/index.html'))
+        ? path.join(__dirname, 'dist-web/index.html')
+        : path.join(process.resourcesPath, 'dist/index.html'))
     : path.join(__dirname, '../dist/index.html');
 
   mainWindow.once('ready-to-show', () => {

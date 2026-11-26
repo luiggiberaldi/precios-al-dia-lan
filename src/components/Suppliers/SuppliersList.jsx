@@ -143,7 +143,7 @@ export default function SuppliersList({
             </div>
 
             {/* Listado */}
-            <div className="flex-1 space-y-3 mt-4 px-3 sm:px-6 pb-20">
+            <div className="flex-1 space-y-3 mt-4 px-3 sm:px-6 pb-20 lg:pb-6">
                 {suppliers.length === 0 ? (
                     <EmptyState
                         icon={Truck}
@@ -162,6 +162,7 @@ export default function SuppliersList({
                     />
                 ) : (
                     <>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {paginatedSuppliers.map(supplier => (
                         <SwipeableItem
                             key={supplier.id}
@@ -214,6 +215,7 @@ export default function SuppliersList({
                             </div>
                         </SwipeableItem>
                     ))}
+                    </div>
                     <PaginationBar
                         currentPage={currentPage}
                         totalPages={totalPages}

@@ -1,6 +1,6 @@
 {
   "name": "preciosaldia-lan-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Aplicación de escritorio multicaja en red local (LAN) para Precios al Día",
   "main": "main.js",
   "type": "commonjs",
@@ -24,13 +24,22 @@
       "output": "dist"
     },
     "asarUnpack": [
-      "node_modules/@electric-sql/pglite/**"
+      "node_modules/@electric-sql/pglite/**/*",
+      "!node_modules/@electric-sql/pglite/**/*.map",
+      "!node_modules/@electric-sql/pglite/**/*.d.ts"
     ],
     "files": [
       "main.js",
       "preload.js",
       "updater.js",
-      "server/**/*"
+      "server/**/*",
+      "dist-web/**/*",
+      "!**/*.map",
+      "!**/*.d.ts",
+      "!node_modules/**/*.map",
+      "!node_modules/**/*.d.ts",
+      "!node_modules/**/*.md",
+      "!node_modules/@electric-sql/pglite/dist/*.ts"
     ],
     "publish": [
       {
@@ -44,10 +53,6 @@
       {
         "from": "../supabase/nube/migrations",
         "to": "migrations"
-      },
-      {
-        "from": "../dist",
-        "to": "dist"
       }
     ],
     "win": {

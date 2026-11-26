@@ -416,7 +416,7 @@ const ProductsToolbar = ({
                 {/* Bloque Búsqueda + Selección */}
                 <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                     {/* Buscador con Botón Limpiar */}
-                    <div className="relative flex-1 sm:w-60 md:w-68">
+                    <div className="relative flex-1 sm:w-60 md:w-72 xl:w-80">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         <input
                             type="text"

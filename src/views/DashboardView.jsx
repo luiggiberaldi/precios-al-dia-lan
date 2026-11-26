@@ -632,7 +632,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                         {salesHistoryComponent}
                     </div>
                 ) : (
-                    <div className={`${(outOfStockProducts.length > 0 || lowStockProducts.length > 0 || topProducts.length > 0) ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-6 xl:items-start' : ''}`}>
+                    <div className={`${(outOfStockProducts.length > 0 || lowStockProducts.length > 0 || topProducts.length > 0 || (inventoryMetrics && inventoryMetrics.totalRetailUsd > 0)) ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-6 xl:items-start' : ''}`}>
 
                 {/* LEFT: Resumen financiero + controles de caja + actividad */}
                 <div>
@@ -689,7 +689,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                 )}
 
                 {/* Resumen operativo en dos columnas cuando hay ancho suficiente. */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 items-start">
+                <div className={`grid grid-cols-1 ${(outOfStockProducts.length > 0 || lowStockProducts.length > 0 || topProducts.length > 0 || (inventoryMetrics && inventoryMetrics.totalRetailUsd > 0)) ? 'md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2' : 'md:grid-cols-2'} gap-4 mb-5 items-start`}>
                     <DashboardPaymentBreakdown
                         paymentBreakdown={view.paymentBreakdown}
                         fondoBreakdown={view.fondoBreakdown}
@@ -700,7 +700,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                         copPrimary={copPrimary}
                         tasaCop={tasaCop}
                     />
-                    <div className={Object.keys(view.paymentBreakdown || {}).length === 0 ? 'md:col-span-2' : ''}>
+                    <div className={Object.keys(view.paymentBreakdown || {}).length === 0 ? 'col-span-full' : ''}>
                     <SalesChart
                         weekData={weekData}
                         selectedDate={selectedChartDate}

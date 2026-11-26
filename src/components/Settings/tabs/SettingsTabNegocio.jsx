@@ -198,6 +198,7 @@ export default function SettingsTabNegocio({
             <div className="col-span-full">
                 <SectionCard icon={Store} title="Mi Negocio" subtitle="Datos que aparecen en tickets" iconColor="text-brand">
                     <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400 block mb-1.5">Nombre del Negocio</label>
                             <input
@@ -231,10 +232,11 @@ export default function SettingsTabNegocio({
                             />
                             <p className="text-[10px] text-slate-400 mt-1">Te contactaremos por WhatsApp sobre tu licencia, soporte y novedades.</p>
                         </div>
+                        </div>
                         <BrandLogoSettings />
                         <button
                             onClick={handleSaveBusinessData}
-                            className="w-full flex items-center justify-center gap-2 py-3 bg-brand-light dark:bg-surface-800/20 text-brand-dark dark:text-brand font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-brand-light dark:hover:bg-surface-800/40 transition-colors active:scale-[0.98]"
+                            className="w-full md:w-auto md:min-w-[200px] md:px-6 flex items-center justify-center gap-2 py-3 bg-brand-light dark:bg-surface-800/20 text-brand-dark dark:text-brand font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-brand-light dark:hover:bg-surface-800/40 transition-colors active:scale-[0.98]"
                         >
                             <Check size={16} /> Guardar
                         </button>

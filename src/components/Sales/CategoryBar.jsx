@@ -501,23 +501,22 @@ export default function CategoryBar({
                             </p>
                         </div>
                     )}
-
-                    {/* ── FOOTER DE ATAJOS DE TECLADO ── */}
-                    {showShortcuts && (
-                    <div className="shrink-0 mt-4 flex items-center justify-center gap-3 flex-wrap py-2 border-t border-slate-100 dark:border-slate-800/60">
-                        {[
-                            { key: 'F2', label: 'BUSCAR' },
-                            { key: '*', label: 'CICLAR UNIDAD' },
-                            { key: 'ENTER', label: 'AGREGAR' },
-                            { key: 'F9', label: 'COBRAR' },
-                        ].map(({ key, label }) => (
-                            <span key={key} className="flex items-center gap-1 text-[9px] font-bold text-slate-400">
-                                <kbd className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono text-slate-500 dark:text-slate-300 shadow-sm">{key}</kbd>
-                                {label}
-                            </span>
-                        ))}
-                    </div>
-                    )}
+                </div>
+                )}
+            {/* ── FOOTER DE ATAJOS DE TECLADO (anclado abajo en PC) ── */}
+            {showGrid && showShortcuts && (
+                <div className="shrink-0 mt-2 flex items-center justify-center gap-3 flex-wrap py-2 border-t border-slate-100 dark:border-slate-800/60">
+                    {[
+                        { key: 'F2', label: 'BUSCAR' },
+                        { key: '*', label: 'CICLAR UNIDAD' },
+                        { key: 'ENTER', label: 'AGREGAR' },
+                        { key: 'F9', label: 'COBRAR' },
+                    ].map(({ key, label }) => (
+                        <span key={key} className="flex items-center gap-1 text-[9px] font-bold text-slate-400">
+                            <kbd className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono text-slate-500 dark:text-slate-300 shadow-sm">{key}</kbd>
+                            {label}
+                        </span>
+                    ))}
                 </div>
             )}
         </div>

@@ -484,8 +484,15 @@ export async function createLanServer({
                         '.woff2': 'font/woff2',
                         '.woff': 'font/woff',
                     };
-                    res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'application/octet-stream' });
-                    fs.createReadStream(target).pipe(res);
+                    const contentType = mimeMap[ext] || 'application/octet-stream';
+                    if (target.includes(`.asar${path.sep}`) || target.includes('.asar/')) {
+                        const buf = fs.readFileSync(target);
+                        res.writeHead(200, { 'Content-Type': contentType, 'Content-Length': buf.length });
+                        res.end(buf);
+                    } else {
+                        res.writeHead(200, { 'Content-Type': contentType });
+                        fs.createReadStream(target).pipe(res);
+                    }
                     return;
                 }
             }

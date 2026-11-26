@@ -242,7 +242,7 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
 
     return (
         // v1.2.0: revealRef en contenedor raíz + bg-surface-50 (warm cream).
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 md:space-y-5 pb-32">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 md:space-y-5 pb-32 lg:pb-8">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <h2 className="display text-2xl md:text-3xl text-slate-800 dark:text-white flex items-center gap-2">

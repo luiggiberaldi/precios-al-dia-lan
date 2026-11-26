@@ -105,7 +105,7 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
                 </p>
             </div>
 
-            <div className="col-span-full">
+            <div>
                 <SectionCard icon={Users} title="Usuarios y Roles" iconColor="text-brand"
                     subtitle={manage ? 'Agrega empleados, cambia su PIN o desactívalos' : 'Tu acceso en esta caja'}>
                     {error && (
@@ -134,7 +134,7 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
                 </SectionCard>
             </div>
 
-            <div className="col-span-full">
+            <div>
                 <SectionCard icon={Lock} title="Seguridad" subtitle="Cómo se entra a esta caja" iconColor="text-rose-500">
                     <div className="flex items-start gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
                         <Info size={16} className="text-slate-400 shrink-0 mt-0.5" />

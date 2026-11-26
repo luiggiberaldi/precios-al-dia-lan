@@ -342,7 +342,7 @@ export default function ReportsMetricsTab({
                     <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-3 flex items-center gap-1">
                         <Calendar size={12} /> Ventas por Día
                     </h3>
-                    <div className="flex items-end gap-1 h-24">
+                    <div className="flex items-end gap-1.5 h-24 md:h-32">
                         {salesByDay.map((day, i) => {
                             const pct = (day.total / maxDayTotal) * 100;
                             const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('es-VE', { day: 'numeric', month: 'short' });
@@ -614,14 +614,14 @@ export default function ReportsMetricsTab({
                                     <TrendingUp size={14} />
                                     Top Productos
                                 </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+                                <div className="grid grid-cols-1 2xl:grid-cols-2 gap-2.5 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
                                     {topProducts.map((p, i) => (
                                         <div key={`${p.name}-${i}`} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/45 rounded-xl p-2.5 border border-slate-100/50 dark:border-slate-800/50">
                                             <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 ${
                                                 i < 3 ? 'bg-brand-light dark:bg-surface-800/30 text-brand-dark dark:text-brand' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                                             }`}>{i + 1}</span>
                                             <div className="flex-1 min-w-0 text-left">
-                                                <p className="text-xs font-bold text-slate-750 dark:text-slate-200 truncate">{p.name}</p>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{p.name}</p>
                                                 <p className="text-[9px] text-slate-400 font-medium">{p.qty} {p.isWeight ? 'kg' : 'uds'} vendidos</p>
                                             </div>
                                             <span className="text-xs font-black text-brand-dark dark:text-brand shrink-0">
@@ -712,6 +712,7 @@ export default function ReportsMetricsTab({
                             )}
 
                             {/* Transaction Rows */}
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2.5 items-start">
                             {searchedSales.slice(0, visibleCount).map(s => (
                                 <TransactionRow
                                     key={s.id}
@@ -727,6 +728,7 @@ export default function ReportsMetricsTab({
                                     onPrintTicket={onPrintTicket}
                                 />
                             ))}
+                            </div>
 
                             {searchedSales.length === 0 && (
                                 <div className="text-center py-6">

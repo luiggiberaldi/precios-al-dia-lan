@@ -526,8 +526,8 @@ export default function App() {
           usuarioActivo={usuarioActivo}
           logout={logout}
         />
-        {/* En PC el contenido deja el ancho de la barra lateral (--sbw) y se centra hasta 1400px. */}
-        <main style={{ '--sbw': effectiveSidebarCollapsed ? '4rem' : '14rem' }} className={`flex-1 min-h-0 w-full max-w-full px-0 ${activeTab === 'ventas' ? 'lg:px-4 xl:px-5 2xl:px-8' : 'lg:pl-[max(1.5rem,calc((100vw-var(--sbw)-1400px)/2))] lg:pr-[max(1.5rem,calc((100vw-var(--sbw)-1400px)/2))]'} mx-auto relative ${isKeyboardOpen ? 'pb-2' : 'pb-[4.75rem] lg:pb-1'} flex flex-col overflow-y-auto transition-[margin] duration-200 lg:w-auto lg:mr-0 ${effectiveSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56'}`}>
+        {/* En PC el contenido deja el ancho de la barra lateral (--sbw) y se centra hasta 1600px. */}
+        <main style={{ '--sbw': effectiveSidebarCollapsed ? '4rem' : '14rem' }} className={`flex-1 min-h-0 w-full max-w-full px-0 ${activeTab === 'ventas' ? 'lg:px-4 xl:px-5 2xl:px-8' : 'lg:pl-[max(1.5rem,calc((100vw-var(--sbw)-1600px)/2))] lg:pr-[max(1.5rem,calc((100vw-var(--sbw)-1600px)/2))]'} mx-auto relative ${isKeyboardOpen ? 'pb-2' : 'pb-[4.75rem] lg:pb-1'} flex flex-col overflow-y-auto transition-[margin,padding] duration-200 lg:w-auto lg:mr-0 ${effectiveSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56'}`}>
 
           {/* Hidden Admin Trigger Area */}
         <div

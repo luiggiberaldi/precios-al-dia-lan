@@ -145,7 +145,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
         const b = shownBalance;
         const est = ESTADO[b.estado];
         return (
-            <div className="p-3 sm:p-6 pb-24 space-y-4" data-testid="payroll-detail">
+            <div className="p-3 sm:p-6 pb-24 lg:pb-6 space-y-4" data-testid="payroll-detail">
                 <button onClick={() => setSelectedId(null)} className="flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white">
                     <ArrowLeft size={16} /> Volver a la lista
                 </button>
@@ -170,6 +170,8 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                     </div>
                 </div>
 
+                <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,380px)_1fr] lg:gap-6 lg:space-y-0 lg:items-start">
+                <div className="space-y-4">
                 <div className="flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-2">
                     <button aria-label="Periodo anterior" onClick={() => setViewPeriod(previousPeriodId(shownPeriod))} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronLeft size={18} /></button>
                     <div className="text-center">
@@ -213,6 +215,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                         </button>
                     </div>
                 )}
+                </div>
 
                 <div className="space-y-2" data-testid="payroll-entries">
                     {b.renglones.length === 0 && <p className="text-sm text-slate-500 text-center py-4">Sin movimientos en este periodo.</p>}
@@ -259,6 +262,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                         );
                     })}
                 </div>
+                </div>
 
                 <EmployeeFormModal isOpen={employeeModal.open} employee={employeeModal.employee}
                     onClose={() => setEmployeeModal({ open: false, employee: null })} onSave={handleSaveEmployee} />
@@ -287,7 +291,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
 
     // ─── Lista ──────────────────────────────────────────────────────────────
     return (
-        <div className="p-3 sm:p-6 pb-24 space-y-4" data-testid="payroll-panel">
+        <div className="p-3 sm:p-6 pb-24 lg:pb-6 space-y-4" data-testid="payroll-panel">
             <div className="flex justify-between items-start gap-2">
                 <div>
                     <h2 className="text-2xl font-black text-surface-700 dark:text-white tracking-tight flex items-center gap-2">
@@ -312,7 +316,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
             {rows.length === 0 ? (
                 <EmptyState icon={Wallet} title="Aún no hay empleados" description="Agrega a tu personal para llevar sus adelantos y pagos, y que salgan bien en el cierre de caja." />
             ) : (
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {rows.map(({ employee: e, balance: b }) => {
                         const est = ESTADO[b.estado];
                         return (

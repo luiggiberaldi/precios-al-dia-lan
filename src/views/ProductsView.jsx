@@ -767,7 +767,7 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
     // ─── RENDER ─────────────────────────────────────────────
 
     return (
-        <div ref={revealRef} className="flex flex-col h-full bg-surface-50 dark:bg-surface-950 p-3 sm:p-6 pb-28 sm:pb-32 lg:pb-6 overflow-y-auto">
+        <div ref={revealRef} className="flex flex-col h-full bg-surface-50 dark:bg-surface-950 p-3 sm:p-6 pb-28 sm:pb-32 lg:pb-6 overflow-y-auto lg:overflow-hidden">
 
             {/* Header — Toolbar */}
             <ProductsToolbar
@@ -848,7 +848,7 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
             {/* Product Grid */}
             {isLoadingProducts ? (
                 <div className="flex-1 overflow-y-auto pb-28 sm:pb-32 lg:pb-0 scrollbar-hide">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3">
                         {[1,2,3,4,5,6,7,8,9,10].map(i => (
                             // v1.2.0: skeleton cards usan surface tokens (warm cream) en vez de white/slate.
                             <div key={i} className="bg-surface dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 p-3 h-56 flex flex-col justify-between">
@@ -948,7 +948,7 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
                         </div>
                     )}
                     <div ref={productsScrollRef} className="flex-1 overflow-y-auto pb-28 sm:pb-32 lg:pb-0 scrollbar-hide">
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3">
                             {paginatedProducts.map(p => (
                                 // v1.2.0: hover lift wrapper para ProductCard (design system hover state).
                                 <div key={p.id} className="transition-transform duration-200 hover:-translate-y-1">

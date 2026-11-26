@@ -254,7 +254,7 @@ export default function SalesHistory({
     };
 
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm mb-20">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm mb-20 lg:mb-4">
             {/* Encabezado con Título y Acciones */}
             <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5 tracking-wider">

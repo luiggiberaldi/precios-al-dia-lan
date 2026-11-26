@@ -940,7 +940,7 @@ export default function SalesView({ triggerHaptic, isActive }) {
                 </div>
 
                 {/* ── Right Column: Cart Sidebar — desktop only ── */}
-                <div className="hidden lg:flex lg:w-[380px] lg:shrink-0 lg:flex-col">
+                <div className="hidden lg:flex lg:w-[360px] xl:w-[400px] 2xl:w-[450px] lg:shrink-0 lg:flex-col">
                     <CartPanel
                         cart={cart} effectiveRate={effectiveRate}
                         canRegistrarAporte={canRegistrarAporte} onOpenAporte={() => setIsAporteOpen(true)}

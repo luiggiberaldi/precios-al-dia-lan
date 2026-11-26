@@ -422,7 +422,7 @@ export default function CustomersView({ triggerHaptic, isActive }) {
             {/* Sub-pestañas de Gestión (nómina D9) */}
             <GestionTabs activeTab={activeTab} onChange={setActiveTab} isCajero={isCajero} triggerHaptic={triggerHaptic} />
 
-            <div className="flex-1 overflow-y-auto scrollbar-hide p-3 sm:p-6 pb-20">
+            <div className="flex-1 overflow-y-auto scrollbar-hide p-3 sm:p-6 pb-20 lg:pb-6">
                 {/* Header Clientes */}
             <div className="reveal shrink-0 mb-5 flex justify-between items-start">
                 <div>
@@ -500,7 +500,7 @@ export default function CustomersView({ triggerHaptic, isActive }) {
             </div>
 
             {/* Listado de Clientes */}
-            <div className="flex-1 space-y-3 pb-20">
+            <div className="flex-1 space-y-3 pb-20 lg:pb-6">
                 {customers.length === 0 ? (
                     <EmptyState
                         icon={Users}
@@ -519,6 +519,7 @@ export default function CustomersView({ triggerHaptic, isActive }) {
                     />
                 ) : (
                     <>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                         {paginatedCustomers.map(customer => (
                             <SwipeableItem
                                 key={customer.id}
@@ -540,6 +541,7 @@ export default function CustomersView({ triggerHaptic, isActive }) {
                                 />
                             </SwipeableItem>
                         ))}
+                        </div>
                         <PaginationBar
                             currentPage={currentPage}
                             totalPages={totalPages}

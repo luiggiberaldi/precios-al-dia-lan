@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => {
         },
       },
     VitePWA({
+      disable: process.env.ELECTRON_BUILD === 'true',
       registerType: 'prompt', // SW prompt: no fuerza recargas abruptas durante operaciones POS (A-001/B-003).
       includeAssets: [
         'pwa-splash-transparent-512.png',
@@ -46,6 +47,8 @@ export default defineConfig(({ mode }) => {
         // Logos de fábrica y avatar del asistente: sin esto no se ven sin internet.
         'logo.png',
         'logodark.png',
+        'logo-lan-mark.png',
+        'logo-lan-mark-dark.png',
         'bot-avatar.png',
       ],
       workbox: {

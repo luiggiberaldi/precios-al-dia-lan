@@ -1688,75 +1688,11 @@
     "source_store": "TuzonaMarket"
   },
   {
-    "name": "Betagen 12mg/3ml 1 Ampolla Biotech",
-    "slug": "betagen-12mg3ml-1-ampolla-biotech",
-    "price": 7.28,
-    "category": "Anti Inflamatorio, Esteroides",
-    "image_path": "/images/catalog/medicamentos/betagen-12mg3ml-1-ampolla-biotech.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
     "name": "Alkaseltzer x 12 Tabletas Bayer",
     "slug": "alkaseltzer-x-12-tabletas-bayer",
     "price": 7.48,
     "category": "Antiácidos",
     "image_path": "/images/catalog/varios/alkaseltzer-x-12-tabletas-bayer.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Loratadina 10mg x 10 Tabletas Kimiceg",
-    "slug": "loratadina-10mg-x-10-tabletas-kimiceg",
-    "price": 1.83,
-    "category": "Antialérgicos",
-    "image_path": "/images/catalog/medicamentos/loratadina-10mg-x-10-tabletas-kimiceg.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Omeprazol 40mg Drotafarma 10 Cápsulas",
-    "slug": "omeprazol-40mg-drotafarma-10-capsulas",
-    "price": 1.69,
-    "category": "Protector Gástrico",
-    "image_path": "/images/catalog/medicamentos/omeprazol-40mg-drotafarma-10-capsulas.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Amoxicilina 500mg x 12 Cápsulas Calox",
-    "slug": "amoxicilina-500mg-x-12-capsulas-calox",
-    "price": 3.94,
-    "category": "Antibióticos",
-    "image_path": "/images/catalog/medicamentos/amoxicilina-500mg-x-12-capsulas-calox.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Jeringa 5ml/cc Con Aguja 21G x 1 ½”",
-    "slug": "jeringa-5mlcc-con-aguja-21g-x-1",
-    "price": 0.09,
-    "category": "Insumos Médicos, Primeros Auxilios",
-    "image_path": "/images/catalog/medicamentos/jeringa-5mlcc-con-aguja-21g-x-1.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Alcohol Antiséptico 70% con Dispensador El Guardian 60ml",
-    "slug": "alcohol-antiseptico-70-con-dispensador-el-guardian-60ml",
-    "price": 1.41,
-    "category": "Insumos Médicos, Primeros Auxilios",
-    "image_path": "/images/catalog/medicamentos/alcohol-antiseptico-70-con-dispensador-el-guardian-60ml.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Acetaminofén 650mg La Sante 10 Tabletas",
-    "slug": "acetaminofen-650mg-la-sante-10-tabletas",
-    "price": 0.89,
-    "category": "Analgésicos, Antipiréticos",
-    "image_path": "/images/catalog/medicamentos/acetaminofen-650mg-la-sante-10-tabletas.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Tapaboca Protector Descartable Negro Gilox 50 und",
-    "slug": "tapaboca-protector-descartable-negro-gilox-50-und",
-    "price": 3.03,
-    "category": "Insumos Médicos",
-    "image_path": "/images/catalog/medicamentos/tapaboca-protector-descartable-negro-gilox-50-und.webp",
     "source_store": "TuzonaMarket"
   },
   {
@@ -1768,35 +1704,11 @@
     "source_store": "TuzonaMarket"
   },
   {
-    "name": "Adhesivo de Papel Blanco 3\" x 5 ITM 1 Und",
-    "slug": "adhesivo-de-papel-blanco-3-x-5-itm-1-und",
-    "price": 1.97,
-    "category": "Insumos Médicos, Primeros Auxilios",
-    "image_path": "/images/catalog/medicamentos/adhesivo-de-papel-blanco-3-x-5-itm-1-und.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Solucion Dextrosa ITM 500ml",
-    "slug": "solucion-dextrosa-itm-500ml",
-    "price": 2.61,
-    "category": "Soluciones",
-    "image_path": "/images/catalog/medicamentos/solucion-dextrosa-itm-500ml.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
     "name": "Migren 650mg x 10 Comprimidos Leti",
     "slug": "migren-650mg-x-10-comprimidos-leti",
     "price": 2.72,
     "category": "Antimigrañosos",
     "image_path": "/images/catalog/granos-pastas-y-harinas/migren-650mg-x-10-comprimidos-leti.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Vick Vaporub con Alcanfor, Mentol y Eucalyptus 12g",
-    "slug": "vick-vaporub-con-alcanfor-mentol-y-eucalyptus-12g",
-    "price": 3.18,
-    "category": "Descongestionantes Nasales",
-    "image_path": "/images/catalog/medicamentos/vick-vaporub-con-alcanfor-mentol-y-eucalyptus-12g.webp",
     "source_store": "TuzonaMarket"
   },
   {
@@ -1816,43 +1728,11 @@
     "source_store": "TuzonaMarket"
   },
   {
-    "name": "Adhesivo de Papel Blanco 2\" x 5 ITM 1 Und",
-    "slug": "adhesivo-de-papel-blanco-2-x-5-itm-1-und",
-    "price": 1.46,
-    "category": "Insumos Médicos, Primeros Auxilios",
-    "image_path": "/images/catalog/medicamentos/adhesivo-de-papel-blanco-2-x-5-itm-1-und.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Losartán Potásico 50mg Teuto x 30 Tabletas Recubiertas",
-    "slug": "losartan-potasico-50mg-teuto-x-30-tabletas-recubiertas",
-    "price": 2.02,
-    "category": "Antihipertensivos",
-    "image_path": "/images/catalog/medicamentos/losartan-potasico-50mg-teuto-x-30-tabletas-recubiertas.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Gasa Esteril 4\"x4\" (10cm x 10cm) 2 Und",
-    "slug": "gasa-esteril-4x4-10cm-x-10cm-2-und",
-    "price": 0.31,
-    "category": "Insumos Médicos, Primeros Auxilios",
-    "image_path": "/images/catalog/medicamentos/gasa-esteril-4x4-10cm-x-10cm-2-und.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
     "name": "Analgésicos, Anti Inflamatorio, Relajantes muscular",
     "slug": "analgesicos-anti-inflamatorio-relajantes-muscular",
     "price": 2.47,
     "category": "Víveres",
     "image_path": "/images/catalog/carnes-y-proteinas/analgesicos-anti-inflamatorio-relajantes-muscular.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Guantes de Nitrilo Color Negro Descartables Talla S Gilox 100 Und",
-    "slug": "guantes-de-nitrilo-color-negro-descartables-talla-s-gilox-100-und",
-    "price": 8.57,
-    "category": "Insumos Médicos, Primeros Auxilios",
-    "image_path": "/images/catalog/medicamentos/guantes-de-nitrilo-color-negro-descartables-talla-s-gilox-100-und.webp",
     "source_store": "TuzonaMarket"
   },
   {
@@ -1864,22 +1744,6 @@
     "source_store": "TuzonaMarket"
   },
   {
-    "name": "Suerolito - Solución Electrolitica Sabor a Fresa 400ml",
-    "slug": "suerolito-solucion-electrolitica-sabor-a-fresa-400ml",
-    "price": 1.95,
-    "category": "Antidiarreicos",
-    "image_path": "/images/catalog/medicamentos/suerolito-solucion-electrolitica-sabor-a-fresa-400ml.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Acetaminofén 500mg Laproff Blíster 10 tabletas",
-    "slug": "acetaminofen-500mg-laproff-blister-10-tabletas",
-    "price": 0.64,
-    "category": "Analgésicos, Antipiréticos",
-    "image_path": "/images/catalog/medicamentos/acetaminofen-500mg-laproff-blister-10-tabletas.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
     "name": "Fluoxetina 20 mg Laproff 10 Tabletas",
     "slug": "fluoxetina-20-mg-laproff-10-tabletas",
     "price": 1.48,
@@ -1888,27 +1752,11 @@
     "source_store": "TuzonaMarket"
   },
   {
-    "name": "Arcoval 90mg Valmorca 10 Tabletas Recubiertas",
-    "slug": "arcoval-90mg-valmorca-10-tabletas-recubiertas",
-    "price": 10.28,
-    "category": "Analgésicos, Anti Inflamatorio",
-    "image_path": "/images/catalog/medicamentos/arcoval-90mg-valmorca-10-tabletas-recubiertas.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
     "name": "PoliMais Kids Sabor a Banana 240ml",
     "slug": "polimais-kids-sabor-a-banana-240ml",
     "price": 8.93,
     "category": "Vitaminas",
     "image_path": "/images/catalog/higiene-y-belleza/polimais-kids-sabor-a-banana-240ml.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Tempiren Dia FC Pharma 10 Cápsulas Blandas",
-    "slug": "tempiren-dia-fc-pharma-10-capsulas-blandas",
-    "price": 6.66,
-    "category": "Antigripales",
-    "image_path": "/images/catalog/medicamentos/tempiren-dia-fc-pharma-10-capsulas-blandas.webp",
     "source_store": "TuzonaMarket"
   },
   {
@@ -1928,14 +1776,6 @@
     "source_store": "TuzonaMarket"
   },
   {
-    "name": "Centella Asiática x 60 Cápsulas Bioinfinity",
-    "slug": "centella-asiatica-x-60-capsulas-bioinfinity",
-    "price": 11.43,
-    "category": "Diuréticos",
-    "image_path": "/images/catalog/medicamentos/centella-asiatica-x-60-capsulas-bioinfinity.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
     "name": "Magnesio Life 500mg Walife 60 Cápsulas",
     "slug": "magnesio-life-500mg-walife-60-capsulas",
     "price": 9.32,
@@ -1944,67 +1784,11 @@
     "source_store": "TuzonaMarket"
   },
   {
-    "name": "Ciprofloxacina 200mg I.V 1 Ampolla 100ml Distrilab",
-    "slug": "ciprofloxacina-200mg-iv-1-ampolla-100ml-distrilab",
-    "price": 1.95,
-    "category": "Antibióticos",
-    "image_path": "/images/catalog/medicamentos/ciprofloxacina-200mg-iv-1-ampolla-100ml-distrilab.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Ninazo Gotas Nasales Adulto 15ml",
-    "slug": "ninazo-gotas-nasales-adulto-15ml",
-    "price": 2.78,
-    "category": "Descongestionantes Nasales",
-    "image_path": "/images/catalog/medicamentos/ninazo-gotas-nasales-adulto-15ml.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Clarasol 0,12mg/ml Solución Oftálmica 15ml Oftalmi",
-    "slug": "clarasol-012mgml-solucion-oftalmica-15ml-oftalmi",
-    "price": 4.38,
-    "category": "Cuidado de la Vista y Lentes",
-    "image_path": "/images/catalog/medicamentos/clarasol-012mgml-solucion-oftalmica-15ml-oftalmi.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
     "name": "Miovit Compositum con Lidocaina Kit 3 Ampollas 3ml Cofasa",
     "slug": "miovit-compositum-con-lidocaina-kit-3-ampollas-3ml-cofasa",
     "price": 5.6,
     "category": "Vitaminas",
     "image_path": "/images/catalog/higiene-y-belleza/miovit-compositum-con-lidocaina-kit-3-ampollas-3ml-cofasa.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Atamel Forte 650mg 10 Tabletas",
-    "slug": "atamel-forte-650mg-10-tabletas",
-    "price": 3.21,
-    "category": "Analgésicos, Antipiréticos",
-    "image_path": "/images/catalog/medicamentos/atamel-forte-650mg-10-tabletas.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Azitromicina 500mg Calox 5 Tabletas Recubiertas",
-    "slug": "azitromicina-500mg-calox-5-tabletas-recubiertas",
-    "price": 2.26,
-    "category": "Antibióticos",
-    "image_path": "/images/catalog/medicamentos/azitromicina-500mg-calox-5-tabletas-recubiertas.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Metformina 500mg Quim Far x 30 Tabletas",
-    "slug": "metformina-500mg-quim-far-x-30-tabletas",
-    "price": 2.11,
-    "category": "Diabetes",
-    "image_path": "/images/catalog/medicamentos/metformina-500mg-quim-far-x-30-tabletas.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "Acetaminofén 650mg 10 Tabletas Genven",
-    "slug": "acetaminofen-650mg-10-tabletas-genven",
-    "price": 0.65,
-    "category": "Analgésicos, Antipiréticos",
-    "image_path": "/images/catalog/medicamentos/acetaminofen-650mg-10-tabletas-genven.webp",
     "source_store": "TuzonaMarket"
   },
   {

@@ -74,7 +74,7 @@ function SalesChart({ weekData, onDayClick, selectedDate, copEnabled, copPrimary
                             </span>
 
                             {/* Capsule Track */}
-                            <div className="w-2.5 md:w-4 h-[75%] bg-slate-200/70 dark:bg-slate-800/50 rounded-full relative overflow-hidden flex flex-col justify-end group-hover:bg-slate-300/60 dark:group-hover:bg-slate-800/50 transition-colors">
+                            <div className="w-2.5 md:w-4 lg:w-6 h-[75%] bg-slate-200/70 dark:bg-slate-800/50 rounded-full relative overflow-hidden flex flex-col justify-end group-hover:bg-slate-300/60 dark:group-hover:bg-slate-800/50 transition-colors">
                                 {/* Capsule Fill */}
                                 <div
                                     className={`w-full rounded-full transition-all duration-500 ease-out origin-bottom ${
