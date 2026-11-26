@@ -17,6 +17,7 @@ jobs:
     steps:
       - name: Verificar si el release ya fue publicado
         id: check_release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

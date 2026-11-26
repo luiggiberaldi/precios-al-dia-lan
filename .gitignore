@@ -46,6 +46,7 @@ api/secrets.*
 # Nunca commitear backups, inventarios reales, PDFs de cierres, videos, etc.
 backup_*.json
 *backup*.json
+!public/demo-backup.json
 backups/
 *.xls
 *.xlsx
@@ -63,6 +64,10 @@ cierre_*.txt
 # ── Assets con nombres problemáticos ──
 logo*.png
 logodark*.png
+!public/logo.png
+!public/logodark.png
+!public/logo-lan-mark.png
+!public/logo-lan-mark-dark.png
 "logo .png"
 "Manual Completo de Usuario*"
 Manual_Usuario_*.md
