@@ -152,7 +152,7 @@ export default function App() {
 
   // Detectar iOS Safari (no standalone) para mostrar instrucciones manuales
   const isIOS = useMemo(() => /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream, []);
-  const isStandalone = useMemo(() => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone, []);
+  const isStandalone = useMemo(() => Boolean(window.electronAPI?.isElectron) || window.matchMedia('(display-mode: standalone)').matches || navigator.standalone, []);
   const showIOSButton = isIOS && !isStandalone && !localStorage.getItem('ios_install_dismissed');
 
   // Admin Panel States

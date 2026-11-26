@@ -1260,6 +1260,62 @@ export async function createLanDb({
         });
     }
 
+    async function rebindDevice(ownerUser, { deviceId, deviceUserId } = {}) {
+        if (!ownerUser?.id || ownerUser.anonymous) {
+            throw Object.assign(new Error('Solo el dueño puede reconectar una caja.'), { status: 403 });
+        }
+        const cleanDeviceId = String(deviceId || '').trim();
+        const cleanDeviceUserId = String(deviceUserId || '').trim();
+        if (!cleanDeviceId || !cleanDeviceUserId) {
+            throw Object.assign(new Error('Faltan datos del equipo para reconectar.'), { status: 400 });
+        }
+        if (cleanDeviceUserId === ownerUser.id) {
+            throw Object.assign(new Error('El equipo necesita su propia sesión.'), { status: 400 });
+        }
+        return enqueue(async () => {
+            const acc = (await db.query('select id from public.accounts where owner_user_id = $1 limit 1', [ownerUser.id])).rows[0];
+            if (!acc) {
+                throw Object.assign(new Error('Solo el dueño puede reconectar equipos de este negocio.'), { status: 403 });
+            }
+            const target = (
+                await db.query(
+                    'select * from public.account_devices where id = $1 and account_id = $2 limit 1',
+                    [cleanDeviceId, acc.id],
+                )
+            ).rows[0];
+            if (!target || target.revoked_at) {
+                throw Object.assign(new Error('Esa caja ya no está activa en este negocio.'), { status: 404 });
+            }
+            const userExists = (await db.query('select id from auth.users where id = $1 limit 1', [cleanDeviceUserId])).rows[0];
+            if (!userExists) {
+                throw Object.assign(new Error('La sesión de este equipo no es válida. Recarga la app.'), { status: 400 });
+            }
+            const collision = (
+                await db.query('select id, revoked_at from public.account_devices where auth_user_id = $1 limit 1', [cleanDeviceUserId])
+            ).rows[0];
+            if (collision && collision.id !== target.id) {
+                if (!collision.revoked_at) {
+                    throw Object.assign(new Error('Esta PC ya está enlazada con otra caja activa.'), { status: 409 });
+                }
+                await db.query('update public.account_devices set auth_user_id = $1 where id = $2', [crypto.randomUUID(), collision.id]);
+            }
+            const updated = (
+                await db.query(
+                    `update public.account_devices
+                        set auth_user_id = $2,
+                            last_seen_at = now()
+                      where id = $1 and account_id = $3
+                      returning *`,
+                    [target.id, cleanDeviceUserId, acc.id],
+                )
+            ).rows[0];
+            return {
+                device: updated,
+                events: [{ table: 'account_devices', new: updated }],
+            };
+        });
+    }
+
     async function close() {
         await enqueue(async () => {
             await db.close();
@@ -1281,6 +1337,7 @@ export async function createLanDb({
         getServerSummary,
         createPairingCode,
         claimPairingCode,
+        rebindDevice,
         runSelectQuery,
         runRpc,
         buildOfflinePassport,

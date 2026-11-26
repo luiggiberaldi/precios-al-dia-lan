@@ -422,6 +422,14 @@ function NubeGateFlow({ children }) {
         await refresh();
     });
 
+    const handleRebind = (targetDeviceId) => run(async () => {
+        const uid = deviceUserId || await svc.ensureDeviceSession(device);
+        if (!deviceUserId) setDeviceUserId(uid);
+        await ownerRef.current.lan.rebindDevice({ deviceId: targetDeviceId, deviceUserId: uid });
+        await closeOwner();
+        await refresh();
+    });
+
     const handleSignOutAccount = async () => {
         offlinePinRef.current = null;
         clearOfflinePassport();
@@ -709,7 +717,7 @@ function NubeGateFlow({ children }) {
     }
     if (phase === 'registrar' && manage) {
         return <RegisterDeviceScreen account={manage.account} sedes={manage.sedes} devices={manage.devices} license={manage.license}
-            onRevoke={handleRegisterRevoke} onSubmit={handleRegister} busy={busy} error={error}
+            onRevoke={handleRegisterRevoke} onRebind={lanMode ? handleRebind : undefined} onSubmit={handleRegister} busy={busy} error={error}
             onBack={async () => { await closeOwner(); setPhase('sin-registrar'); }} />;
     }
     if (phase === 'administrar' && manage) {
@@ -794,7 +802,7 @@ function NubeGateFlow({ children }) {
                     setPicked(m);
                 }}
                 onManage={openManage}
-                onSignOutAccount={handleSignOutAccount} />
+                onSignOutAccount={lanMode ? undefined : handleSignOutAccount} />
             <LoginPinModal isOpen={askOwnerPin && Boolean(ownerMember)} onClose={() => setAskOwnerPin(false)}
                 user={ownerMember ? { id: ownerMember.id, nombre: ownerMember.display_name, rol: svc.toAppRole('dueno') } : null}
                 subtitle="PIN del dueño para administrar equipos y empleados"

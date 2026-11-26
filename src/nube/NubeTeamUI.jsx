@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2, KeyRound, UserPlus, Save, Eye, EyeOff } from 'lucide-react';
 import { validatePin, validateMemberName, onlyPinDigits, roleLabel, pinHint } from './teamRules';
+import { isLanModeEnabled } from '../lan/lanConfig';
 
 const FIELD = 'w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 min-h-[48px] text-slate-800 dark:text-white outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition-colors';
 const PIN_FIELD = `${FIELD} text-center text-lg font-black tracking-[0.4em] placeholder:tracking-normal placeholder:font-medium placeholder:text-sm`;
@@ -44,13 +45,16 @@ function FormError({ message }) {
     return <p role="alert" className="text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 rounded-lg px-3 py-2">{message}</p>;
 }
 
-export function PinInput({ value, onChange, placeholder, autoFocus, testId, onEnter }) {
+export function PinInput({ value, onChange, placeholder, autoFocus, testId, onEnter, maxLength = undefined }) {
     const [show, setShow] = useState(false);
     return (
         <div className="relative">
             <input type={show ? 'text' : 'password'} inputMode="numeric" autoComplete="new-password" autoFocus={autoFocus}
-                placeholder={placeholder} value={value} data-testid={testId}
-                onChange={(e) => onChange(onlyPinDigits(e.target.value))}
+                placeholder={placeholder} value={value} maxLength={maxLength} data-testid={testId}
+                onChange={(e) => {
+                    const digits = onlyPinDigits(e.target.value);
+                    onChange(maxLength ? digits.slice(0, maxLength) : digits);
+                }}
                 onKeyDown={(e) => { if (e.key === 'Enter') onEnter?.(); }}
                 className={`${PIN_FIELD} pr-12`} />
             <button type="button" tabIndex={-1} onClick={() => setShow((s) => !s)} aria-label={show ? 'Ocultar PIN' : 'Ver PIN'}
@@ -141,8 +145,8 @@ export function MemberFormModal({ member = null, roles, onSubmit, onClose }) {
                 {!noPin && (
                     <div className="space-y-2">
                         <span className={LABEL}>{editing && !hadNoPin ? 'PIN nuevo (opcional)' : 'PIN'}</span>
-                        <PinInput value={pin} onChange={(v) => { setPin(v.slice(0, role === 'cajero' ? 4 : 32)); setError(null); }} placeholder={pinHint(role)} testId="nube-member-pin" />
-                        <PinInput value={confirm} onChange={(v) => { setConfirm(v.slice(0, role === 'cajero' ? 4 : 32)); setError(null); }} placeholder="Repite el PIN" testId="nube-member-pin2" onEnter={submit} />
+                        <PinInput maxLength={role === 'cajero' ? 4 : (isLanModeEnabled() ? 6 : 32)} value={pin} onChange={(v) => { setPin(v.slice(0, role === 'cajero' ? 4 : (isLanModeEnabled() ? 6 : 32))); setError(null); }} placeholder={pinHint(role)} testId="nube-member-pin" />
+                        <PinInput maxLength={role === 'cajero' ? 4 : (isLanModeEnabled() ? 6 : 32)} value={confirm} onChange={(v) => { setConfirm(v.slice(0, role === 'cajero' ? 4 : (isLanModeEnabled() ? 6 : 32))); setError(null); }} placeholder="Repite el PIN" testId="nube-member-pin2" onEnter={submit} />
                     </div>
                 )}
                 <FormError message={error} />
@@ -191,13 +195,13 @@ export function PinChangeModal({ title, subtitle, role = 'cajero', needsCurrent 
                 {needsCurrent && (
                     <div>
                         <span className={LABEL}>PIN actual</span>
-                        <PinInput value={current} onChange={(v) => { setCurrent(v); setError(null); }} placeholder="Tu PIN de hoy" autoFocus testId="nube-pin-current" />
+                        <PinInput maxLength={role === 'cajero' ? 4 : (isLanModeEnabled() ? 6 : 32)} value={current} onChange={(v) => { setCurrent(v); setError(null); }} placeholder="Tu PIN de hoy" autoFocus testId="nube-pin-current" />
                     </div>
                 )}
                 <div className="space-y-2">
                     <span className={LABEL}>PIN nuevo</span>
-                    <PinInput value={pin} onChange={(v) => { setPin(v); setError(null); }} placeholder={pinHint(role)} autoFocus={!needsCurrent} testId="nube-pin-new" />
-                    <PinInput value={confirm} onChange={(v) => { setConfirm(v); setError(null); }} placeholder="Repite el PIN nuevo" testId="nube-pin-confirm" onEnter={submit} />
+                    <PinInput maxLength={role === 'cajero' ? 4 : (isLanModeEnabled() ? 6 : 32)} value={pin} onChange={(v) => { setPin(v); setError(null); }} placeholder={pinHint(role)} autoFocus={!needsCurrent} testId="nube-pin-new" />
+                    <PinInput maxLength={role === 'cajero' ? 4 : (isLanModeEnabled() ? 6 : 32)} value={confirm} onChange={(v) => { setConfirm(v); setError(null); }} placeholder="Repite el PIN nuevo" testId="nube-pin-confirm" onEnter={submit} />
                 </div>
                 <FormError message={error} />
                 <div className="flex gap-2 pt-1">

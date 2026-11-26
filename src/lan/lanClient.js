@@ -439,6 +439,14 @@ export function createLanClient({
                 store.write({ token: res.data.token, user: res.data.user });
                 return res.data;
             },
+            async rebindDevice({ deviceId, deviceUserId }) {
+                const res = await requestJson('/lan/devices/rebind', {
+                    method: 'POST',
+                    body: { deviceId, deviceUserId },
+                });
+                if (!res.ok) throw new Error(res.error?.message || 'No se pudo reconectar este equipo.');
+                return res.data?.device ?? null;
+            },
             async uploadImage(dataUri, id) {
                 const res = await requestJson('/lan/images', { method: 'POST', body: { dataUri, id } });
                 if (!res.ok || !res.data?.path) return null;

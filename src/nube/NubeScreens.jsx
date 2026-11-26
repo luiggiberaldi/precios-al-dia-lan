@@ -90,12 +90,17 @@ function IconInput({ icon: Icon, right, ...props }) {
 
 /** Dueño sin cuenta: crear el negocio, la primera sede y su PIN. */
 export function CreateAccountScreen({ onSubmit, busy, error, onBack }) {
+    const lanMode = isLanModeEnabled();
+    const maxPin = lanMode ? 6 : 32;
     const [form, setForm] = useState({ businessName: '', sedeName: 'Principal', ownerName: '', ownerPin: '', ownerPin2: '' });
     const [localError, setLocalError] = useState(null);
-    const set = (k) => (e) => setForm((f) => ({ ...f, [k]: k.startsWith('ownerPin') ? e.target.value.replace(/\D/g, '').slice(0, 32) : e.target.value }));
+    const set = (k) => (e) => setForm((f) => ({ ...f, [k]: k.startsWith('ownerPin') ? e.target.value.replace(/\D/g, '').slice(0, maxPin) : e.target.value }));
     const submit = (e) => {
         e.preventDefault();
-        if (!/^[0-9]{6,32}$/.test(form.ownerPin)) { setLocalError('Tu PIN debe tener al menos 6 números.'); return; }
+        if (lanMode ? !/^[0-9]{6}$/.test(form.ownerPin) : !/^[0-9]{6,32}$/.test(form.ownerPin)) {
+            setLocalError(lanMode ? 'Tu PIN debe tener 6 números.' : 'Tu PIN debe tener al menos 6 números.');
+            return;
+        }
         if (form.ownerPin === '000000') { setLocalError('Elige un PIN distinto de 000000.'); return; }
         if (form.ownerPin !== form.ownerPin2) { setLocalError('Los PIN no coinciden'); return; }
         setLocalError(null);
@@ -108,8 +113,8 @@ export function CreateAccountScreen({ onSubmit, busy, error, onBack }) {
                 <IconInput icon={Store} placeholder="Nombre del negocio" value={form.businessName} onChange={set('businessName')} required minLength={2} maxLength={80} />
                 <IconInput icon={MapPin} placeholder="Nombre de la sede (ej. Centro)" value={form.sedeName} onChange={set('sedeName')} required maxLength={60} />
                 <IconInput icon={Crown} placeholder="Tu nombre (así te verán en la caja)" value={form.ownerName} onChange={set('ownerName')} required maxLength={40} />
-                <IconInput icon={KeyRound} inputMode="numeric" type="password" placeholder="Tu PIN (6 números o más)" value={form.ownerPin} onChange={set('ownerPin')} required />
-                <IconInput icon={KeyRound} inputMode="numeric" type="password" placeholder="Repite tu PIN" value={form.ownerPin2} onChange={set('ownerPin2')} required />
+                <IconInput icon={KeyRound} inputMode="numeric" type="password" maxLength={maxPin} placeholder={lanMode ? 'Tu PIN (6 números)' : 'Tu PIN (6 números o más)'} value={form.ownerPin} onChange={set('ownerPin')} required />
+                <IconInput icon={KeyRound} inputMode="numeric" type="password" maxLength={maxPin} placeholder="Repite tu PIN" value={form.ownerPin2} onChange={set('ownerPin2')} required />
                 <button className={BTN} disabled={busy} type="submit">{busy && <Loader2 className="animate-spin" size={18} />}Crear negocio</button>
             </form>
         </NubeShell>
@@ -123,7 +128,7 @@ const lastSeen = (iso) => {
     return Number.isNaN(d.getTime()) ? '' : `Última conexión: ${d.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' })}`;
 };
 
-export function RegisterDeviceScreen({ account, sedes, devices = [], license = null, onRevoke, onSubmit, busy, error, onBack }) {
+export function RegisterDeviceScreen({ account, sedes, devices = [], license = null, onRevoke, onRebind = null, onSubmit, busy, error, onBack }) {
     const [label, setLabel] = useState('Caja');
     const [role, setRole] = useState('caja');
     const [sedeId, setSedeId] = useState(sedes?.[0]?.id ?? '');
@@ -155,7 +160,7 @@ export function RegisterDeviceScreen({ account, sedes, devices = [], license = n
                 )}
                 {role === 'caja' && cajasFull && (
                     <p className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-3 py-2" role="status" data-testid="nube-register-full">
-                        Tu licencia permite {license.max_cajas} caja(s) y ya están en uso. Desvincula una de abajo para registrar esta.
+                        Tu licencia permite {license.max_cajas} caja(s) y ya están en uso. {onRebind ? 'Reconecta una de abajo o desvincúlala para registrar esta.' : 'Desvincula una de abajo para registrar esta.'}
                     </p>
                 )}
                 <button className={BTN} disabled={busy} type="submit">{busy && <Loader2 className="animate-spin" size={18} />}Registrar este equipo</button>
@@ -163,9 +168,14 @@ export function RegisterDeviceScreen({ account, sedes, devices = [], license = n
 
             {devices.length > 0 && (
                 <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4" data-testid="nube-register-devices">
-                    <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
+                    <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">
                         Equipos ya conectados{license?.max_cajas ? ` · ${cajas} de ${license.max_cajas} caja(s)` : ''}
                     </h2>
+                    {onRebind && (
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2.5">
+                            Si esta PC ya era una de estas cajas, pulsa <strong>Reconectar aquí</strong> en lugar de registrar otra.
+                        </p>
+                    )}
                     <ul className="space-y-2">
                         {devices.map((d) => (
                             <li key={d.id} className="flex items-center gap-3 rounded-xl border border-slate-100 dark:border-slate-800 px-3 py-2">
@@ -174,13 +184,22 @@ export function RegisterDeviceScreen({ account, sedes, devices = [], license = n
                                     <p className="text-sm font-black text-slate-800 dark:text-white truncate">{describeDeviceLocation({ device: d }).device}</p>
                                     <p className="text-[10px] text-slate-400 truncate">{d.role === 'caja' ? 'Caja' : 'Solo consulta'} · {lastSeen(d.last_seen_at)}</p>
                                 </div>
-                                {onRevoke && (
-                                    <button type="button" disabled={busy} onClick={() => setRevoking(d)}
-                                        className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1 px-2 py-2 min-h-[40px]"
-                                        aria-label={`Desvincular ${d.label}`}>
-                                        <Trash2 size={14} />Desvincular
-                                    </button>
-                                )}
+                                <div className="flex items-center gap-1 shrink-0">
+                                    {onRebind && (
+                                        <button type="button" disabled={busy} onClick={() => onRebind(d.id)}
+                                            className="text-xs font-black text-brand bg-brand-light hover:bg-brand/15 rounded-xl px-2.5 py-2 min-h-[38px]"
+                                            data-testid={`nube-rebind-${d.id}`}>
+                                            Reconectar aquí
+                                        </button>
+                                    )}
+                                    {onRevoke && (
+                                        <button type="button" disabled={busy} onClick={() => setRevoking(d)}
+                                            className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1 px-2 py-2 min-h-[40px]"
+                                            aria-label={`Desvincular ${d.label}`}>
+                                            <Trash2 size={14} />Desvincular
+                                        </button>
+                                    )}
+                                </div>
                             </li>
                         ))}
                     </ul>
@@ -273,14 +292,16 @@ function Clock() {
     );
 }
 
+const isElectronDesktop = () => typeof window !== 'undefined' && Boolean(window.electronAPI?.isElectron);
 const isStandaloneApp = () => typeof window !== 'undefined'
-    && Boolean(window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator?.standalone === true);
+    && (isElectronDesktop() || Boolean(window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator?.standalone === true));
 const isIOSDevice = () => typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent || '');
 
 /** Instalar como app (PWA): usa el aviso que guarda index.html en window.deferredInstallPrompt. */
 function useInstallApp() {
     const [prompt, setPrompt] = useState(() => (typeof window !== 'undefined' ? window.deferredInstallPrompt : null) || null);
     const [standalone] = useState(isStandaloneApp);
+    const electronDesktop = isElectronDesktop();
     useEffect(() => {
         const handler = (e) => { e.preventDefault(); window.deferredInstallPrompt = e; setPrompt(e); };
         window.addEventListener('beforeinstallprompt', handler);
@@ -296,13 +317,13 @@ function useInstallApp() {
         } catch { /* el navegador ya no lo permite */ }
         return 'done';
     };
-    return { standalone, install };
+    return { standalone, electronDesktop, install };
 }
 
 /** Elegir quién va a trabajar en este equipo: la pantalla de Bodega y Farmacia, en azul Nube. */
 export function MemberPickerScreen({ status, members, onPick, onManage, onSignOutAccount, error }) {
     const loc = describeDeviceLocation(status);
-    const { standalone, install } = useInstallApp();
+    const { standalone, electronDesktop, install } = useInstallApp();
     const [installHelp, setInstallHelp] = useState(false);
     const [confirmSignOut, setConfirmSignOut] = useState(false);
     const chips = [
@@ -335,7 +356,7 @@ export function MemberPickerScreen({ status, members, onPick, onManage, onSignOu
                             <span className="hidden sm:inline">Cerrar sesión</span>
                         </button>
                     )}
-                    {standalone ? (
+                    {!electronDesktop && (standalone ? (
                         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand/10 border border-brand/20 text-brand text-[10px] font-extrabold uppercase tracking-wider rounded-xl shadow-sm">
                             <CheckCircle2 size={13} />
                             <span>App Instalada</span>
@@ -348,7 +369,7 @@ export function MemberPickerScreen({ status, members, onPick, onManage, onSignOu
                             <Download size={14} strokeWidth={2.5} />
                             <span>Instalar App</span>
                         </button>
-                    )}
+                    ))}
                 </div>
             </header>
 

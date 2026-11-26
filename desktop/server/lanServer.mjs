@@ -271,6 +271,20 @@ export async function createLanServer({
                 return;
             }
 
+            if (req.method === 'POST' && pathname === '/lan/devices/rebind') {
+                const token = bearerToken(req, urlObj);
+                const session = await lanDb.getSessionByToken(token);
+                if (!session || session.user?.anonymous) {
+                    sendJson(res, 401, { error: 'Solo el dueño puede reconectar una caja.' });
+                    return;
+                }
+                const { deviceId, deviceUserId } = await readJsonBody(req);
+                const { device, events } = await lanDb.rebindDevice(session.user, { deviceId, deviceUserId });
+                if (events?.length) broadcastEvents(events);
+                sendJson(res, 200, { ok: true, device });
+                return;
+            }
+
             // ── Consultas y RPCs compatibles con src/nube ───────────────────
             if (req.method === 'POST' && pathname === '/lan/query') {
                 const token = bearerToken(req, urlObj);

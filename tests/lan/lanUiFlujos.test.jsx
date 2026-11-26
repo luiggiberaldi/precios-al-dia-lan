@@ -349,6 +349,11 @@ describe('F-18 · Flujos de interfaz React LAN contra servidor real', () => {
         const setClientMode = vi.fn(async ({ serverUrl }) => ({ ok: true, serverUrl }));
         const onConfigured = vi.fn();
 
+        const realFetch = globalThis.fetch;
+        cleanups.push(async () => {
+            globalThis.fetch = realFetch;
+        });
+
         globalThis.fetch = vi.fn(async (input) => {
             const url = typeof input === 'string' ? input : String(input?.url || '');
             if (url.endsWith('/lan/health')) {
@@ -511,4 +516,100 @@ describe('F-18 · Flujos de interfaz React LAN contra servidor real', () => {
             localStorage.clear();
         }
     });
+
+    it('rebindDevice permite reconectar la misma Caja A sin crear Caja B, oculta Instalar App en Electron y limita PIN a 6 dígitos', async () => {
+        const srv = await createLanServer({ port: 0, host: '127.0.0.1', enableDiscovery: false });
+        cleanups.push(() => srv.close());
+        try {
+            const { MemberPickerScreen, RegisterDeviceScreen } = await import('../../src/nube/NubeScreens.jsx');
+            const { OwnerAuthScreen } = await import('../../src/nube/NubeOwnerAuth.jsx');
+            setLanServerUrl(srv.baseUrl, 'master');
+
+            // 1. Crear negocio y registrar Caja A
+            const dev1 = createLanClient({ baseUrl: srv.baseUrl, persistSession: false });
+            const { data: d1 } = await dev1.auth.signInAnonymously();
+            const owner = createLanClient({ baseUrl: srv.baseUrl, persistSession: false });
+            await owner.lan.bootstrapLocalOwner();
+            await owner.rpc('create_account', {
+                p_name: 'Bodega Reconnect',
+                p_sede_name: 'Principal',
+                p_owner_name: 'Luigi',
+                p_owner_pin: '246810',
+            });
+            await owner.rpc('register_device', {
+                p_device_user_id: d1.user.id,
+                p_label: 'Caja 1',
+                p_role: 'caja',
+                p_sede_id: null,
+            });
+            const beforeDevices = (await owner.from('account_devices').select('id, label, caja_letter, role, last_seen_at').order('created_at')).data;
+            expect(beforeDevices).toHaveLength(1);
+            const cajaAId = beforeDevices[0].id;
+
+            // Verificar que RegisterDeviceScreen muestra botón Reconectar aquí junto a Caja A
+            const onRebind = vi.fn();
+            await act(async () => {
+                root.render(
+                    <RegisterDeviceScreen
+                        account={{ name: 'Bodega Reconnect' }}
+                        sedes={[{ id: 's1', name: 'Principal' }]}
+                        devices={beforeDevices}
+                        license={{ max_cajas: 2 }}
+                        onRebind={onRebind}
+                        onSubmit={() => {}}
+                    />,
+                );
+            });
+            const rebindBtn = await waitForSelector(container, `[data-testid="nube-rebind-${cajaAId}"]`);
+            expect(rebindBtn).not.toBeNull();
+            await act(async () => { rebindBtn.click(); });
+            expect(onRebind).toHaveBeenCalledWith(cajaAId);
+
+            // 2. Simular nueva sesión anónima en el mismo equipo y reconectar Caja A mediante /lan/devices/rebind
+            const dev2 = createLanClient({ baseUrl: srv.baseUrl, persistSession: false });
+            const { data: d2 } = await dev2.auth.signInAnonymously();
+            const rebound = await owner.lan.rebindDevice({ deviceId: cajaAId, deviceUserId: d2.user.id });
+            expect(rebound.id).toBe(cajaAId);
+
+            const afterDevices = (await owner.from('account_devices').select('id, auth_user_id').order('created_at')).data;
+            expect(afterDevices).toHaveLength(1);
+            expect(afterDevices[0].auth_user_id).toBe(d2.user.id);
+
+            // 3. Verificar que MemberPickerScreen en Electron NO muestra Instalar App
+            window.electronAPI = { isElectron: true, platform: 'win32', lan: {} };
+            await act(async () => {
+                root.render(
+                    <MemberPickerScreen
+                        status={{ account: { name: 'Bodega Reconnect' }, device: { label: 'Caja 1', caja_letter: 'A', role: 'caja' }, sedes: [] }}
+                        members={[{ id: 'm1', display_name: 'Luigi', role: 'dueno', pin_length: 6 }]}
+                        onPick={() => {}}
+                        onManage={() => {}}
+                    />,
+                );
+            });
+            expect(container.querySelector('[data-testid="nube-install"]')).toBeNull();
+            expect(container.textContent).not.toContain('App Instalada');
+
+            // 4. Verificar que OwnerAuthScreen en Caja Principal limita el PIN a 6 dígitos exactos
+            const onPinSubmit = vi.fn();
+            await act(async () => {
+                root.render(
+                    <OwnerAuthScreen
+                        isLocalMaster
+                        onOwnerPinSubmit={onPinSubmit}
+                        onSubmit={() => {}}
+                        onForgot={() => {}}
+                        onResend={() => {}}
+                    />,
+                );
+            });
+            const pinInput = await waitForSelector(container, '[data-testid="lan-owner-pin-input"]');
+            expect(pinInput.maxLength).toBe(6);
+            await setInputValue(pinInput, '123456789');
+            expect(pinInput.value).toBe('123456');
+        } finally {
+            delete window.electronAPI;
+            localStorage.clear();
+        }
+    }, 30_000);
 });

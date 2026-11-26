@@ -203,7 +203,7 @@ export function OwnerAuthScreen({
                 e.preventDefault();
                 const next = {};
                 if (resettingPin) {
-                    if (!/^[0-9]{6,32}$/.test(newPin1)) next.newPin1 = 'El PIN debe tener al menos 6 números.';
+                    if (!/^[0-9]{6}$/.test(newPin1)) next.newPin1 = 'El PIN debe tener 6 números.';
                     else if (newPin1 === '000000') next.newPin1 = 'Elige un PIN distinto de 000000.';
                     if (newPin1 !== newPin2) next.newPin2 = 'Los PIN no coinciden.';
                     setErrors(next);
@@ -211,7 +211,7 @@ export function OwnerAuthScreen({
                     onLocalPinReset?.(newPin1);
                     return;
                 }
-                if (!/^[0-9]{6,32}$/.test(ownerPin)) next.ownerPin = 'Escribe tu PIN de dueño (6 o más números).';
+                if (!/^[0-9]{6}$/.test(ownerPin)) next.ownerPin = 'Escribe tu PIN de 6 números.';
                 setErrors(next);
                 if (Object.keys(next).length) return;
                 onOwnerPinSubmit?.(ownerPin);
@@ -220,7 +220,7 @@ export function OwnerAuthScreen({
                 <AuthCard testId="nube-owner-auth" onBack={onBack}>
                     <Logo
                         caption={resettingPin
-                            ? 'Solo desde esta PC Principal. Elige un PIN nuevo para entrar como dueño.'
+                            ? 'Solo desde esta PC Principal. Elige un PIN nuevo de 6 dígitos para entrar como dueño.'
                             : 'Acceso del dueño en esta Caja Principal.'}
                     />
                     <form onSubmit={submitMasterPin} className="space-y-3" noValidate>
@@ -230,9 +230,10 @@ export function OwnerAuthScreen({
                                     icon={Key}
                                     type="password"
                                     inputMode="numeric"
-                                    placeholder="Nuevo PIN de dueño (6+ números)"
+                                    maxLength={6}
+                                    placeholder="Nuevo PIN de dueño (6 dígitos)"
                                     value={newPin1}
-                                    onChange={(e) => { setNewPin1(e.target.value.replace(/\D/g, '').slice(0, 32)); setErrors((x) => ({ ...x, newPin1: null })); }}
+                                    onChange={(e) => { setNewPin1(e.target.value.replace(/\D/g, '').slice(0, 6)); setErrors((x) => ({ ...x, newPin1: null })); }}
                                     error={errors.newPin1}
                                     data-testid="lan-reset-pin1"
                                 />
@@ -240,9 +241,10 @@ export function OwnerAuthScreen({
                                     icon={Key}
                                     type="password"
                                     inputMode="numeric"
-                                    placeholder="Repite el nuevo PIN"
+                                    maxLength={6}
+                                    placeholder="Repite el nuevo PIN (6 dígitos)"
                                     value={newPin2}
-                                    onChange={(e) => { setNewPin2(e.target.value.replace(/\D/g, '').slice(0, 32)); setErrors((x) => ({ ...x, newPin2: null })); }}
+                                    onChange={(e) => { setNewPin2(e.target.value.replace(/\D/g, '').slice(0, 6)); setErrors((x) => ({ ...x, newPin2: null })); }}
                                     error={errors.newPin2}
                                     data-testid="lan-reset-pin2"
                                 />
@@ -252,9 +254,10 @@ export function OwnerAuthScreen({
                                 icon={Key}
                                 type="password"
                                 inputMode="numeric"
-                                placeholder="Tu PIN de dueño"
+                                maxLength={6}
+                                placeholder="Tu PIN de dueño (6 dígitos)"
                                 value={ownerPin}
-                                onChange={(e) => { setOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 32)); setErrors((x) => ({ ...x, ownerPin: null })); }}
+                                onChange={(e) => { setOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setErrors((x) => ({ ...x, ownerPin: null })); }}
                                 error={errors.ownerPin}
                                 data-testid="lan-owner-pin-input"
                             />

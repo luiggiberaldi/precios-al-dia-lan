@@ -85,10 +85,12 @@ export default function LockScreen({ onOpenPairing, onOpenPairingIssuer = () => 
     }
   };
 
+  const isElectronDesktop = Boolean(typeof window !== 'undefined' && window.electronAPI?.isElectron);
+
   const isStandalone = useMemo(() => {
     if (typeof window === 'undefined') return false;
-    return window.matchMedia?.('(display-mode: standalone)')?.matches || navigator.standalone;
-  }, []);
+    return isElectronDesktop || window.matchMedia?.('(display-mode: standalone)')?.matches || navigator.standalone;
+  }, [isElectronDesktop]);
 
   const handleUserClick = (user) => {
     if (user?.requirePin === false) {
@@ -138,7 +140,7 @@ export default function LockScreen({ onOpenPairing, onOpenPairingIssuer = () => 
 
         {/* PWA Install Button */}
         <div className="flex items-center gap-2">
-          {isStandalone ? (
+          {!isElectronDesktop && (isStandalone ? (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-extrabold uppercase tracking-wider rounded-xl shadow-sm">
               <CheckCircle2 size={13} className="text-emerald-500" />
               <span>App Instalada</span>
@@ -152,7 +154,7 @@ export default function LockScreen({ onOpenPairing, onOpenPairingIssuer = () => 
               <Download size={14} strokeWidth={2.5} />
               <span>Instalar App</span>
             </button>
-          )}
+          ))}
         </div>
       </header>
 
