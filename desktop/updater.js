@@ -11,6 +11,33 @@ function isNetworkUpdateError(err) {
   return NETWORK_ERR_RE.test(String(err?.message || err || ''));
 }
 
+function extractReleaseNotesText(notes) {
+  if (!notes) return null;
+  if (Array.isArray(notes)) {
+    const joined = notes
+      .map((item) => {
+        if (!item) return '';
+        if (typeof item === 'string') return item;
+        const ver = item.version ? `v${item.version}: ` : '';
+        return `${ver}${item.note || ''}`;
+      })
+      .filter(Boolean)
+      .join('\n');
+    return extractReleaseNotesText(joined);
+  }
+  const plain = String(notes)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|li|h[1-6]|div)>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return plain ? plain.slice(0, 1200) : null;
+}
+
 function createAutoUpdaterController({
   app,
   autoUpdater = null,
@@ -28,7 +55,12 @@ function createAutoUpdaterController({
     currentVersion,
     status: supported ? 'idle' : 'unsupported',
     availableVersion: null,
+    releaseNotes: null,
+    releaseDate: null,
     progressPercent: 0,
+    bytesPerSecond: 0,
+    transferredBytes: 0,
+    totalBytes: 0,
     downloaded: false,
     error: null,
     lastCheckedAt: null,
@@ -58,6 +90,7 @@ function createAutoUpdaterController({
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.allowPrerelease = false;
+    autoUpdater.allowDowngrade = false;
 
     autoUpdater.on('checking-for-update', () => {
       patchState({ status: 'checking', error: null });
@@ -67,7 +100,12 @@ function createAutoUpdaterController({
       patchState({
         status: 'available',
         availableVersion: info?.version ? String(info.version) : null,
+        releaseNotes: extractReleaseNotesText(info?.releaseNotes),
+        releaseDate: info?.releaseDate ? String(info.releaseDate) : null,
         progressPercent: 0,
+        bytesPerSecond: 0,
+        transferredBytes: 0,
+        totalBytes: 0,
         downloaded: false,
         error: null,
         lastCheckedAt: new Date().toISOString(),
@@ -79,6 +117,9 @@ function createAutoUpdaterController({
       patchState({
         status: 'downloading',
         progressPercent: pct,
+        bytesPerSecond: Math.max(0, Number(progress?.bytesPerSecond || 0)),
+        transferredBytes: Math.max(0, Number(progress?.transferred || 0)),
+        totalBytes: Math.max(0, Number(progress?.total || 0)),
         error: null,
       });
     });
@@ -87,6 +128,8 @@ function createAutoUpdaterController({
       patchState({
         status: 'downloaded',
         availableVersion: info?.version ? String(info.version) : state.availableVersion,
+        releaseNotes: extractReleaseNotesText(info?.releaseNotes) || state.releaseNotes,
+        releaseDate: info?.releaseDate ? String(info.releaseDate) : state.releaseDate,
         progressPercent: 100,
         downloaded: true,
         error: null,
@@ -98,7 +141,11 @@ function createAutoUpdaterController({
       patchState({
         status: 'up-to-date',
         availableVersion: null,
+        releaseNotes: null,
         progressPercent: 0,
+        bytesPerSecond: 0,
+        transferredBytes: 0,
+        totalBytes: 0,
         downloaded: false,
         error: null,
         lastCheckedAt: new Date().toISOString(),
@@ -220,4 +267,5 @@ module.exports = {
   createAutoUpdaterController,
   isNetworkUpdateError,
   normalizeUpdateError,
+  extractReleaseNotesText,
 };

@@ -7,9 +7,12 @@ import { fetchBcvRates } from './api/bcvRatesHelper.js';
 import { RELEASE_NOTES } from './src/data/releaseNotes.js';
 import { buildChatSystemMessage, CHAT_TEMPERATURE, CHAT_MAX_TOKENS } from './src/services/chatSystemPrompt.js';
 
-// Versión del package.json para cacheId estable (INFRA-006).
+// Versión del package.json (en build Electron se toma desktop/package.json para coincidir con el .exe).
 import pkg from './package.json' with { type: 'json' };
-const APP_VERSION = pkg.version || '1.0.0';
+import desktopPkg from './desktop/package.json' with { type: 'json' };
+const APP_VERSION = process.env.ELECTRON_BUILD === 'true'
+  ? (desktopPkg.version || pkg.version || '1.0.0')
+  : (pkg.version || '1.0.0');
 
 export default defineConfig(({ mode }) => {
   // Cargar TODAS las variables del .env (incluyendo las sin prefijo VITE_)

@@ -8,6 +8,7 @@ import BarcodeDuplicateHint from './BarcodeDuplicateHint';
 import SimilarNameHint from './SimilarNameHint';
 import ProductCostFactorControl from './ProductCostFactorControl';
 import { loadTaxConfig } from '../../config/taxConfig';
+import { resolveLanImageUrl } from '../../utils/imageFallback';
 import {
     granelUnitLabel,
     useGranelUnitMode,
@@ -162,7 +163,7 @@ export default function ProductFormQuick({
             <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 sm:gap-3 select-none">
                 {/* File Upload Zone */}
                 <div onClick={() => fileInputRef.current?.click()} className="sm:col-span-5 h-24 sm:h-28 bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 transition-colors relative overflow-hidden p-2 text-center">
-                    {image ? <img src={image} className="w-full h-full object-cover" alt="Product preview" /> : (
+                    {image ? <img src={resolveLanImageUrl(image)} className="w-full h-full object-cover" alt="Product preview" /> : (
                         <>
                             <Camera size={20} className="text-slate-400 mb-1 sm:w-[22px] sm:h-[22px]" />
                             <span className="text-[10px] font-black text-slate-500">Subir foto local</span>

@@ -150,6 +150,60 @@ describe('carga para el Inicio', () => {
         expect(sales[0]).toMatchObject({ id: 'b1', _deviceId: 'dev-tel', _cajaLabel: 'Caja 2 teléfono', _caja: 'B' });
     });
 
+    it('identifica la caja actual por auth_user_id incluso tras restaurar un respaldo sin IDs coincidentes', async () => {
+        const client = {
+            auth: {
+                getSession: async () => ({ data: { session: { user: { id: 'uid-caja-1' } } } }),
+            },
+            from(table) {
+                if (table === 'account_devices') {
+                    return {
+                        select: (cols) => Promise.resolve({
+                            data: cols.includes('label')
+                                ? [
+                                    { id: 'dev-pc', label: 'Caja 1', revoked_at: null, auth_user_id: 'uid-caja-1' },
+                                    { id: 'dev-tel', label: 'Caja 2', revoked_at: null, auth_user_id: 'uid-caja-2' },
+                                ]
+                                : [
+                                    { id: 'dev-pc', caja_letter: 'A' },
+                                    { id: 'dev-tel', caja_letter: 'B' },
+                                ],
+                            error: null,
+                        }),
+                    };
+                }
+                const q = {
+                    select: () => q, eq: () => q, is: () => q, gt: () => q, order: () => q,
+                    limit: () => Promise.resolve({
+                        data: [
+                            { id: 'old-a1@dev-pc', data: venta('old-a1', 4), deleted_at: null, updated_by_device: 'dev-pc' },
+                            { id: 'b1@dev-tel', data: venta('b1', 2), deleted_at: null, updated_by_device: 'dev-tel' },
+                        ],
+                        error: null,
+                    }),
+                };
+                return q;
+            },
+        };
+        const loaded = await loadDashboardCajas(client);
+        expect(loaded._currentDeviceId).toBe('dev-pc');
+        const restoredLocal = [venta('new-after-backup', 7.02)];
+        const { cajas, totals } = buildAllCajasSummary({
+            remoteSales: loaded,
+            localSales: restoredLocal,
+            localDeviceId: loaded._currentDeviceId,
+            labels: loaded._deviceLabels,
+            today,
+            bcvRate: 40,
+        });
+        expect(cajas).toHaveLength(2);
+        expect(cajas.map((c) => [c.name, c.isLocal, c.totalUsd])).toEqual([
+            ['Caja 1', true, 7.02],
+            ['Caja 2', false, 2],
+        ]);
+        expect(totals.todayTotalUsd).toBe(9.02);
+    });
+
     it('marca _deviceRevoked cuando el equipo tiene revoked_at en account_devices', async () => {
         const client = {
             from(table) {

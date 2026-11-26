@@ -461,10 +461,11 @@ describe('F-18 · Flujos de interfaz React LAN contra servidor real', () => {
         }
     });
 
-    it('LanUpdateBanner muestra banner al descargar actualización y permite instalar y reiniciar', async () => {
+    it('LanUpdateBanner muestra centro manual, modal entrante, pospone para Más tarde e instala al reiniciar', async () => {
         const { default: LanUpdateBanner } = await import('../../src/lan/LanUpdateBanner.jsx');
+        const { triggerManualUpdateCheck } = await import('../../src/lan/lanConfig.js');
         const waitUntil = async (pred) => {
-            for (let i = 0; i < 50; i += 1) {
+            for (let i = 0; i < 60; i += 1) {
                 if (pred()) return;
                 await act(async () => {
                     await new Promise((r) => setTimeout(r, 15));
@@ -473,21 +474,33 @@ describe('F-18 · Flujos de interfaz React LAN contra servidor real', () => {
         };
 
         let listener = null;
+        let currentState = {
+            supported: true,
+            currentVersion: '1.0.2',
+            status: 'idle',
+            availableVersion: null,
+            releaseNotes: null,
+            progressPercent: 0,
+            downloaded: false,
+            error: null,
+        };
         const installNow = vi.fn(async () => ({ ok: true }));
+        const checkNow = vi.fn(async () => {
+            currentState = {
+                ...currentState,
+                status: 'up-to-date',
+                lastCheckedAt: '2026-11-26T00:00:00Z',
+            };
+            listener?.(currentState);
+            return { ok: true, state: currentState };
+        });
+
         window.electronAPI = {
             isElectron: true,
             platform: 'win32',
             updater: {
-                getState: vi.fn(async () => ({
-                    supported: true,
-                    currentVersion: '1.0.0',
-                    status: 'downloaded',
-                    availableVersion: '1.0.2',
-                    progressPercent: 100,
-                    downloaded: true,
-                    error: null,
-                })),
-                checkNow: vi.fn(async () => ({ ok: true })),
+                getState: vi.fn(async () => currentState),
+                checkNow,
                 installNow,
                 onStateChange: (cb) => {
                     listener = cb;
@@ -500,22 +513,175 @@ describe('F-18 · Flujos de interfaz React LAN contra servidor real', () => {
             await act(async () => {
                 root.render(<LanUpdateBanner />);
             });
+            await waitUntil(() => typeof listener === 'function');
+
+            // 1. Abrir centro manual "Buscar actualizaciones" cuando aún no hay descarga
+            await act(async () => {
+                await triggerManualUpdateCheck();
+            });
+            const centerModal = await waitForSelector(container, '[data-testid="lan-update-center-modal"]');
+            expect(centerModal).not.toBeNull();
+            expect(centerModal.textContent).toContain('v1.0.2');
+            expect(checkNow).toHaveBeenCalledTimes(1);
+
+            // 2. Llegan progreso y descarga completada de v1.0.3 -> abre modal entrante
+            await act(async () => {
+                listener?.({
+                    ...currentState,
+                    status: 'downloading',
+                    availableVersion: '1.0.3',
+                    progressPercent: 60,
+                    transferredBytes: 60 * 1024 * 1024,
+                    totalBytes: 100 * 1024 * 1024,
+                    bytesPerSecond: 2 * 1024 * 1024,
+                });
+            });
+            const progressBanner = await waitForSelector(container, '[data-testid="lan-update-progress-banner"]');
+            expect(progressBanner).not.toBeNull();
+            expect(progressBanner.textContent).toContain('60%');
+
+            await act(async () => {
+                listener?.({
+                    ...currentState,
+                    status: 'downloaded',
+                    availableVersion: '1.0.3',
+                    releaseNotes: '• Nueva interfaz de actualizaciones\n• Versión unificada v1.0.3',
+                    progressPercent: 100,
+                    downloaded: true,
+                });
+            });
+
+            const readyModal = await waitForSelector(container, '[data-testid="lan-update-ready-modal"]');
+            expect(readyModal).not.toBeNull();
+            expect(readyModal.textContent).toContain('v1.0.3');
+            expect(readyModal.textContent).toContain('Versión unificada');
+
+            // 3. Elegir "Más tarde" minimiza a píldora flotante sin reiniciar
+            const laterBtn = await waitForSelector(container, '[data-testid="lan-update-later-btn"]');
+            expect(laterBtn).not.toBeNull();
+            await act(async () => { laterBtn.click(); });
+            const readyPill = await waitForSelector(container, '[data-testid="lan-update-ready-pill"]');
+            expect(readyPill).not.toBeNull();
+
+            // 4. Reabrir desde la píldora y confirmar "Instalar ahorita (reiniciar)"
+            const pillOpenBtn = await waitForSelector(container, '[data-testid="lan-update-pill-open-btn"]');
+            expect(pillOpenBtn).not.toBeNull();
+            await act(async () => { pillOpenBtn.click(); });
 
             const installBtn = await waitForSelector(container, '[data-testid="lan-update-install-btn"]');
             expect(installBtn).not.toBeNull();
-            expect(container.textContent).toContain('v1.0.2');
-
-            await act(async () => {
-                installBtn.click();
-            });
+            await act(async () => { installBtn.click(); });
             await waitUntil(() => installNow.mock.calls.length === 1);
             expect(installNow).toHaveBeenCalledTimes(1);
-            expect(typeof listener === 'function' || listener === null).toBe(true);
         } finally {
             delete window.electronAPI;
             localStorage.clear();
         }
-    });
+    }, 15_000);
+
+    it('SettingsTabSistema y MemberPickerScreen muestran versión sincronizada y zona de búsqueda', async () => {
+        const { default: SettingsTabSistema } = await import('../../src/components/Settings/tabs/SettingsTabSistema.jsx');
+        const { SecurityProvider } = await import('../../src/hooks/useSecurity.jsx');
+        const { MemberPickerScreen } = await import('../../src/nube/NubeScreens.jsx');
+        const waitUntil = async (pred) => {
+            for (let i = 0; i < 60; i += 1) {
+                if (pred()) return;
+                await act(async () => {
+                    await new Promise((r) => setTimeout(r, 15));
+                });
+            }
+        };
+
+        let listener = null;
+        let currentState = {
+            supported: true,
+            currentVersion: '1.0.3',
+            status: 'idle',
+            downloaded: false,
+            availableVersion: null,
+            progressPercent: 0,
+            error: null,
+        };
+        const installNow = vi.fn(async () => ({ ok: true }));
+        const checkNow = vi.fn(async () => {
+            currentState = {
+                ...currentState,
+                status: 'downloaded',
+                availableVersion: '1.0.4',
+                downloaded: true,
+                progressPercent: 100,
+                lastCheckedAt: '2026-11-26T00:00:00Z',
+            };
+            listener?.(currentState);
+            return { ok: true, state: currentState };
+        });
+
+        window.electronAPI = {
+            isElectron: true,
+            platform: 'win32',
+            updater: {
+                getState: vi.fn(async () => currentState),
+                checkNow,
+                installNow,
+                onStateChange: (cb) => {
+                    listener = cb;
+                    return () => { listener = null; };
+                },
+            },
+        };
+
+        try {
+            await act(async () => {
+                root.render(
+                    <SecurityProvider>
+                        <SettingsTabSistema
+                            deviceId="dev-123"
+                            idCopied={false}
+                            setIdCopied={() => {}}
+                            isAdmin
+                            handleExport={() => {}}
+                            handleImportClick={() => {}}
+                            handleSyncCloud={() => {}}
+                            setIsShareOpen={() => {}}
+                            setShowDeleteConfirm={() => {}}
+                        />
+                    </SecurityProvider>,
+                );
+            });
+            const settingsZone = await waitForSelector(container, '[data-testid="lan-settings-updates"]');
+            expect(settingsZone).not.toBeNull();
+            expect(container.querySelector('[data-testid="app-version"]')?.textContent).toContain('v1.0.3');
+
+            const checkBtn = await waitForSelector(container, '[data-testid="check-update"]');
+            await act(async () => { checkBtn.click(); });
+            await waitUntil(() => checkNow.mock.calls.length === 1);
+            expect(checkNow).toHaveBeenCalledTimes(1);
+
+            const settingsInstallBtn = await waitForSelector(container, '[data-testid="lan-settings-install-btn"]');
+            expect(settingsInstallBtn).not.toBeNull();
+            expect(container.querySelector('[data-testid="lan-settings-later-btn"]')).not.toBeNull();
+            await act(async () => { settingsInstallBtn.click(); });
+            await waitUntil(() => installNow.mock.calls.length === 1);
+            expect(installNow).toHaveBeenCalledTimes(1);
+
+            await act(async () => {
+                root.render(
+                    <MemberPickerScreen
+                        status={{ account: { name: 'Bodega Test' }, device: { label: 'Caja 1', caja_letter: 'A', role: 'caja' }, sedes: [] }}
+                        members={[{ id: 'm1', display_name: 'Luigi', role: 'dueno', pin_length: 6 }]}
+                        onPick={() => {}}
+                        onManage={() => {}}
+                    />,
+                );
+            });
+            const versionBadge = await waitForSelector(container, '[data-testid="member-picker-version"]');
+            expect(versionBadge?.textContent).toContain('v1.0.3');
+            expect(container.querySelector('[data-testid="lan-check-updates-btn"]')).not.toBeNull();
+        } finally {
+            delete window.electronAPI;
+            localStorage.clear();
+        }
+    }, 30_000);
 
     it('rebindDevice permite reconectar la misma Caja A sin crear Caja B, oculta Instalar App en Electron y limita PIN a 6 dígitos', async () => {
         const srv = await createLanServer({ port: 0, host: '127.0.0.1', enableDiscovery: false });

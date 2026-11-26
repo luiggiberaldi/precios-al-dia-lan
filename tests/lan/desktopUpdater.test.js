@@ -45,25 +45,64 @@ describe('Auto-updater desktop (desktop/updater.js)', () => {
         expect(fakeUpdater.autoDownload).toBe(true);
         expect(fakeUpdater.autoInstallOnAppQuit).toBe(true);
         expect(fakeUpdater.allowPrerelease).toBe(false);
+        expect(fakeUpdater.allowDowngrade).toBe(false);
 
         const checkPromise = ctrl.checkForUpdates({ manual: true });
         fakeUpdater.emit('checking-for-update');
-        fakeUpdater.emit('update-available', { version: '1.0.1' });
-        fakeUpdater.emit('download-progress', { percent: 54.6 });
-        fakeUpdater.emit('update-downloaded', { version: '1.0.1' });
+        fakeUpdater.emit('update-available', {
+            version: '1.0.3',
+            releaseDate: '2026-11-26T00:00:00Z',
+            releaseNotes: '<p>Mejoras en actualizaciones</p><ul><li>Versión sincronizada</li></ul>',
+        });
+        fakeUpdater.emit('download-progress', {
+            percent: 54.6,
+            bytesPerSecond: 1200000,
+            transferred: 5000000,
+            total: 10000000,
+        });
+        const progressState = ctrl.getState();
+        expect(progressState.bytesPerSecond).toBe(1200000);
+        expect(progressState.transferredBytes).toBe(5000000);
+        expect(progressState.totalBytes).toBe(10000000);
+
+        fakeUpdater.emit('update-downloaded', {
+            version: '1.0.3',
+            releaseDate: '2026-11-26T00:00:00Z',
+            releaseNotes: '<p>Mejoras en actualizaciones</p><ul><li>Versión sincronizada</li></ul>',
+        });
         await checkPromise;
 
         const st = ctrl.getState();
         expect(st.status).toBe('downloaded');
-        expect(st.availableVersion).toBe('1.0.1');
+        expect(st.availableVersion).toBe('1.0.3');
         expect(st.progressPercent).toBe(100);
         expect(st.downloaded).toBe(true);
+        expect(st.releaseNotes).toContain('Mejoras en actualizaciones');
+        expect(st.releaseNotes).toContain('Versión sincronizada');
+        expect(st.releaseNotes).not.toContain('<p>');
         expect(sent.some(([ch, p]) => ch === 'app:updateState' && p.status === 'downloading' && p.progressPercent === 55)).toBe(true);
 
         const installRes = await ctrl.installUpdateNow();
         expect(installRes.ok).toBe(true);
         expect(beforeInstall).toHaveBeenCalledTimes(1);
         expect(fakeUpdater.quitAndInstall).toHaveBeenCalledWith(false, true);
+    });
+
+    it('marca up-to-date y guarda lastCheckedAt cuando no hay nueva versión', async () => {
+        const fakeUpdater = createFakeAutoUpdater();
+        const ctrl = createAutoUpdaterController({
+            app: { isPackaged: true, getVersion: () => '1.0.3' },
+            autoUpdater: fakeUpdater,
+        });
+        const checkPromise = ctrl.checkForUpdates({ manual: true });
+        fakeUpdater.emit('checking-for-update');
+        fakeUpdater.emit('update-not-available', { version: '1.0.3' });
+        await checkPromise;
+
+        const st = ctrl.getState();
+        expect(st.status).toBe('up-to-date');
+        expect(st.downloaded).toBe(false);
+        expect(typeof st.lastCheckedAt).toBe('string');
     });
 
     it('silencia fallos de red en chequeo automático y muestra aviso amigable en chequeo manual', async () => {

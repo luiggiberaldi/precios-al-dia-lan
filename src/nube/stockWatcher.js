@@ -89,8 +89,16 @@ export function createStockWatcher({ client, getSession, store, onStatus = () =>
                     } catch (e) {
                         const msg = e?.message || String(e);
                         if (/dueño o un administrador/.test(msg)) {
-                            // Sin permiso: no se reintenta; el refresco devuelve el stock real.
+                            // Sin permiso: no se reintenta y se revierte el baseline para que
+                            // no quede desfasado respecto al servidor.
                             rejected.push(...batch.map((m) => ({ ...m, error: msg })));
+                            const current = await read();
+                            const revertedBaseline = { ...current.baseline };
+                            for (const m of batch) {
+                                const prev = revertedBaseline[m.product_id] ?? 0;
+                                revertedBaseline[m.product_id] = round3(prev - Number(m.qty || 0));
+                            }
+                            await store.setItem(STOCK_BASELINE_KEY, revertedBaseline);
                             lastError = 'Solo el dueño o un administrador pueden cambiar el stock. Se restauró el del servidor.';
                         } else {
                             lastError = msg;

@@ -194,7 +194,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     // (y «Por caja»). El cajero sigue viendo solo su turno. Cerrar caja y el efectivo esperado
     // de los controles siguen siendo de esta caja. Fuera de la nube no cambia nada.
     const isNubeManager = !isCajero && isNubeSyncActive() && isNubeManagerRole(readMemberSession()?.role);
-    const allCajas = useAllCajasDashboard(isNubeManager, { localSales: sales, bcvRate, products });
+    const allCajas = useAllCajasDashboard(isNubeManager, { localSales: sales, bcvRate, products, isActive });
     const cajasTotals = isNubeManager ? allCajas.summary?.totals ?? null : null;
     const view = cajasTotals || {
         todaySales, todayTotalUsd, todayTotalBs, todayTotalCop, todayItemsSold,

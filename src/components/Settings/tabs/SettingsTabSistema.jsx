@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
     Palette, Fingerprint, Upload, Download, Share2, Cloud, HardDrive,
-    Check, ChevronRight, Trash2, AlertTriangle, ZoomIn, ZoomOut, RotateCcw, QrCode, RefreshCw
+    Check, ChevronRight, Trash2, AlertTriangle, ZoomIn, ZoomOut, RotateCcw, QrCode, RefreshCw, Rocket, Clock
 } from 'lucide-react';
 import { SectionCard } from '../../SettingsShared';
 import { showToast } from '../../Toast';
@@ -15,6 +15,27 @@ import { resetPOSDataToEmpty } from '../../../hooks/useCloudSync';
 import { useSecurity } from '../../../hooks/useSecurity';
 import { applyUiScale } from '../../../utils/uiScale';
 import { getLastBackupAt, describeBackupAge, isBackupStale } from '../../../utils/backupReminder';
+import { getElectronUpdaterApi, triggerManualUpdateCheck } from '../../../lan/lanConfig';
+
+const DESKTOP_UPDATE_BADGES = {
+    downloaded: { label: 'Lista para instalar', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50' },
+    downloading: { label: 'Descargando', cls: 'bg-brand-light text-brand border-brand/20' },
+    available: { label: 'Disponible', cls: 'bg-brand-light text-brand border-brand/20' },
+    checking: { label: 'Buscando…', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700' },
+    'up-to-date': { label: 'Al día', cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 border-emerald-200/70 dark:border-emerald-800/40' },
+    offline: { label: 'Sin conexión', cls: 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300 border-amber-200 dark:border-amber-800/40' },
+    error: { label: 'No disponible', cls: 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300 border-rose-200 dark:border-rose-800/40' },
+    unsupported: { label: 'Modo desarrollo', cls: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700' },
+};
+
+function formatCheckTime(iso) {
+    if (!iso) return null;
+    try {
+        return new Date(iso).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+        return null;
+    }
+}
 
 // Ajustes > Sistema, ordenado como en Farmacia (CASO-021): respaldo local y nube por separado,
 // aviso de «último respaldo», versión con «Buscar actualización» y lo irreversible solo en la
@@ -56,16 +77,80 @@ export default function SettingsTabSistema({
     }, [importStatus]);
     const backupStale = isBackupStale(lastBackupAt);
 
-    // Buscar actualización: pide al service worker revisar y, si hay versión nueva, permite aplicarla.
+    const electronUpdater = getElectronUpdaterApi();
+
+    // Buscar actualización: en Electron usa el auto-updater; en web usa el Service Worker.
     const [checkingUpdate, setCheckingUpdate] = useState(false);
     const [updateReady, setUpdateReady] = useState(() => !!window.__pdaSwUpdateAvailable);
+    const [desktopUpdateState, setDesktopUpdateState] = useState(null);
+    const [installingDesktopUpdate, setInstallingDesktopUpdate] = useState(false);
+    const [desktopUpdatePostponed, setDesktopUpdatePostponed] = useState(false);
+
     useEffect(() => {
-        const onUpdate = () => setUpdateReady(true);
-        window.addEventListener('sw-update-available', onUpdate);
-        return () => window.removeEventListener('sw-update-available', onUpdate);
-    }, []);
+        if (!electronUpdater) {
+            const onUpdate = () => setUpdateReady(true);
+            window.addEventListener('sw-update-available', onUpdate);
+            return () => window.removeEventListener('sw-update-available', onUpdate);
+        }
+        let cancelled = false;
+        electronUpdater.getState?.().then((state) => {
+            if (!cancelled && state) setDesktopUpdateState(state);
+        }).catch(() => {});
+        const unsubscribe = electronUpdater.onStateChange?.((state) => {
+            if (cancelled || !state) return;
+            setDesktopUpdateState(state);
+            if (state.status !== 'downloaded') setDesktopUpdatePostponed(false);
+        });
+        return () => {
+            cancelled = true;
+            if (typeof unsubscribe === 'function') unsubscribe();
+        };
+    }, [electronUpdater]);
+
+    const handleInstallDesktopUpdate = async () => {
+        if (!electronUpdater?.installNow || installingDesktopUpdate) return;
+        triggerHaptic?.();
+        setInstallingDesktopUpdate(true);
+        try {
+            const res = await electronUpdater.installNow();
+            if (!res?.ok) {
+                showToast(res?.error || 'No se pudo iniciar la instalación', 'error');
+                setInstallingDesktopUpdate(false);
+            }
+        } catch (err) {
+            showToast(err?.message || 'Error al instalar la actualización', 'error');
+            setInstallingDesktopUpdate(false);
+        }
+    };
+
     const handleCheckUpdate = async () => {
         triggerHaptic?.();
+        if (electronUpdater) {
+            if (checkingUpdate) return;
+            setCheckingUpdate(true);
+            try {
+                const res = await electronUpdater.checkNow?.();
+                const nextState = res?.state;
+                if (nextState) setDesktopUpdateState(nextState);
+                if (nextState?.status === 'downloaded') {
+                    setDesktopUpdatePostponed(false);
+                    showToast(`Actualización v${nextState.availableVersion} lista para instalar`, 'success');
+                } else if (nextState?.status === 'available' || nextState?.status === 'downloading') {
+                    showToast(`Descargando versión v${nextState.availableVersion}…`, 'info');
+                } else if (nextState?.status === 'up-to-date') {
+                    showToast('Ya tienes la última versión instalada', 'success');
+                } else if (nextState?.status === 'offline' || nextState?.status === 'unsupported') {
+                    showToast(nextState.error || 'No se pudo buscar actualización ahora', 'info');
+                } else if (nextState?.status === 'error') {
+                    showToast(nextState.error || 'No se pudo buscar actualización', 'error');
+                }
+            } catch (err) {
+                showToast(err?.message || 'No se pudo buscar actualización', 'error');
+            } finally {
+                setCheckingUpdate(false);
+            }
+            return;
+        }
         if (updateReady && typeof window.__pdaUpdateSW === 'function') {
             await window.__pdaUpdateSW(true);
             return;
@@ -387,22 +472,155 @@ export default function SettingsTabSistema({
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">Comparte este ID o escanea su código QR si necesitas soporte técnico o activación de licencia.</p>
 
-                <div className="mt-4 flex items-center justify-between gap-3 p-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl">
-                    <div className="min-w-0">
-                        <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400">Versión de la app</p>
-                        <p data-testid="app-version" className="font-mono text-xs font-black text-slate-700 dark:text-slate-200">v{import.meta.env.VITE_APP_VERSION}</p>
+                {electronUpdater ? (() => {
+                    const st = desktopUpdateState;
+                    const displayVersion = st?.currentVersion || import.meta.env.VITE_APP_VERSION;
+                    const isBusy = checkingUpdate || st?.status === 'checking';
+                    const isDownloading = st?.status === 'downloading' || st?.status === 'available';
+                    const isDownloaded = st?.status === 'downloaded' && st?.downloaded;
+                    const badge = DESKTOP_UPDATE_BADGES[st?.status] || null;
+                    const lastCheckLabel = formatCheckTime(st?.lastCheckedAt);
+                    const pct = Math.min(100, Math.max(0, Number(st?.progressPercent || 0)));
+
+                    return (
+                        <div
+                            data-testid="lan-settings-updates"
+                            className="mt-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50/90 dark:bg-slate-800/50 p-3.5 space-y-3"
+                        >
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400">
+                                            Actualizaciones del sistema
+                                        </p>
+                                        {badge && (
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-wider ${badge.cls}`}>
+                                                {isDownloading ? `Descargando ${pct}%` : badge.label}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                                        <p data-testid="app-version" className="font-mono text-xs font-black text-slate-800 dark:text-slate-100">
+                                            v{displayVersion}
+                                        </p>
+                                        {lastCheckLabel && (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400">
+                                                <Clock size={10} /> Revisado {lastCheckLabel}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                        type="button"
+                                        data-testid="lan-settings-open-center"
+                                        onClick={() => triggerManualUpdateCheck()}
+                                        className="px-2.5 py-2 min-h-[38px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                                    >
+                                        Ver detalles
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-testid="check-update"
+                                        onClick={handleCheckUpdate}
+                                        disabled={isBusy}
+                                        className="flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-xl bg-brand hover:bg-brand-dark disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-xs"
+                                    >
+                                        <RefreshCw size={13} className={isBusy ? 'animate-spin' : ''} />
+                                        {isBusy ? 'Buscando…' : 'Buscar actualizaciones'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {isDownloading && (
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                                        <span>Descargando versión v{st?.availableVersion || 'nueva'}…</span>
+                                        <span>{pct}%</span>
+                                    </div>
+                                    <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                        <div className="h-full bg-brand rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {isDownloaded && (
+                                <div className="rounded-xl border border-emerald-300/80 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/30 p-3 space-y-2.5">
+                                    <div className="flex items-start gap-2.5">
+                                        <div className="p-1.5 rounded-lg bg-emerald-500 text-white shrink-0">
+                                            <Rocket size={14} />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-xs font-black text-emerald-900 dark:text-emerald-200">
+                                                Nueva actualización lista: v{st?.availableVersion}
+                                            </p>
+                                            <p className="text-[11px] font-medium text-emerald-800/80 dark:text-emerald-300/80">
+                                                {desktopUpdatePostponed
+                                                    ? 'La dejaste para más tarde. Se instalará al cerrar la app o cuando pulses Instalar ahorita.'
+                                                    : 'Ya se descargó completa. Elige si quieres reiniciar ahorita o continuar trabajando.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
+                                        {!desktopUpdatePostponed && (
+                                            <button
+                                                type="button"
+                                                data-testid="lan-settings-later-btn"
+                                                onClick={() => {
+                                                    setDesktopUpdatePostponed(true);
+                                                    showToast(`v${st?.availableVersion} se instalará más tarde`, 'info');
+                                                }}
+                                                className="px-3 py-1.5 min-h-[34px] rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white/80 dark:bg-slate-900/80 hover:bg-white text-[11px] font-bold text-emerald-800 dark:text-emerald-200 cursor-pointer"
+                                            >
+                                                Más tarde
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            data-testid="lan-settings-install-btn"
+                                            onClick={handleInstallDesktopUpdate}
+                                            disabled={installingDesktopUpdate}
+                                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[34px] rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-wider shadow-xs cursor-pointer"
+                                        >
+                                            <Download size={12} />
+                                            {installingDesktopUpdate ? 'Reiniciando…' : 'Instalar ahorita (reiniciar)'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {!isDownloaded && st?.status === 'up-to-date' && (
+                                <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                                    Ya tienes instalada la última versión disponible (v{displayVersion}).
+                                </p>
+                            )}
+
+                            {(st?.status === 'error' || st?.status === 'offline' || st?.status === 'unsupported') && st?.error && (
+                                <p className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                                    {st.error}
+                                </p>
+                            )}
+                        </div>
+                    );
+                })() : (
+                    <div className="mt-4 flex items-center justify-between gap-3 p-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl">
+                        <div className="min-w-0">
+                            <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400">Versión de la app</p>
+                            <p data-testid="app-version" className="font-mono text-xs font-black text-slate-700 dark:text-slate-200">v{import.meta.env.VITE_APP_VERSION}</p>
+                        </div>
+                        <button
+                            type="button"
+                            data-testid="check-update"
+                            onClick={handleCheckUpdate}
+                            disabled={checkingUpdate}
+                            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-60 ${updateReady ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+                        >
+                            <RefreshCw size={13} className={checkingUpdate ? 'animate-spin' : ''} />
+                            {updateReady ? 'Actualizar ahora' : checkingUpdate ? 'Buscando…' : 'Buscar actualización'}
+                        </button>
                     </div>
-                    <button
-                        type="button"
-                        data-testid="check-update"
-                        onClick={handleCheckUpdate}
-                        disabled={checkingUpdate}
-                        className={`shrink-0 flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-60 ${updateReady ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-                    >
-                        <RefreshCw size={13} className={checkingUpdate ? 'animate-spin' : ''} />
-                        {updateReady ? 'Actualizar ahora' : checkingUpdate ? 'Buscando…' : 'Buscar actualización'}
-                    </button>
-                </div>
+                )}
 
                 {/* Dos equipos con el mismo ID: separar esta estación */}
                 <div className="mt-4 p-3 rounded-2xl border border-amber-200/70 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20">

@@ -326,6 +326,25 @@ export function MemberPickerScreen({ status, members, onPick, onManage, onSignOu
     const { standalone, electronDesktop, install } = useInstallApp();
     const [installHelp, setInstallHelp] = useState(false);
     const [confirmSignOut, setConfirmSignOut] = useState(false);
+    const [desktopUpdate, setDesktopUpdate] = useState(null);
+
+    useEffect(() => {
+        const updater = getElectronUpdaterApi();
+        if (!updater) return undefined;
+        let cancelled = false;
+        updater.getState?.().then((state) => {
+            if (!cancelled && state) setDesktopUpdate(state);
+        }).catch(() => {});
+        const unsubscribe = updater.onStateChange?.((state) => {
+            if (!cancelled && state) setDesktopUpdate(state);
+        });
+        return () => {
+            cancelled = true;
+            if (typeof unsubscribe === 'function') unsubscribe();
+        };
+    }, []);
+
+    const displayVersion = desktopUpdate?.currentVersion || import.meta.env.VITE_APP_VERSION;
     const chips = [
         loc.business && { icon: Store, text: loc.business, testId: 'nube-loc-business' },
         loc.sede && { icon: MapPin, text: loc.sede, testId: 'nube-loc-sede' },
@@ -342,7 +361,7 @@ export function MemberPickerScreen({ status, members, onPick, onManage, onSignOu
             <header className="w-full px-4 sm:px-6 pt-[max(0.875rem,env(safe-area-inset-top))] pb-2 flex items-center justify-between gap-2 z-30 shrink-0">
                 <div className="flex items-center gap-2 px-2.5 py-1 bg-slate-900/5 dark:bg-slate-100/10 border border-slate-900/10 dark:border-slate-100/10 rounded-xl backdrop-blur-md">
                     <Cloud size={12} className="text-brand" strokeWidth={2.5} />
-                    <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 tracking-wider">v{import.meta.env.VITE_APP_VERSION}</span>
+                    <span data-testid="member-picker-version" className="text-[11px] font-black text-slate-500 dark:text-slate-400 tracking-wider">v{displayVersion}</span>
                     <Clock />
                 </div>
                 <div className="flex items-center gap-2">
@@ -440,9 +459,16 @@ export function MemberPickerScreen({ status, members, onPick, onManage, onSignOu
                                 type="button"
                                 data-testid="lan-check-updates-btn"
                                 onClick={() => triggerManualUpdateCheck()}
-                                className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer"
+                                className={desktopUpdate?.downloaded
+                                    ? 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold cursor-pointer hover:bg-emerald-500/25 transition-colors'
+                                    : 'hover:text-slate-600 dark:hover:text-slate-300 transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer'}
                             >
-                                <Download size={10} strokeWidth={2.5} />Buscar actualización
+                                <Download size={10} strokeWidth={2.5} />
+                                {desktopUpdate?.downloaded
+                                    ? `Nueva v${desktopUpdate.availableVersion} lista`
+                                    : (desktopUpdate?.status === 'downloading'
+                                        ? `Descargando ${desktopUpdate.progressPercent || 0}%…`
+                                        : 'Buscar actualizaciones')}
                             </button>
                         </>
                     )}

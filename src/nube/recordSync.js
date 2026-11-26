@@ -85,9 +85,19 @@ function pick(obj, keys) {
     return out;
 }
 
-/** Lo que viaja a la nube: sin campos de libro y sin imágenes incrustadas enormes. */
+/** Lo que viaja a la nube: sin campos de libro, con imágenes LAN relativas y sin base64 enormes. */
 export function toCloudData(cfg, item) {
     let data = omit(item, cfg.keep);
+    if (typeof data.image === 'string' && /^https?:\/\//i.test(data.image)) {
+        try {
+            const parsed = new URL(data.image);
+            if (parsed.pathname.startsWith('/lan/images/')) {
+                data = { ...data, image: `${parsed.pathname}${parsed.search || ''}` };
+            }
+        } catch {
+            /* conservar valor original */
+        }
+    }
     if (JSON.stringify(data).length > MAX_RECORD_BYTES && typeof data.image === 'string' && data.image.startsWith('data:')) {
         data = omit(data, ['image']);
     }

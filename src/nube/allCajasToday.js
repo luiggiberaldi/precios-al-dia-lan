@@ -197,14 +197,21 @@ export function salesOfDayAllCajas({ remoteSales = [], localSales = [], localDev
     return onlySalesHistory([...local, ...remote]).sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));
 }
 
-/** Nombres de las cajas (account_devices.label) y estado de revocación. */
+/** Nombres de las cajas (account_devices.label), revocación e id oficial de esta caja. */
 export async function readDeviceMeta(client) {
-    const { data, error } = await client.from('account_devices').select('id, label, revoked_at');
-    if (error) return { labels: {}, revokedIds: new Set() };
+    const [{ data, error }, sessionRes] = await Promise.all([
+        client.from('account_devices').select('id, label, revoked_at, auth_user_id'),
+        client.auth?.getSession?.().catch(() => null) ?? Promise.resolve(null),
+    ]);
+    if (error) return { labels: {}, revokedIds: new Set(), currentDeviceId: null };
     const rows = data || [];
     const labels = Object.fromEntries(rows.filter((d) => d.label).map((d) => [d.id, d.label]));
     const revokedIds = new Set(rows.filter((d) => d.revoked_at).map((d) => d.id));
-    return { labels, revokedIds };
+    const authUid = sessionRes?.data?.session?.user?.id || null;
+    const ownRow = authUid
+        ? (rows.find((d) => d.auth_user_id === authUid && !d.revoked_at) || rows.find((d) => d.auth_user_id === authUid))
+        : null;
+    return { labels, revokedIds, currentDeviceId: ownRow?.id || null };
 }
 
 /** Nombres de las cajas (account_devices.label). */
@@ -215,8 +222,8 @@ export async function readDeviceLabels(client) {
 
 /** Para `useAllCajasSales(..., { load })`: el historial con el nombre de cada caja. */
 export async function loadDashboardCajas(client) {
-    const [sales, { labels, revokedIds }] = await Promise.all([loadAllCajasSales(client), readDeviceMeta(client)]);
-    return sales.map((s) => {
+    const [sales, { labels, revokedIds, currentDeviceId }] = await Promise.all([loadAllCajasSales(client), readDeviceMeta(client)]);
+    const out = sales.map((s) => {
         if (!s._deviceId) return s;
         return {
             ...s,
@@ -224,4 +231,11 @@ export async function loadDashboardCajas(client) {
             ...(revokedIds.has(s._deviceId) ? { _deviceRevoked: true } : {}),
         };
     });
+    // Adjuntamos el id oficial de esta caja y el mapa completo de nombres sin romper
+    // el contrato de Array que esperan callers y tests.
+    Object.defineProperties(out, {
+        _currentDeviceId: { value: currentDeviceId, enumerable: false },
+        _deviceLabels: { value: labels, enumerable: false },
+    });
+    return out;
 }

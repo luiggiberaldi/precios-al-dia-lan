@@ -23,6 +23,7 @@ const CURRENT_VERSION = import.meta.env.VITE_APP_VERSION || '0.0.0';
  *  - Modo "novedades": ya se actualizó y no ha visto las notas → se muestran una sola vez.
  */
 export function UpdateBanner() {
+    const isElectron = typeof window !== 'undefined' && Boolean(window.electronAPI?.isElectron);
     const [updateReady, setUpdateReady] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [dismissed, setDismissed] = useState(false);
@@ -36,26 +37,27 @@ export function UpdateBanner() {
     const fetched = useRef(false);
 
     useEffect(() => {
+        if (isElectron) return undefined;
         const handleUpdateAvailable = () => setUpdateReady(true);
         // main.jsx puede detectar el SW antes de que React monte este componente.
         // Consultar también la marca persistente evita perder la actualización.
         if (window.__pdaSwUpdateAvailable) setUpdateReady(true);
         window.addEventListener('sw-update-available', handleUpdateAvailable);
         return () => window.removeEventListener('sw-update-available', handleUpdateAvailable);
-    }, []);
+    }, [isElectron]);
 
     useEffect(() => {
-        if (!updateReady || fetched.current) return;
+        if (isElectron || !updateReady || fetched.current) return;
         fetched.current = true;
         fetch('/release-notes.json', { cache: 'no-store' })
             .then((r) => (r.ok ? r.json() : []))
             .then((json) => setRemoteNotes(Array.isArray(json) ? json : []))
             .catch(() => setRemoteNotes([])); // sin internet: el aviso sale igual, sin notas
-    }, [updateReady]);
+    }, [isElectron, updateReady]);
 
     const updateNotes = updateReady ? notasPendientes(remoteNotes, CURRENT_VERSION) : [];
     const notes = updateReady ? updateNotes : whatsNew;
-    const visible = !dismissed && (updateReady || whatsNew.length > 0);
+    const visible = !isElectron && !dismissed && (updateReady || whatsNew.length > 0);
 
     const closeWhatsNew = () => {
         guardarUltimaVersionVista(CURRENT_VERSION);

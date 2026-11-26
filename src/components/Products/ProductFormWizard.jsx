@@ -7,6 +7,7 @@ import ProductCostFactorControl from './ProductCostFactorControl';
 import BarcodeDuplicateHint from './BarcodeDuplicateHint';
 import SimilarNameHint from './SimilarNameHint';
 import { loadTaxConfig } from '../../config/taxConfig';
+import { resolveLanImageUrl } from '../../utils/imageFallback';
 import {
     granelUnitLabel,
     useGranelUnitMode,
@@ -162,7 +163,7 @@ export default function ProductFormWizard({
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 select-none">
                         {/* File Upload Zone */}
                         <div onClick={() => fileInputRef.current?.click()} className="sm:col-span-5 h-28 bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 transition-colors relative overflow-hidden">
-                            {image ? <img src={image} className="w-full h-full object-cover" alt="Product preview" /> : (
+                            {image ? <img src={resolveLanImageUrl(image)} className="w-full h-full object-cover" alt="Product preview" /> : (
                                 <>
                                     <Camera size={22} className="text-slate-400 mb-1" />
                                     <span className="text-[10px] font-black text-slate-500">Subir foto local</span>
@@ -859,7 +860,7 @@ export default function ProductFormWizard({
                     <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/80 dark:to-slate-900 p-4 rounded-3xl border-2 border-slate-100 dark:border-slate-800 shadow-lg relative overflow-hidden flex gap-4 items-center">
                         <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center shrink-0 border border-slate-200/50 dark:border-slate-600/50 overflow-hidden shadow-inner">
                             {image ? (
-                                <img src={image} className="w-full h-full object-cover" alt="Preview image" />
+                                <img src={resolveLanImageUrl(image)} className="w-full h-full object-cover" alt="Preview image" />
                             ) : (
                                 <ShoppingBag size={28} className="text-slate-400 dark:text-slate-500" />
                             )}

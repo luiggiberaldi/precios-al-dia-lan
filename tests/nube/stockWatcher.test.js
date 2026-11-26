@@ -53,9 +53,11 @@ describe('F3 · vigilante de stock', () => {
         session = null;
     });
 
-    it('un cajero no puede cambiar el stock: se rechaza, se avisa y no queda en cola', async () => {
+    it('un cajero no puede cambiar el stock: se rechaza, se avisa, revierte baseline y no queda en cola', async () => {
         const ctx = await setup(db);
-        const w = createStockWatcher({ client: ctx.client, getSession: () => ctx.cajero, store: memoryStore() });
+        const store = memoryStore();
+        let session = ctx.cajero;
+        const w = createStockWatcher({ client: ctx.client, getSession: () => session, store });
         await w.setBaseline([{ id: 'x', stock: 3 }]);
         await w.onProductsWrite([{ id: 'x', stock: 9 }]);
         await w.flush();
@@ -63,6 +65,12 @@ describe('F3 · vigilante de stock', () => {
         expect(w.getRejected()).toHaveLength(1);
         expect((await w.pendingProducts()).size).toBe(0);
         expect((await fetchStockLevels(ctx.client)).x).toBeUndefined();
+
+        // Si luego entra un administrador y guarda 9, el baseline volvió a 3 y sube +6.
+        session = ctx.admin;
+        expect(await w.onProductsWrite([{ id: 'x', stock: 9 }])).toBe(1);
+        await w.flush();
+        expect((await fetchStockLevels(ctx.client)).x).toBe(6);
     });
 
     it('sin internet los ajustes quedan en cola y suben al volver (G10)', async () => {
