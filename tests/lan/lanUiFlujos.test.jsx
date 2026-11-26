@@ -33,6 +33,10 @@ vi.mock('../../src/nube/accountReset', async (importOriginal) => {
     };
 });
 
+vi.mock('../../src/hooks/useSecurity', () => ({
+    useSecurity: () => ({ fixDuplicateDeviceId: vi.fn() }),
+}));
+
 vi.mock('../../src/hooks/store/useAuthStore', () => {
     const useAuthStore = (selector) => (selector ? selector(mockState.authState) : mockState.authState);
     useAuthStore.setState = (patch) => {
@@ -581,7 +585,6 @@ describe('F-18 · Flujos de interfaz React LAN contra servidor real', () => {
 
     it('SettingsTabSistema y MemberPickerScreen muestran versión sincronizada y zona de búsqueda', async () => {
         const { default: SettingsTabSistema } = await import('../../src/components/Settings/tabs/SettingsTabSistema.jsx');
-        const { SecurityProvider } = await import('../../src/hooks/useSecurity.jsx');
         const { MemberPickerScreen } = await import('../../src/nube/NubeScreens.jsx');
         const waitUntil = async (pred) => {
             for (let i = 0; i < 60; i += 1) {
@@ -633,19 +636,17 @@ describe('F-18 · Flujos de interfaz React LAN contra servidor real', () => {
         try {
             await act(async () => {
                 root.render(
-                    <SecurityProvider>
-                        <SettingsTabSistema
-                            deviceId="dev-123"
-                            idCopied={false}
-                            setIdCopied={() => {}}
-                            isAdmin
-                            handleExport={() => {}}
-                            handleImportClick={() => {}}
-                            handleSyncCloud={() => {}}
-                            setIsShareOpen={() => {}}
-                            setShowDeleteConfirm={() => {}}
-                        />
-                    </SecurityProvider>,
+                    <SettingsTabSistema
+                        deviceId="dev-123"
+                        idCopied={false}
+                        setIdCopied={() => {}}
+                        isAdmin
+                        handleExport={() => {}}
+                        handleImportClick={() => {}}
+                        handleSyncCloud={() => {}}
+                        setIsShareOpen={() => {}}
+                        setShowDeleteConfirm={() => {}}
+                    />,
                 );
             });
             const settingsZone = await waitForSelector(container, '[data-testid="lan-settings-updates"]');
