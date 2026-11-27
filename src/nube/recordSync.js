@@ -236,6 +236,7 @@ export function createRecordSync({
     canPush = () => true,
 }) {
     let flushing = null;
+    let flushAgain = false;
     let pulling = null;
     const pullAgain = new Set();
     let lastError = null;
@@ -266,7 +267,7 @@ export function createRecordSync({
         if (cfg.cash && !cashIdSuffix) return true; // sin id de equipo no se suben registros de caja
         await inTurn(cfg.collection, () => queueLocalWrite(key, cfg, value));
         report();
-        flush();
+        flush({ rerunIfBusy: true });
         return true;
     }
 
@@ -435,28 +436,36 @@ export function createRecordSync({
         }
     }
 
-    function flush() {
-        if (flushing) return flushing;
+    function flush({ rerunIfBusy = false } = {}) {
+        if (flushing) {
+            if (rerunIfBusy) flushAgain = true;
+            return flushing;
+        }
         flushing = (async () => {
             try {
                 // Cada colección por su lado: si una falla (p. ej. un cajero no puede cambiar
                 // ajustes) las demás siguen subiendo; lo que falló queda en su cola (G10).
                 let firstError = null;
-                rejectedCount = 0;
-                const restore = new Set();
-                for (const cfg of new Set(Object.values(SYNCED_KEYS).map((c) => c.collection))) {
-                    const before = rejectedCount;
-                    try {
-                        await flushCollection(cfg);
-                    } catch (e) {
-                        firstError = firstError || e?.message || String(e);
+                let totalRejected = 0;
+                do {
+                    flushAgain = false;
+                    rejectedCount = 0;
+                    const restore = new Set();
+                    for (const cfg of new Set(Object.values(SYNCED_KEYS).map((c) => c.collection))) {
+                        const before = rejectedCount;
+                        try {
+                            await flushCollection(cfg);
+                        } catch (e) {
+                            firstError = firstError || e?.message || String(e);
+                        }
+                        if (rejectedCount > before) restore.add(cfg);
                     }
-                    if (rejectedCount > before) restore.add(cfg);
-                }
-                // Lo rechazado vuelve ya mismo (la nube lo republicó con versión nueva).
-                if (restore.size) await pull([...restore]).catch(() => {});
-                lastError = firstError || (rejectedCount
-                    ? `Solo el dueño o un administrador pueden borrar clientes (o el cliente tiene saldo pendiente): se restauraron ${rejectedCount}.`
+                    totalRejected += rejectedCount;
+                    // Lo rechazado vuelve ya mismo (la nube lo republicó con versión nueva).
+                    if (restore.size) await pull([...restore]).catch(() => {});
+                } while (flushAgain);
+                lastError = firstError || (totalRejected
+                    ? `Solo el dueño o un administrador pueden borrar clientes (o el cliente tiene saldo pendiente): se restauraron ${totalRejected}.`
                     : lastSizeError);
             } finally {
                 flushing = null;

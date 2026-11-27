@@ -218,13 +218,16 @@ describe('S6 · un aviso por subida y ninguno por registros de caja', () => {
         expect(await touches(accountId, 'products')).toBe(2); // otra subida, otro aviso
     }, 60_000);
 
-    it('los registros de caja no avisan a las demás cajas', async () => {
+    it('los registros de caja emiten un solo aviso por subida para actualizar Inicio y Reportes en tiempo real (021)', async () => {
         const { accountId, cajas } = await setup(db);
         const [a] = cajas;
         await q(db, a.user, 'select * from public.push_records($1, $2, $3::jsonb)',
-            [a.session, 'cash', JSON.stringify([{ id: 'v1@a', data: { id: 'v1', tipo: 'VENTA', totalUsd: 1 } }])]);
-        expect(await touches(accountId, 'cash')).toBe(0);
+            [a.session, 'cash', JSON.stringify([
+                { id: 'v1@a', data: { id: 'v1', tipo: 'VENTA', totalUsd: 1 } },
+                { id: 'v2@a', data: { id: 'v2', tipo: 'VENTA', totalUsd: 2 } },
+            ])]);
+        expect(await touches(accountId, 'cash')).toBe(1);
         const [rec] = await q(db, 'service', "select count(*)::int as n from public.account_records where account_id = $1 and collection = 'cash'", [accountId]);
-        expect(rec.n).toBe(1);
+        expect(rec.n).toBe(2);
     }, 60_000);
 });

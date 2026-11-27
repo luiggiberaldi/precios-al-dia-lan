@@ -41,7 +41,7 @@ import { withLock } from '../utils/withLock';
 import { buildAporteCajaRecord } from '../utils/cajaAporte';
 import AporteCajaModal from '../components/Sales/AporteCajaModal';
 import DashboardPorCaja from '../components/Dashboard/DashboardPorCaja';
-import { isNubeSyncActive } from '../nube/localWriteHook';
+import { isNubeSyncActive, useNubeSyncActive } from '../nube/localWriteHook';
 import { readMemberSession } from '../nube/memberSession';
 import { appendCustomerLocked } from '../utils/customerHistory';
 import { isNubeManagerRole } from '../nube/allCajasToday';
@@ -194,7 +194,8 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     // Nube: el dueño y el administrador ven en el Inicio lo de hoy SUMADO de todas las cajas
     // (y «Por caja»). El cajero sigue viendo solo su turno. Cerrar caja y el efectivo esperado
     // de los controles siguen siendo de esta caja. Fuera de la nube no cambia nada.
-    const isNubeManager = !isCajero && isNubeSyncActive() && isNubeManagerRole(readMemberSession()?.role);
+    const nubeSyncActive = useNubeSyncActive();
+    const isNubeManager = !isCajero && nubeSyncActive && isNubeManagerRole(readMemberSession()?.role);
     const allCajas = useAllCajasDashboard(isNubeManager, { localSales: sales, bcvRate, products, isActive });
     const cajasTotals = isNubeManager ? allCajas.summary?.totals ?? null : null;
     const effectiveWeekData = (isNubeManager && allCajas.weekData) ? allCajas.weekData : weekData;

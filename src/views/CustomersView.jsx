@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 // v1.2.0: useReveal hook para animaciones reveal-on-scroll (design system "Precios al Día")
 import { useReveal } from '../hooks/useReveal';
 import { matchesSearch as matchesSearchFields } from '../utils/searchMatch';
@@ -71,6 +71,8 @@ export default function CustomersView({ triggerHaptic, isActive }) {
     const { log: auditLog } = useAudit();
     const [expandedHistory, setExpandedHistory] = useState(null);
     const [historyData, setHistoryData] = useState([]);
+    const expandedHistoryRef = useRef(null);
+    expandedHistoryRef.current = expandedHistory;
     // Modales de Clientes
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [editingCustomer, setEditingCustomer] = useState(null);
@@ -146,7 +148,7 @@ export default function CustomersView({ triggerHaptic, isActive }) {
     // BAJ-02: refrescar clientes, cartera, Cashea y métodos de pago en vivo cuando otra caja sincroniza cambios.
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
-        const onStorageUpdate = (e) => {
+        const onStorageUpdate = async (e) => {
             const key = e?.detail?.key;
             if (
                 key === 'bodega_customers_v1'
@@ -155,6 +157,16 @@ export default function CustomersView({ triggerHaptic, isActive }) {
                 || key === 'bodega_payment_methods_v1'
             ) {
                 loadData();
+            }
+            const activeCustId = expandedHistoryRef.current;
+            if (activeCustId && (key === CUSTOMER_LEDGER_KEY || key === 'bodega_sales_v1')) {
+                const [allSales, freshLedger] = await Promise.all([
+                    storageService.getItem('bodega_sales_v1', []),
+                    storageService.getItem(CUSTOMER_LEDGER_KEY, []),
+                ]);
+                if (expandedHistoryRef.current === activeCustId) {
+                    setHistoryData(buildUnifiedCustomerHistory(activeCustId, allSales, freshLedger, { limit: 20 }));
+                }
             }
         };
         window.addEventListener('app_storage_update', onStorageUpdate);

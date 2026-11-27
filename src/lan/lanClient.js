@@ -156,6 +156,7 @@ export function createLanClient({
     const store = createTokenStore(storageKey, persistSession);
     const activeChannels = new Set();
     let streamAbort = null;
+    let streamAbortReason = null;
     let streamRunning = false;
     let streamConnected = false;
     let overrideUrl = null;
@@ -204,7 +205,10 @@ export function createLanClient({
                                 setLanServerUrl(probe.baseUrl, 'client');
                                 getElectronLanApi()?.setClientMode?.({ serverUrl: probe.baseUrl })?.catch?.(() => {});
                             }
-                            if (streamAbort) streamAbort.abort();
+                            if (streamAbort) {
+                                streamAbortReason = 'rediscover';
+                                streamAbort.abort();
+                            }
                             return probe.baseUrl;
                         }
                     } catch {
@@ -301,6 +305,7 @@ export function createLanClient({
 
     function stopStream() {
         if (streamAbort) {
+            streamAbortReason = 'stop';
             streamAbort.abort();
             streamAbort = null;
         }
@@ -318,6 +323,7 @@ export function createLanClient({
         }
         streamRunning = true;
         streamConnected = false;
+        streamAbortReason = null;
         const controller = new AbortController();
         streamAbort = controller;
         let timedOut = false;
@@ -327,6 +333,7 @@ export function createLanClient({
             clearTimeout(idleTimer);
             idleTimer = setTimeout(() => {
                 timedOut = true;
+                streamAbortReason = 'timeout';
                 controller.abort();
             }, sseIdleTimeoutMs);
         };
@@ -381,20 +388,33 @@ export function createLanClient({
                     }
                 }
             }
-            if (!controller.signal.aborted || timedOut) {
-                streamRunning = false;
-                streamConnected = false;
-                notifyAllChannels(timedOut ? 'CHANNEL_ERROR' : 'CLOSED');
+            const reason = streamAbortReason;
+            if (!controller.signal.aborted || timedOut || reason === 'rediscover') {
+                if (streamAbort === controller) {
+                    streamAbort = null;
+                    streamRunning = false;
+                    streamConnected = false;
+                }
+                notifyAllChannels((timedOut || reason === 'rediscover') ? 'CHANNEL_ERROR' : 'CLOSED');
             }
         } catch {
-            if (!controller.signal.aborted || timedOut) {
-                streamRunning = false;
-                streamConnected = false;
+            const reason = streamAbortReason;
+            if (!controller.signal.aborted || timedOut || reason === 'rediscover') {
+                if (streamAbort === controller) {
+                    streamAbort = null;
+                    streamRunning = false;
+                    streamConnected = false;
+                }
                 notifyAllChannels('CHANNEL_ERROR');
             }
         } finally {
             clearTimeout(idleTimer);
             idleTimer = null;
+            if (streamAbort === controller) {
+                streamAbort = null;
+                streamRunning = false;
+                streamConnected = false;
+            }
         }
     }
 

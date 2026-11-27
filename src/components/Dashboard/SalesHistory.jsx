@@ -11,7 +11,7 @@ import { formatSaleItemQuantity } from '../../utils/granel';
 import { usePagination } from '../../hooks/usePagination';
 import PaginationBar from '../PaginationBar';
 import { normalizeSearchText } from '../../utils/searchMatch';
-import { isNubeSyncActive } from '../../nube/localWriteHook';
+import { isNubeSyncActive, useNubeSyncActive } from '../../nube/localWriteHook';
 import { useAllCajasSales } from '../../nube/useAllCajasSales';
 import { onlySalesHistory } from '../../nube/allCajasSales';
 import { saleSellerName, saleNubeNumber, formatSaleDateTime } from '../../utils/saleHistoryInfo';
@@ -39,15 +39,17 @@ export default function SalesHistory({
 }) {
     const [expandedSaleId, setExpandedSaleId] = useState(null);
     const [printingId, setPrintingId] = useState(null);
-    const [historyTabState, setHistoryTabState] = useState('turno'); // 'turno' | 'general' | 'cajas'
+    const [historyTabState, setHistoryTabState] = useState(null); // null (auto: 'dia' en multi-caja, si no 'turno') | 'turno' | 'dia' | 'general' | 'cajas'
     // Nube: el dueño y el administrador ven además las ventas de TODAS las cajas (solo lectura).
     // El cajero solo ve las de su caja.
-    const showAllCajas = Boolean(isAdmin) && isNubeSyncActive();
+    const nubeSyncActive = useNubeSyncActive();
+    const showAllCajas = Boolean(isAdmin) && nubeSyncActive;
     // Solo admin puede ver ventas generales; si el rol cambia, cae a 'turno' sin depender del estado.
     const showDaySales = Boolean(isAdmin) && Array.isArray(daySales);
+    const resolvedTab = historyTabState ?? (showDaySales ? 'dia' : 'turno');
     const historyTab = !isAdmin ? 'turno'
-        : (historyTabState === 'cajas' && !showAllCajas ? 'general'
-            : historyTabState === 'dia' && !showDaySales ? 'turno' : historyTabState);
+        : (resolvedTab === 'cajas' && !showAllCajas ? 'general'
+            : resolvedTab === 'dia' && !showDaySales ? 'turno' : resolvedTab);
     const isAllCajas = historyTab === 'cajas';
     const isDaySales = historyTab === 'dia';
     const daySalesCount = useMemo(() => (showDaySales ? filterHistoryByKind(daySales, 'ventas').length : 0), [showDaySales, daySales]);

@@ -590,6 +590,29 @@ export async function createLanDb({
                 new: r,
             });
         }
+        // Respaldo contra empates sub-microsegundo en PGlite/WASM al subir registros vía push_records*.
+        if (
+            (safeFn === 'push_records' || safeFn === 'push_records_v2')
+            && args?.p_collection
+            && Array.isArray(data)
+            && data.length > 0
+            && !syncRows.some((r) => r.collection === args.p_collection)
+        ) {
+            const fallbackSync = (
+                await db.query(
+                    'select account_id, collection, changed_at from public.account_sync_state where collection = $1 order by changed_at desc limit 1',
+                    [String(args.p_collection)],
+                    { parsers: TIMESTAMP_AS_TEXT },
+                )
+            ).rows[0];
+            if (fallbackSync) {
+                events.push({
+                    table: 'account_sync_state',
+                    account_id: fallbackSync.account_id,
+                    new: fallbackSync,
+                });
+            }
+        }
 
         const stockRows = (
             await db.query(

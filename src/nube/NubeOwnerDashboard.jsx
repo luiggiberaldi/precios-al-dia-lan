@@ -157,8 +157,8 @@ export default function NubeOwnerDashboard({
     useEffect(() => {
         if (typeof client?.channel !== 'function') return undefined;
         let timer = null;
-        const scheduleReload = (table) => {
-            if (tabRef.current === 'tasa' && table !== 'account_sync_state') return;
+        const scheduleReload = (table, collection = null) => {
+            if (tabRef.current === 'tasa' && (table !== 'account_sync_state' || (collection && collection !== 'settings'))) return;
             if (timer) clearTimeout(timer);
             timer = setTimeout(() => { loadRef.current?.(tabRef.current); }, 250);
         };
@@ -166,7 +166,7 @@ export default function NubeOwnerDashboard({
             client,
             'supervisor-dashboard-live',
             (ch) => ch
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'account_sync_state' }, () => scheduleReload('account_sync_state'))
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'account_sync_state' }, (payload) => scheduleReload('account_sync_state', payload?.new?.collection))
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_levels' }, () => scheduleReload('stock_levels'))
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_balances' }, () => scheduleReload('customer_balances')),
             {

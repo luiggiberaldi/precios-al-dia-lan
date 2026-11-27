@@ -5,15 +5,33 @@
  * Mientras la puerta de la nube no lo instale (o con la nube apagada), todo sigue
  * igual que en Bodega. Un solo desvío corto en el archivo heredado (baranda G9).
  */
+import { useSyncExternalStore } from 'react';
+
 let handler = null;
+const activeListeners = new Set();
 
 export function setNubeLocalWriteHandler(fn) {
-    handler = typeof fn === 'function' ? fn : null;
+    const next = typeof fn === 'function' ? fn : null;
+    if (handler === next) return;
+    handler = next;
+    for (const listener of [...activeListeners]) {
+        try { listener(); } catch { /* noop */ }
+    }
 }
 
 /** ¿La nube se encarga de sincronizar? (si sí, no se usa el sincronizador viejo). */
 export function isNubeSyncActive() {
     return handler !== null;
+}
+
+function subscribeNubeSyncActive(listener) {
+    activeListeners.add(listener);
+    return () => activeListeners.delete(listener);
+}
+
+/** Hook reactivo para vistas que muestran paneles multi-caja solo cuando el sync está activo. */
+export function useNubeSyncActive() {
+    return useSyncExternalStore(subscribeNubeSyncActive, isNubeSyncActive, isNubeSyncActive);
 }
 
 // Escrituras avisadas que aún se están encolando (para poder esperarlas).

@@ -437,11 +437,13 @@ export async function createLanServer({
                     return;
                 }
                 req.socket?.setKeepAlive?.(true, 15_000);
+                req.socket?.setNoDelay?.(true);
                 res.writeHead(200, {
                     'Content-Type': 'text/event-stream; charset=utf-8',
                     'Cache-Control': 'no-cache, no-transform',
                     Connection: 'keep-alive',
                 });
+                res.flushHeaders?.();
                 res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, userId: session.user.id })}\n\n`);
                 const entry = { res, userId: session.user.id, accountId: session.accountId || null };
                 sseClients.add(entry);

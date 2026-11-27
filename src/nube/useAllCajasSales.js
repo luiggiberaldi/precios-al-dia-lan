@@ -21,5 +21,20 @@ export function useAllCajasSales(enabled, { client = null, load = loadAllCajasSa
         return () => { cancelled = true; };
     }, [enabled, tick, client, load]);
 
+    // Tiempo real: refrescar cuando otra caja registra o anula movimientos (`cash`/`cash_voids`).
+    useEffect(() => {
+        if (!enabled || typeof window === 'undefined') return undefined;
+        let timer = null;
+        const onRemoteCash = () => {
+            clearTimeout(timer);
+            timer = setTimeout(refresh, 350);
+        };
+        window.addEventListener('pdn_remote_cash_updated', onRemoteCash);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('pdn_remote_cash_updated', onRemoteCash);
+        };
+    }, [enabled, refresh]);
+
     return { ...state, refresh };
 }

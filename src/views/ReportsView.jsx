@@ -25,7 +25,7 @@ import ReportsPurchasesTab from '../components/Reports/ReportsPurchasesTab';
 import { useMerchandisePurchases } from '../hooks/useMerchandisePurchases';
 import { printThermalTicket } from '../utils/ticketGenerator';
 import { showToast } from '../components/Toast';
-import { isNubeSyncActive } from '../nube/localWriteHook';
+import { isNubeSyncActive, useNubeSyncActive } from '../nube/localWriteHook';
 import { readMemberSession } from '../nube/memberSession';
 import { getDeviceClient } from '../nube/nubeSupabase';
 import { loadAllCajasSalesRange } from '../nube/allCajasSales';
@@ -68,7 +68,8 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
     const [historyFilter, setHistoryFilter] = useState('all'); // all, completed, voided
     const [voidSaleTarget, setVoidSaleTarget] = useState(null);
     // T23: selector «Todas las cajas» vs «Esta caja» para dueño/administrador en modo multi-caja.
-    const isNubeManager = isNubeSyncActive() && isNubeManagerRole(readMemberSession()?.role);
+    const nubeSyncActive = useNubeSyncActive();
+    const isNubeManager = nubeSyncActive && isNubeManagerRole(readMemberSession()?.role);
     const [reportsScope, setReportsScope] = useState('all'); // 'all' | 'local'
     const [remoteCajasState, setRemoteCajasState] = useState({ sales: [], labels: {}, localDeviceId: null, loading: false, error: null });
     const [remoteRefreshTick, setRemoteRefreshTick] = useState(0);
