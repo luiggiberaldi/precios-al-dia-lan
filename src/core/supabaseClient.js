@@ -28,10 +28,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
         `Faltan variables de entorno: ${missing.join(', ')}. ` +
         `Define estas variables en .env antes de compilar. ` +
         `El cliente de Supabase NO se creará para evitar llamadas con credenciales inválidas.`;
-    // En build, lanzar error para que el build falle ruidosamente.
-    // En runtime (tests/dev sin .env), loguear y crear un stub vacío que fallará en cada llamada.
-    if (import.meta.env?.DEV) {
-        console.error(msg);
+    // En modo LAN (`VITE_LAN_MODE=true`) las licencias y el sync viven en el servidor local,
+    // por lo que no existen credenciales de Supabase heredado en los builds de escritorio.
+    // En runtime (tests/dev/LAN sin .env), no abortar el arranque y usar el stub seguro.
+    if (import.meta.env?.DEV || import.meta.env?.VITE_LAN_MODE === 'true') {
+        if (import.meta.env?.DEV) console.error(msg);
     } else {
         throw new Error(msg);
     }
