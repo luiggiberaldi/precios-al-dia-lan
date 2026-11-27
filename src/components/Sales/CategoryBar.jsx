@@ -8,6 +8,7 @@ import { formatStockDisplay, granelStockUnitLabel, isGranelProduct, isLowStockPr
 import { showToast } from '../Toast';
 import { productInitials } from '../../utils/productInitials';
 import { bumpHot, sortByHot } from '../../utils/hotProducts';
+import { getSellablePresentations, resolveProductPresentations } from '../../utils/presentations';
 
 const PAGE_SIZE = 30;
 
@@ -122,7 +123,11 @@ export default function CategoryBar({
     }, [filteredByCategory, activeSearchTerm, hasSearchTerm]);
 
     // Un producto sin precio no se vende: se avisa en vez de cobrar $0.00.
-    const hasNoPrice = (p) => !(Number(getUsd(p, tasaCop)) > 0) && !(p.sellByUnit && Number(p.unitPriceUsd) > 0);
+    const hasNoPrice = (p) => (
+        !(Number(getUsd(p, tasaCop)) > 0)
+        && !(p.sellByUnit && Number(p.unitPriceUsd) > 0)
+        && !(getSellablePresentations(p).some(l => Number(l.priceUsd) > 0 || Number(l.priceCop) > 0))
+    );
     const handleAdd = (p, ...rest) => {
         if (hasNoPrice(p)) {
             showToast(`«${p.name}» no tiene precio. Asígnalo en Inventario antes de venderlo.`, 'warning');
@@ -335,10 +340,22 @@ export default function CategoryBar({
                         {visibleProducts.map(p => {
                             const isOut = (p.stock ?? 0) <= 0;
                             const isDisabled = isOut && !allowNegativeStock;
-                            const hasDualPrice = Boolean(p.sellByUnit && p.unitPriceUsd > 0 && (p.unitsPerPackage || 1) > 1);
+                            const isGranel = p.isWeight || isGranelProduct(p);
+                            const levels = isGranel ? [] : resolveProductPresentations(p);
+                            const sellables = levels.filter(l => l.sellable);
+                            const isThreePlus = !isGranel && sellables.length >= 3;
+                            const hasDualPrice = !isGranel && !isThreePlus && (sellables.length === 2 || Boolean(p.sellByUnit && p.unitPriceUsd > 0 && (p.unitsPerPackage || 1) > 1));
                             const packageUsd = getUsd(p, tasaCop);
                             const unitUsd = parseFloat(p.unitPriceUsd) || 0;
-                            const unitBs = unitUsd * (effectiveRate || 0);
+                            const upperLvl = sellables.length >= 2
+                                ? sellables[sellables.length - 1]
+                                : { id: 'package', name: 'Bto', factorToBase: p.unitsPerPackage || 1, priceUsd: packageUsd, priceCop: getCop(p, tasaCop) };
+                            const lowerLvl = sellables.length >= 2
+                                ? sellables[0]
+                                : { id: 'unit', name: 'Ud', factorToBase: 1, priceUsd: unitUsd, priceCop: p.unitPriceCop || Math.round(unitUsd * tasaCop) };
+                            const upperPriceUsd = Number(upperLvl.priceUsd) || packageUsd;
+                            const lowerPriceUsd = Number(lowerLvl.priceUsd) || unitUsd;
+                            const unitBs = lowerPriceUsd * (effectiveRate || 0);
                             const noPrice = hasNoPrice(p);
                             const isLow = !isOut && isLowStockProduct(p);
 
@@ -365,14 +382,14 @@ export default function CategoryBar({
                                                 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300'
                                                 : 'bg-emerald-100/90 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-200/60'
                                     }`} title={isOut ? 'Agotado' : isLow ? 'Queda poco stock' : 'En existencia'}>
-                                        {isOut ? 'AGOTADO' : `${(p.isWeight || isGranelProduct(p)) ? formatStockDisplay(p.stock ?? 0, true) : (p.stock ?? 0)} ${(p.isWeight || isGranelProduct(p)) ? granelStockUnitLabel(p).toUpperCase() : 'U'}`}
+                                        {isOut ? 'AGOTADO' : `${isGranel ? formatStockDisplay(p.stock ?? 0, true) : (p.stock ?? 0)} ${isGranel ? granelStockUnitLabel(p).toUpperCase() : 'U'}`}
                                     </span>
 
                                     {/* Badge Superior Izquierdo: Icono Vectorial SVG nítido */}
-                                    {hasDualPrice && (
+                                    {(hasDualPrice || isThreePlus) && (
                                         <span className="absolute top-2.5 left-2.5 flex items-center gap-1 text-[8.5px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-lg bg-amber-50/90 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 z-10 shadow-2xs backdrop-blur-xs font-mono">
                                             <Package size={11} strokeWidth={2.4} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                                            <span>x{p.unitsPerPackage}</span>
+                                            <span>×{upperLvl.factorToBase}</span>
                                         </span>
                                     )}
 
@@ -395,50 +412,98 @@ export default function CategoryBar({
                                     {/* Nombre completo, sin cortar (pedido del dueño): usa las líneas que necesite */}
                                     <p className="text-[11px] sm:text-[12px] lg:text-[13.5px] font-bold text-slate-800 dark:text-slate-100 leading-snug break-words mt-0.5 mb-1.5 min-h-[2.3em]" title={p.name}>{p.name}</p>
 
-                                    {/* Sección de precios: Dual o Estándar */}
-                                    {hasDualPrice ? (
+                                    {/* Sección de precios: 3+ Niveles, Dual o Estándar */}
+                                    {isThreePlus ? (
                                         <div className="mt-auto space-y-1 w-full pt-0.5">
-                                            {/* Botón Bulto Rápido: Brand Teal institucional #006A71 */}
                                             <button
                                                 type="button"
+                                                data-testid={`pos-level-btn-${p.id}-${upperLvl.id}`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     triggerHaptic && triggerHaptic();
-                                                    handleAdd(p, null, 'package');
+                                                    handleAdd(p, null, upperLvl.id);
                                                 }}
                                                 disabled={isDisabled}
-                                                className="w-full flex items-center justify-between px-1.5 sm:px-2 py-1 lg:py-2 lg:min-h-[38px] bg-[#006A71] hover:bg-[#005B61] active:scale-95 text-white rounded-xl transition-all shadow-xs group cursor-pointer"
-                                                title={`Agregar 1 Bulto (${p.unitsPerPackage} unidades) al carrito`}
+                                                className="w-full flex items-center justify-between gap-1 px-1.5 sm:px-2 py-1 lg:py-2 min-h-[38px] bg-[#006A71] hover:bg-[#005B61] active:scale-95 text-white rounded-xl transition-all shadow-xs cursor-pointer"
+                                                title={`Agregar 1 ${upperLvl.name} (${upperLvl.factorToBase} unidades) al carrito`}
                                             >
-                                                <span className="text-[8px] sm:text-[8.5px] font-black text-teal-950 bg-white px-1.5 py-0.5 rounded uppercase leading-none shadow-2xs">
-                                                    Bto x{p.unitsPerPackage}
+                                                <span className="text-[8px] sm:text-[8.5px] font-black text-teal-950 bg-white px-1.5 py-0.5 rounded uppercase leading-none shadow-2xs truncate max-w-[68%]">
+                                                    {upperLvl.name} x{upperLvl.factorToBase}
                                                 </span>
-                                                <span className="text-[11px] sm:text-xs font-black leading-none text-white">
+                                                <span className="text-[11px] sm:text-xs font-black leading-none text-white shrink-0">
                                                     {copEnabled && copPrimary && tasaCop > 0
-                                                        ? `${formatCop(getCop(p, tasaCop))}`
-                                                        : `$${packageUsd.toFixed(2)}`}
+                                                        ? `${formatCop(upperLvl.priceCop || Math.round(upperPriceUsd * tasaCop))}`
+                                                        : `$${upperPriceUsd.toFixed(2)}`}
                                                 </span>
                                             </button>
 
-                                            {/* Botón Unidad Rápida */}
                                             <button
                                                 type="button"
+                                                data-testid={`pos-choose-pres-${p.id}`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     triggerHaptic && triggerHaptic();
-                                                    handleAdd(p, null, 'unit');
+                                                    handleAdd(p);
                                                 }}
                                                 disabled={isDisabled}
-                                                className="w-full flex items-center justify-between px-1.5 sm:px-2 py-1 lg:py-2 lg:min-h-[38px] bg-emerald-50 hover:bg-emerald-100/90 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-950 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
-                                                title="Agregar 1 Unidad suelta al carrito"
+                                                className="w-full flex items-center justify-between gap-1 px-1.5 sm:px-2 py-1 lg:py-2 min-h-[38px] bg-emerald-50 hover:bg-emerald-100/90 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-950 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                                                title="Elegir presentación"
                                             >
-                                                <span className="text-[8px] sm:text-[8.5px] font-black text-emerald-700 dark:text-emerald-400 uppercase leading-none">
-                                                    Ud
+                                                <span className="text-[8.5px] sm:text-[9px] font-black text-emerald-700 dark:text-emerald-400 uppercase leading-none">
+                                                    {sellables.length} pres. ▾
                                                 </span>
-                                                <span className="text-[11px] sm:text-xs font-black leading-none text-emerald-800 dark:text-emerald-300">
+                                                <span className="text-[10px] sm:text-[11px] font-black leading-none text-emerald-800 dark:text-emerald-300 shrink-0">
+                                                    Desde {copEnabled && copPrimary && tasaCop > 0
+                                                        ? `${formatCop(lowerLvl.priceCop || Math.round(lowerPriceUsd * tasaCop))}`
+                                                        : `$${lowerPriceUsd.toFixed(2)}`}
+                                                </span>
+                                            </button>
+                                        </div>
+                                    ) : hasDualPrice ? (
+                                        <div className="mt-auto space-y-1 w-full pt-0.5">
+                                            {/* Botón Empaque Superior Rápido */}
+                                            <button
+                                                type="button"
+                                                data-testid={`pos-level-btn-${p.id}-${upperLvl.id}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    triggerHaptic && triggerHaptic();
+                                                    handleAdd(p, null, upperLvl.id);
+                                                }}
+                                                disabled={isDisabled}
+                                                className="w-full flex items-center justify-between gap-1 px-1.5 sm:px-2 py-1 lg:py-2 min-h-[38px] bg-[#006A71] hover:bg-[#005B61] active:scale-95 text-white rounded-xl transition-all shadow-xs group cursor-pointer"
+                                                title={`Agregar 1 ${upperLvl.name} (${upperLvl.factorToBase} unidades) al carrito`}
+                                            >
+                                                <span className="text-[8px] sm:text-[8.5px] font-black text-teal-950 bg-white px-1.5 py-0.5 rounded uppercase leading-none shadow-2xs truncate max-w-[68%]">
+                                                    {upperLvl.name} x{upperLvl.factorToBase}
+                                                </span>
+                                                <span className="text-[11px] sm:text-xs font-black leading-none text-white shrink-0">
                                                     {copEnabled && copPrimary && tasaCop > 0
-                                                        ? `${formatCop(p.unitPriceCop || Math.round(unitUsd * tasaCop))}`
-                                                        : `$${unitUsd.toFixed(2)}`}
+                                                        ? `${formatCop(upperLvl.priceCop || getCop(p, tasaCop))}`
+                                                        : `$${upperPriceUsd.toFixed(2)}`}
+                                                </span>
+                                            </button>
+
+                                            {/* Botón Unidad / Nivel Base */}
+                                            <button
+                                                type="button"
+                                                data-testid={`pos-level-btn-${p.id}-${lowerLvl.id}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    triggerHaptic && triggerHaptic();
+                                                    handleAdd(p, null, lowerLvl.id);
+                                                }}
+                                                disabled={isDisabled}
+                                                className="w-full flex items-center justify-between gap-1 px-1.5 sm:px-2 py-1 lg:py-2 min-h-[38px] bg-emerald-50 hover:bg-emerald-100/90 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-950 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                                                title={`Agregar 1 ${lowerLvl.name} al carrito`}
+                                            >
+                                                <span className="text-[8px] sm:text-[8.5px] font-black text-emerald-700 dark:text-emerald-400 uppercase leading-none truncate max-w-[65%]">
+                                                    {lowerLvl.name}
+                                                </span>
+                                                <span className="text-[11px] sm:text-xs font-black leading-none text-emerald-800 dark:text-emerald-300 shrink-0">
+                                                    {copEnabled && copPrimary && tasaCop > 0
+                                                        ? `${formatCop(lowerLvl.priceCop || Math.round(lowerPriceUsd * tasaCop))}`
+                                                        : `$${lowerPriceUsd.toFixed(2)}`}
                                                 </span>
                                             </button>
 

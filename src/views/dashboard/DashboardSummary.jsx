@@ -32,7 +32,7 @@ export default function DashboardSummary({
     const doLogout = () => { triggerHaptic && triggerHaptic(); logout(); };
 
     return (
-        <div data-testid="dashboard-header" className={`dash-header sticky top-0 z-30 transition-all duration-200 -mx-3 sm:-mx-5 lg:-mx-6 xl:-mx-8 px-2.5 sm:px-4 md:px-5 lg:px-6 xl:px-8 py-1.5 sm:py-2 md:py-2.5 mb-3 sm:mb-4 bg-surface-50/95 dark:bg-surface-950/95 backdrop-blur-md border-b-2 ${isScrolled ? 'border-brand/50 shadow-sm' : 'border-brand/30'}`}>
+        <div data-testid="dashboard-header" className={`dash-header sticky top-0 z-30 transition-[border-color,box-shadow] duration-200 -mx-3 sm:-mx-5 lg:-mx-6 xl:-mx-8 px-2.5 sm:px-4 md:px-5 lg:px-6 xl:px-8 py-1.5 sm:py-2 md:py-2.5 mb-3 sm:mb-4 bg-surface-50/95 dark:bg-surface-950/95 backdrop-blur-md border-b-2 ${isScrolled ? 'border-brand/50 shadow-sm' : 'border-brand/30'}`}>
 
             {/* ─── Teléfono (< 768px): una sola fila, sin desbordar ─── */}
             <div className="flex md:hidden items-center justify-between gap-1.5 sm:gap-2 w-full min-w-0">

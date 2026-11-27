@@ -1,978 +1,172 @@
-import React, { useRef, useState } from 'react';
-import { Camera, X, AlertTriangle, Package, Tag, Scale, Droplets, ChevronDown, ChevronUp, Barcode, Banknote, CheckCircle, Plus, Search, Link, Sparkles } from 'lucide-react';
-import { useProductContext } from '../../context/ProductContext';
-import CustomSelect from '../CustomSelect';
-import { showToast } from '../Toast';
-import PricingModeSelector from './PricingModeSelector';
-import BarcodeDuplicateHint from './BarcodeDuplicateHint';
-import SimilarNameHint from './SimilarNameHint';
-import ProductCostFactorControl from './ProductCostFactorControl';
-import { loadTaxConfig } from '../../config/taxConfig';
-import { resolveLanImageUrl } from '../../utils/imageFallback';
-import {
-    granelUnitLabel,
-    useGranelUnitMode,
-    GRANEL_MODE_GR_ML,
-    GRANEL_MODE_KG_LT,
-    parseWeightInput,
-    formatGranelInputValue,
-    parseGranelThreshold,
-    isLiquidProduct,
-} from '../../utils/granel'; // GRANEL-001 / GRANEL-DUAL
+import React, { useState } from 'react';
+import { ChevronDown, ChevronUp, Eye } from 'lucide-react';
+import { useGranelUnitMode } from '../../utils/granel';
+import ProductIdentitySection from './form/ProductIdentitySection';
+import PresentationHierarchyBuilder from './form/PresentationHierarchyBuilder';
+import PricingLevelsMatrix from './form/PricingLevelsMatrix';
+import StockBreakdownInput from './form/StockBreakdownInput';
+import ProductLivePreviewPanel from './form/ProductLivePreviewPanel';
+import { usePresentationFormSync } from './form/usePresentationFormSync';
 
-const PACKAGING_TYPES = [
-    { id: 'suelto', label: 'Suelto', Icon: Tag, desc: 'Unidad individual', color: 'emerald' },
-    { id: 'lote', label: 'Bulto', Icon: Package, desc: 'Caja, bulto o paquete', color: 'indigo' },
-    { id: 'granel', label: 'Granel', Icon: Scale, desc: 'Por Kg o Litro', color: 'amber' },
-];
+export default function ProductFormQuick(props) {
+    const {
+        editingId = null,
+        image, setImage,
+        name, setName,
+        barcode, setBarcode,
+        category, setCategory,
+        priceUsd, handlePriceUsdChange,
+        priceBs, handlePriceBsChange,
+        pricingMode, setPricingMode,
+        priceBsUsdRef, setPriceBsUsdRef,
+        handlePriceCopChange,
+        priceCop,
+        costUsd, handleCostUsdChange,
+        costBs, handleCostBsChange,
+        costCop, handleCostCopChange,
+        costFactor, handleCostFactorChange,
+        stock, setStock,
+        lowStockAlert, setLowStockAlert,
+        ivaMode, setIvaMode,
+        granelUnit, setGranelUnit,
+        effectiveRate,
+        copEnabled,
+        copPrimary,
+        tasaCop,
+        handleImageUpload,
+        categories,
+        isSearchingImage,
+        handleAutoSearchImage,
+        imageMatches,
+        setImageMatches,
+        handleSelectImage,
+        footerAction = null,
+    } = props;
 
-export default function ProductFormQuick({
-    editingId = null,
-    image, setImage,
-    name, setName,
-    barcode, setBarcode,
-    category, setCategory,
-    priceUsd, handlePriceUsdChange,
-    priceBs, handlePriceBsChange,
-    pricingMode, setPricingMode,
-    priceBsUsdRef, setPriceBsUsdRef,
-    handlePriceCopChange,
-    priceCop,
-    costUsd, handleCostUsdChange,
-    costBs, handleCostBsChange,
-    costCop, handleCostCopChange,
-    costFactor,
-    handleCostFactorChange,
-    stock, setStock,
-    lowStockAlert, setLowStockAlert,
-
-    unitsPerPackage, setUnitsPerPackage,
-    sellByUnit, setSellByUnit,
-    unitPriceUsd, setUnitPriceUsd,
-    unitPriceCop, setUnitPriceCop,
-
-    packagingType, setPackagingType,
-    stockInLotes, setStockInLotes,
-    ivaMode, setIvaMode,
-    granelUnit, setGranelUnit,
-    effectiveRate,
-    copEnabled,
-    copPrimary,
-    tasaCop,
-
-    handleImageUpload,
-    categories,
-    isSearchingImage,
-    handleLoadImageFromUrl,
-    handleAutoSearchImage,
-    imageMatches,
-    setImageMatches,
-    handleSelectImage
-}) {
-    const fileInputRef = useRef(null);
-    const [showSummary, setShowSummary] = useState(false);
     const [granelMode] = useGranelUnitMode();
-    
-    // Categorías en línea
-    const { setCategories } = useProductContext();
-    const [isAddingCategory, setIsAddingCategory] = useState(false);
-    const [newCategoryName, setNewCategoryName] = useState("");
+    const [showMobilePreview, setShowMobilePreview] = useState(false);
 
-    const handleAddCategory = () => {
-        if (!newCategoryName.trim()) return;
-        const catId = newCategoryName.trim().toLowerCase().replace(/\s+/g, '_');
-        
-        setCategories(prev => {
-            if(prev.find(c => c.id === catId)) return prev;
-            return [...prev, { id: catId, label: newCategoryName.trim(), icon: '◆', color: 'emerald' }];
-        });
-        
-        setCategory(catId);
-        setIsAddingCategory(false);
-        setNewCategoryName("");
-    };
+    const {
+        packagingMode,
+        presentations,
+        costSourceLevel,
+        stockByLevel,
+        setStockByLevel,
+        handleSelectMode,
+        handleChangePresentations,
+        handleChangeCostSourceLevel,
+    } = usePresentationFormSync(props);
 
-    const isLote = packagingType === 'lote';
-    const isGranel = packagingType === 'granel';
-    const parsedUnits = parseInt(unitsPerPackage) || 0;
-    const parsedPrice = parseFloat(priceUsd) || 0;
-    const parsedCost = parseFloat(costUsd) || 0;
-    // Margin sobre venta: (precio - costo) / precio = 1 - factor costo.
-    const mainMarginPct = parsedPrice > 0 && parsedCost > 0 ? ((parsedPrice - parsedCost) / parsedPrice * 100) : null;
-    const mainMarginUsd = parsedPrice - parsedCost;
-
-    // Precios con IVA incluido: parte del precio es IVA. Solo informativo, no cambia el precio.
-    const taxCfg = loadTaxConfig();
-    const includedIvaRate = taxCfg.ivaEnabled && taxCfg.ivaIncluded && ivaMode !== 'exento' ? taxCfg.ivaRate : 0;
-    const netPriceUsd = includedIvaRate > 0 ? Math.round(parsedPrice / (1 + includedIvaRate / 100) * 100) / 100 : null;
-    const realMarginPct = netPriceUsd > 0 && parsedCost > 0 ? ((netPriceUsd - parsedCost) / netPriceUsd * 100) : null;
-    const realMarginUsd = netPriceUsd !== null ? netPriceUsd - parsedCost : null;
-
-    // Unit margin for lote with sellByUnit
-    const effectiveUnitPrice = copEnabled && tasaCop > 0 && unitPriceCop
-        ? parseFloat(unitPriceCop) / tasaCop
-        : unitPriceUsd
-            ? parseFloat(unitPriceUsd)
-            : (parsedUnits > 0 ? parsedPrice / parsedUnits : 0);
-    const unitCost = parsedUnits > 0 && parsedCost > 0 ? parsedCost / parsedUnits : 0;
-    const unitMarginPct = unitCost > 0 && effectiveUnitPrice > 0 ? ((effectiveUnitPrice - unitCost) / effectiveUnitPrice * 100) : null;
-    const unitMarginUsd = effectiveUnitPrice - unitCost;
-
-    // Stock equivalence for lote
-    const parsedStockLotes = parseInt(stockInLotes) || 0;
-    const stockUnitsCalc = parsedStockLotes * (parsedUnits || 1);
-
-    // Alert equivalence
-    const parsedAlert = Number(lowStockAlert) || 0;
-    const alertLotesCalc = parsedUnits > 0 ? (parsedAlert / parsedUnits) : 0;
-    const alertLabel = isGranel
-        ? (granelMode === GRANEL_MODE_GR_ML
-            ? (isLiquidProduct(granelUnit) ? 'ml' : 'g')
-            : (isLiquidProduct(granelUnit) ? 'L' : 'kg'))
-        : 'Uds';
-    const displayedAlert = isGranel
-        ? formatGranelInputValue(lowStockAlert, granelMode)
-        : lowStockAlert;
-    const handleAlertChange = (value) => {
-        if (value === '') {
-            setLowStockAlert('');
-            return;
-        }
-        if (!isGranel) {
-            setLowStockAlert(value);
-            return;
-        }
-
-        const canonical = parseGranelThreshold(value, granelMode);
-        if (canonical !== null) setLowStockAlert(String(canonical));
-    };
-
-    // Unit label for granel
-    const granelLabel = isLiquidProduct(granelUnit) ? 'Litro' : 'Kilo';
-
-    const priceSuffix = isLote ? ' / Bulto' : isGranel ? ` / ${granelLabel}` : '';
-
-    // GRANEL-001 / GRANEL-DUAL: atributos condicionales de tipado numérico adaptados al modo de unidad.
-    const stockStep = isGranel ? 'any' : '1';
-    const stockInputMode = isGranel ? (granelMode === GRANEL_MODE_GR_ML ? 'numeric' : 'decimal') : 'numeric';
-    const stockPlaceholder = isGranel ? (granelMode === GRANEL_MODE_GR_ML ? '1000' : '0.000') : '0';
+    const previewNode = (
+        <ProductLivePreviewPanel
+            name={name}
+            barcode={barcode}
+            image={image}
+            packagingMode={packagingMode}
+            presentations={presentations}
+            stock={stock}
+            stockByLevel={stockByLevel}
+            priceUsd={priceUsd}
+            effectiveRate={effectiveRate}
+            copEnabled={copEnabled}
+            copPrimary={copPrimary}
+            tasaCop={tasaCop}
+        />
+    );
 
     return (
-        <div className="space-y-4">
-            {/* Upload and Smart URL Paste Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 sm:gap-3 select-none">
-                {/* File Upload Zone */}
-                <div onClick={() => fileInputRef.current?.click()} className="sm:col-span-5 h-24 sm:h-28 bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 transition-colors relative overflow-hidden p-2 text-center">
-                    {image ? <img src={resolveLanImageUrl(image)} className="w-full h-full object-cover" alt="Product preview" /> : (
-                        <>
-                            <Camera size={20} className="text-slate-400 mb-1 sm:w-[22px] sm:h-[22px]" />
-                            <span className="text-[10px] font-black text-slate-500">Subir foto local</span>
-                        </>
-                    )}
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
-                    {image && <button onClick={(e) => { e.stopPropagation(); setImage(''); }} className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full"><X size={12} /></button>}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* Columna izquierda: formulario modular progresivo */}
+            <div className="lg:col-span-7 space-y-5">
+                <ProductIdentitySection
+                    editingId={editingId}
+                    image={image} setImage={setImage}
+                    name={name} setName={setName}
+                    barcode={barcode} setBarcode={setBarcode}
+                    category={category} setCategory={setCategory}
+                    categories={categories}
+                    ivaMode={ivaMode} setIvaMode={setIvaMode}
+                    handleImageUpload={handleImageUpload}
+                    isSearchingImage={isSearchingImage}
+                    handleAutoSearchImage={handleAutoSearchImage}
+                    imageMatches={imageMatches}
+                    setImageMatches={setImageMatches}
+                    handleSelectImage={handleSelectImage}
+                />
+
+                <div className="border-t border-surface-200 dark:border-surface-800 pt-4">
+                    <PresentationHierarchyBuilder
+                        editingId={editingId}
+                        packagingMode={packagingMode}
+                        onSelectMode={handleSelectMode}
+                        presentations={presentations}
+                        onChangePresentations={handleChangePresentations}
+                        granelUnit={granelUnit}
+                        setGranelUnit={setGranelUnit}
+                        granelMode={granelMode}
+                    />
                 </div>
 
-                {/* Web Image Finder & URL Paste Zone */}
-                <div 
-                    onClick={() => {
-                        if (!name || name.trim().length < 3) {
-                            showToast('Ingresa el nombre del producto (mín. 3 letras) para buscar automáticamente', 'warning');
-                            return;
-                        }
-                        handleAutoSearchImage(name);
-                    }}
-                    className={`sm:col-span-7 h-24 sm:h-28 border border-slate-200 dark:border-slate-700 rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center cursor-pointer hover:border-amber-500 hover:bg-amber-500/5 transition-all relative overflow-hidden group select-none text-center ${isSearchingImage ? 'bg-amber-500/10' : 'bg-slate-50 dark:bg-slate-800'}`}
-                >
-                    {isSearchingImage ? (
-                        <>
-                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-amber-600 dark:border-amber-400 border-t-transparent mb-1.5" />
-                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Buscando foto...</span>
-                        </>
-                    ) : (
-                        <>
-                            <Sparkles size={20} className="text-amber-600 dark:text-amber-400 mb-1 sm:mb-1.5 group-hover:scale-110 transition-transform sm:w-[22px] sm:h-[22px]" />
-                            <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider">Auto-buscar foto</span>
-                            <span className="hidden sm:block text-[8px] text-slate-500 dark:text-slate-400 mt-1 leading-none text-center">
-                                Busca automáticamente la mejor imagen en tu catálogo local y tiendas
-                            </span>
-                        </>
-                    )}
+                <div className="border-t border-surface-200 dark:border-surface-800 pt-4">
+                    <PricingLevelsMatrix
+                        packagingMode={packagingMode}
+                        presentations={presentations}
+                        onChangePresentations={handleChangePresentations}
+                        costSourceLevel={costSourceLevel}
+                        onChangeCostSourceLevel={handleChangeCostSourceLevel}
+                        priceUsd={priceUsd} handlePriceUsdChange={handlePriceUsdChange}
+                        priceBs={priceBs} handlePriceBsChange={handlePriceBsChange}
+                        priceCop={priceCop} handlePriceCopChange={handlePriceCopChange}
+                        pricingMode={pricingMode} setPricingMode={setPricingMode}
+                        priceBsUsdRef={priceBsUsdRef} setPriceBsUsdRef={setPriceBsUsdRef}
+                        costUsd={costUsd} handleCostUsdChange={handleCostUsdChange}
+                        costBs={costBs} handleCostBsChange={handleCostBsChange}
+                        costCop={costCop} handleCostCopChange={handleCostCopChange}
+                        costFactor={costFactor} handleCostFactorChange={handleCostFactorChange}
+                        effectiveRate={effectiveRate}
+                        copEnabled={copEnabled}
+                        copPrimary={copPrimary}
+                        tasaCop={tasaCop}
+                        ivaMode={ivaMode}
+                        granelUnit={granelUnit}
+                    />
+                </div>
+
+                <div className="border-t border-surface-200 dark:border-surface-800 pt-4">
+                    <StockBreakdownInput
+                        packagingMode={packagingMode}
+                        presentations={presentations}
+                        stock={stock}
+                        setStock={setStock}
+                        stockByLevel={stockByLevel}
+                        setStockByLevel={setStockByLevel}
+                        lowStockAlert={lowStockAlert}
+                        setLowStockAlert={setLowStockAlert}
+                        granelUnit={granelUnit}
+                        granelMode={granelMode}
+                    />
+                </div>
+
+                {/* Acordeón móvil de Vista Previa */}
+                <div className="lg:hidden border border-surface-200 dark:border-surface-800 rounded-2xl overflow-hidden">
+                    <button
+                        type="button"
+                        onClick={() => setShowMobilePreview(!showMobilePreview)}
+                        className="w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 bg-surface-50 dark:bg-surface-800/60 text-xs font-bold text-surface-600 dark:text-surface-300 cursor-pointer"
+                    >
+                        <span className="flex items-center gap-1.5">
+                            <Eye size={14} aria-hidden="true" /> Vista previa y coherencia en Caja
+                        </span>
+                        {showMobilePreview ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
+                    </button>
+                    {showMobilePreview && <div className="p-2">{previewNode}</div>}
                 </div>
             </div>
 
-            {imageMatches && imageMatches.length > 0 && (
-                <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-150 dark:border-slate-700/50 rounded-2xl p-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200 select-none">
-                    <div className="flex justify-between items-center px-0.5">
-                        <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                            <Sparkles size={11} className="animate-pulse" /> Selecciona la foto correcta ({imageMatches.length})
-                        </span>
-                        <button 
-                            type="button" 
-                            onClick={() => setImageMatches([])} 
-                            className="text-[9px] font-extrabold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors uppercase tracking-wider"
-                        >
-                            Cerrar
-                        </button>
-                    </div>
-                    <div className="flex gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 items-stretch">
-                        {imageMatches.map((m, idx) => (
-                            <div 
-                                key={idx}
-                                onClick={() => handleSelectImage(m.dataUri)}
-                                className="flex-shrink-0 w-28 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1.5 cursor-pointer hover:border-amber-500 hover:scale-102 active:scale-98 transition-all flex flex-col items-center justify-between gap-1.5 text-center group"
-                            >
-                                <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800 flex items-center justify-center relative shrink-0">
-                                    <img src={m.dataUri} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" alt={m.title} crossOrigin="anonymous" />
-                                </div>
-                                <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 leading-tight uppercase break-words w-full">
-                                    {m.title}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <div className="space-y-3">
-                {/* Name */}
-                <div className="relative">
-                    <label className="text-xs font-bold text-slate-400 ml-1 mb-1 block uppercase">Nombre</label>
-                    <input 
-                        value={name} 
-                        onChange={e => setName(e.target.value)} 
-                        autoFocus 
-                        placeholder="Ej: Harina PAN 1kg"
-                        className="w-full bg-slate-50 dark:bg-slate-800 p-3.5 pr-10 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/50 capitalize text-sm sm:text-base" 
-                    />
-                    {name && name.trim().length >= 3 && (
-                        <CheckCircle size={18} className="absolute right-3 top-[38px] text-emerald-500 transition-all duration-300" />
-                    )}
-                    <SimilarNameHint name={name} exceptId={editingId} />
-                </div>
-
-                {/* Barcode */}
-                <div>
-                    <label className="text-xs font-bold text-slate-400 ml-1 mb-1 block uppercase">Cód. de Barras (Opcional)</label>
-                    <div className="relative">
-                        <input value={barcode} onChange={e => setBarcode(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }} placeholder="Ej: 7591111222233"
-                            className="w-full bg-slate-50 dark:bg-slate-800 p-3.5 pl-10 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm sm:text-base" />
-                        <Barcode size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    </div>
-                    <BarcodeDuplicateHint barcode={barcode} exceptId={editingId} />
-                </div>
-
-                {/* Category (full width) */}
-                <div>
-                    <div className="flex justify-between items-center mb-1">
-                        <label className="text-xs font-bold text-slate-400 ml-1 block uppercase">Categoría</label>
-                        <button 
-                            onClick={() => setIsAddingCategory(!isAddingCategory)}
-                            className="text-[10px] font-bold text-emerald-500 hover:text-emerald-600 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md transition-colors"
-                        >
-                            {isAddingCategory ? <X size={12} /> : <Plus size={12} />}
-                            {isAddingCategory ? 'Cancelar' : 'Nueva'}
-                        </button>
-                    </div>
-                    {isAddingCategory ? (
-                        <div className="flex gap-2 animate-in fade-in slide-in-from-top-1">
-                            <input 
-                                autoFocus
-                                value={newCategoryName}
-                                onChange={e => setNewCategoryName(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
-                                placeholder="Nombre de categoría..."
-                                className="flex-1 bg-slate-50 dark:bg-slate-800 p-3.5 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
-                            />
-                            <button 
-                                onClick={handleAddCategory}
-                                disabled={!newCategoryName.trim()}
-                                className="bg-emerald-500 text-white px-4 rounded-xl font-bold disabled:opacity-50 hover:bg-emerald-600 transition-colors text-sm"
-                            >
-                                Guardar
-                            </button>
-                        </div>
-                    ) : (
-                        <CustomSelect
-                            value={category}
-                            onChange={setCategory}
-                            options={categories.filter(c => c.id !== 'todos').map(c => ({ value: c.id, label: c.label }))}
-                        />
-                    )}
-                </div>
-
-                {/* ─── PACKAGING TYPE CARDS ─── */}
-                <div>
-                    <label className="text-xs font-bold text-slate-400 ml-1 mb-1.5 block uppercase">Tipo de Empaque</label>
-                    <div className="grid grid-cols-3 gap-2">
-                        {PACKAGING_TYPES.map(pt => {
-                            const selected = packagingType === pt.id;
-                            const colorMap = {
-                                emerald: selected ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : '',
-                                indigo: selected ? 'border-brand bg-brand-light dark:bg-surface-800/20' : '',
-                                amber: selected ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20' : '',
-                            };
-                            const textColor = {
-                                emerald: 'text-emerald-700 dark:text-emerald-400',
-                                indigo: 'text-brand-dark dark:text-brand',
-                                amber: 'text-amber-700 dark:text-amber-400',
-                            };
-                            return (
-                                <button key={pt.id}
-                                    type="button"
-                                    onClick={() => setPackagingType(pt.id)}
-                                    className={`flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl border-2 transition-all active:scale-95 ${selected
-                                        ? colorMap[pt.color]
-                                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300'
-                                        }`}>
-                                    <pt.Icon size={20} strokeWidth={2} className={`sm:w-[22px] sm:h-[22px] ${selected ? textColor[pt.color] : 'text-slate-400'}`} />
-                                    <span className={`text-[10px] font-black uppercase ${selected ? textColor[pt.color] : 'text-slate-500'}`}>{pt.label}</span>
-                                    <span className="text-[8px] text-slate-400 leading-tight text-center">{pt.id === 'granel' && granelMode === GRANEL_MODE_GR_ML ? 'Por Gramo o Ml' : pt.desc}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                    {!PACKAGING_TYPES.some(pt => pt.id === packagingType) && (
-                        <p className="mt-1.5 ml-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                            Sin empaque = se vende por unidad
-                        </p>
-                    )}
-                </div>
-
-                {/* ─── IVA por producto: General (tasa de Ajustes) o Exento (0%) ─── */}
-                <div>
-                    <label className="text-xs font-bold text-slate-400 ml-1 mb-1.5 block uppercase">IVA del Producto</label>
-                    <div className="grid grid-cols-2 gap-2">
-                        {[{ id: '', label: 'General', desc: 'Tasa de Ajustes' }, { id: 'exento', label: 'Exento', desc: '0%' }].map(opt => {
-                            const selected = (ivaMode || '') === opt.id;
-                            return (
-                                <button key={opt.id || 'general'}
-                                    type="button"
-                                    onClick={() => setIvaMode(opt.id)}
-                                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all active:scale-95 ${selected
-                                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-                                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300'
-                                        }`}>
-                                    <span className={`text-[10px] font-black uppercase ${selected ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500'}`}>{opt.label}</span>
-                                    <span className="text-[8px] text-slate-400 leading-tight text-center">{opt.desc}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* ─── GRANEL: Unit selector adaptativo (R1) ─── */}
-                {isGranel && (
-                    <div className="flex gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                        {['kg', 'litro'].map(u => {
-                            const isLiquidBtn = u === 'litro';
-                            const isSelected = (isLiquidBtn && isLiquidProduct(granelUnit)) || (!isLiquidBtn && !isLiquidProduct(granelUnit));
-                            const label = granelMode === GRANEL_MODE_GR_ML
-                                ? (isLiquidBtn ? 'Mililitros (ml)' : 'Gramos (g)')
-                                : (isLiquidBtn ? 'Litro (L)' : 'Kilogramo (kg)');
-                            const Icon = isLiquidBtn ? Droplets : Scale;
-                            return (
-                                <button key={u} type="button" onClick={() => setGranelUnit(u)}
-                                    className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 ${isSelected
-                                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
-                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
-                                        }`}>
-                                    <Icon size={14} className="inline" /> {label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {/* ─── CAMPO OPCIONAL: Unidades por Bulto/Caja (para Suelto y Granel) ─── */}
-                {!isLote && (
-                    <div className="bg-slate-50 dark:bg-slate-800/30 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700/50 animate-in fade-in duration-200">
-                        <div className="flex items-center justify-between mb-2">
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                                Uds. por Bulto / Caja
-                            </label>
-                            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">Opcional</span>
-                        </div>
-                        <input
-                            type="number"
-                            inputMode="numeric"
-                            value={unitsPerPackage}
-                            onChange={e => setUnitsPerPackage(e.target.value)}
-                            placeholder="Ej: 24  (déjalo vacío si no aplica)"
-                            className="w-full bg-white dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-brand/50 text-sm border border-slate-200/60 dark:border-slate-700/60"
-                        />
-                        {parsedUnits > 1 && (
-                            <p className="text-[10px] text-brand font-bold mt-1.5 ml-1">
-                                ✓ En ajuste por lote podrás elegir entre unidades sueltas o bultos de {parsedUnits} uds
-                            </p>
-                        )}
-                        {!parsedUnits || parsedUnits <= 1 ? (
-                            <p className="text-[10px] text-slate-400 mt-1.5 ml-1">
-                                Complétalo si el producto se maneja en cajas o bultos para activar ajuste por bulto en inventario
-                            </p>
-                        ) : null}
-                    </div>
-                )}
-
-                {/* ─── LOTE: Units per package ─── */}
-                {isLote && (
-                    <div className="bg-brand-light dark:bg-surface-800/10 p-4 rounded-xl border border-surface-200 dark:border-surface-800/30 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                        <div>
-                            <label className="text-xs font-bold text-brand-dark dark:text-brand ml-1 mb-1 block uppercase">¿Cuántas unidades trae el bulto?</label>
-                            <input type="number" inputMode="numeric" value={unitsPerPackage} onChange={e => setUnitsPerPackage(e.target.value)} placeholder="Ej: 24"
-                                className="w-full bg-white dark:bg-slate-800 p-3.5 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-brand/50 text-sm" />
-                        </div>
-
-                        {/* Toggle: sell by unit */}
-                        {parsedUnits > 1 && (
-                            <label className="flex items-center gap-3 cursor-pointer select-none p-2 rounded-lg hover:bg-brand-light/50 dark:hover:bg-surface-800/20 transition-colors">
-                                <div className={`w-11 h-6 rounded-full relative transition-colors duration-200 shrink-0 ${sellByUnit ? 'bg-brand' : 'bg-slate-300 dark:bg-slate-600'}`}
-                                    onClick={() => setSellByUnit(!sellByUnit)}>
-                                    <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-200 ${sellByUnit ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-                                </div>
-                                <div onClick={() => setSellByUnit(!sellByUnit)}>
-                                    <span className="text-xs font-bold text-brand-dark dark:text-brand">¿También vender por unidad suelta?</span>
-                                    <p className="text-[10px] text-brand/70 dark:text-brand/50 mt-0.5">Permite vender unidades individuales del bulto</p>
-                                </div>
-                            </label>
-                        )}
-                    </div>
-                )}
-
-                {/* ─── COST SECTION (first) ─── */}
-                <div className="bg-slate-50 dark:bg-slate-800/20 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/40">
-                    <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-2 ml-1">
-                        Costo de Adquisición ({priceSuffix ? priceSuffix.replace(' / ', '') : 'Unidad'})
-                    </span>
-                    <div className="grid grid-cols-2 gap-3 items-center">
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
-                                {copEnabled && copPrimary && tasaCop > 0 ? 'COP' : '$'}
-                            </span>
-                            {copEnabled && copPrimary && tasaCop > 0 ? (
-                                <input type="number" inputMode="decimal" value={costCop} onChange={e => handleCostCopChange(e.target.value)} placeholder="4100"
-                                    className="w-full bg-white dark:bg-slate-900 p-2.5 pl-11 rounded-xl font-bold text-slate-700 dark:text-white outline-none border border-slate-200/60 dark:border-slate-800/40 focus:ring-2 focus:ring-slate-500/40 transition-all text-xs" />
-                            ) : (
-                                <input type="number" inputMode="decimal" value={costUsd} onChange={e => handleCostUsdChange(e.target.value)} placeholder="1.00"
-                                    className="w-full bg-white dark:bg-slate-900 p-2.5 pl-7 rounded-xl font-bold text-slate-700 dark:text-white outline-none border border-slate-200/60 dark:border-slate-800/40 focus:ring-2 focus:ring-slate-500/40 transition-all text-xs" />
-                            )}
-                        </div>
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">Bs</span>
-                            <input type="number" inputMode="decimal" value={costBs} onChange={e => handleCostBsChange(e.target.value)} placeholder="0.00"
-                                className="w-full bg-white dark:bg-slate-900 p-2.5 pl-8 rounded-xl font-bold text-slate-700 dark:text-white outline-none border border-slate-200/60 dark:border-slate-800/40 focus:ring-2 focus:ring-slate-500/40 transition-all text-xs" />
-                        </div>
-                    </div>
-                    {handleCostFactorChange && (
-                        <ProductCostFactorControl costFactor={costFactor} onChange={handleCostFactorChange} />
-                    )}
-                </div>
-
-                {/* ─── LOTE: Auto unit cost ─── */}
-                {isLote && parsedUnits > 1 && parsedCost > 0 && (
-                    <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 px-3 py-2 rounded-xl text-[11px]">
-                        <span className="text-slate-500 font-medium">Costo por unidad:</span>
-                        <span className="font-bold text-slate-700 dark:text-white flex items-center gap-1.5">
-                            {copEnabled && copPrimary && tasaCop > 0 ? `${Math.round((parsedCost / parsedUnits) * tasaCop).toLocaleString('es-CO')} COP` : `$${(parsedCost / parsedUnits).toFixed(2)}`}
-                            <span className="text-[8px] bg-brand-light dark:bg-surface-800/30 text-brand px-1.5 py-0.5 rounded font-black">AUTO</span>
-                        </span>
-                    </div>
-                )}
-
-                {/* ─── COP INPUT (primero si copEnabled) ─── */}
-                {copEnabled && (
-                    <div className="relative">
-                        <label className="text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 ml-1 mb-1 block uppercase tracking-wider">
-                            Precio de Venta (Pesos COP){priceSuffix}
-                        </label>
-                        <input
-                            type="number"
-                            inputMode="decimal"
-                            placeholder="Ej: 15000"
-                            value={priceCop}
-                            onChange={e => handlePriceCopChange(e.target.value)}
-                            className="w-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 p-3.5 pr-10 sm:p-4 sm:pr-10 rounded-xl font-black text-amber-800 dark:text-amber-400 outline-none focus:ring-2 focus:ring-amber-500/50 transition-all text-sm sm:text-base"
-                        />
-                        <Banknote size={16} className="absolute right-3 top-[38px] sm:top-[42px] text-amber-400" />
-                        <p className="text-[10px] text-amber-600/70 dark:text-amber-500/60 mt-1 ml-1">
-                            Calcula automáticamente el precio en USD y Bs
-                        </p>
-                    </div>
-                )}
-
-                {/* ─── PRICE SECTION ─── */}
-                <div className="bg-emerald-500/5 dark:bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/15 space-y-2.5">
-                    <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest block ml-1">
-                        Precio de Venta ({priceSuffix ? priceSuffix.replace(' / ', '') : 'Unidad'})
-                    </span>
-                    <div className="grid grid-cols-2 gap-3 items-center">
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-emerald-500">
-                                {copEnabled ? 'USD' : '$'}
-                            </span>
-                            <input type="number" inputMode="decimal" value={priceUsd} onChange={e => handlePriceUsdChange(e.target.value)} placeholder="1.50"
-                                className="w-full bg-white dark:bg-slate-900 p-2.5 pl-11 pr-10 rounded-xl font-black text-emerald-800 dark:text-emerald-400 outline-none border border-emerald-100 dark:border-emerald-800/30 focus:ring-2 focus:ring-emerald-500/40 transition-all text-xs" />
-                            {parseFloat(priceUsd) > 0 && (
-                                <CheckCircle size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 transition-all duration-300" />
-                            )}
-                        </div>
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-brand-dark dark:text-brand">Bs</span>
-                            <input type="number" inputMode="decimal" value={priceBs} onChange={e => handlePriceBsChange(e.target.value)} placeholder="0.00"
-                                className="w-full bg-white dark:bg-slate-900 p-2.5 pl-8 pr-10 rounded-xl font-black text-surface-800 dark:text-brand outline-none border border-surface-200 dark:border-surface-800/30 focus:ring-2 focus:ring-brand/40 transition-all text-xs" />
-                            {parseFloat(priceBs) > 0 && (
-                                <CheckCircle size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-brand transition-all duration-300" />
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Referencia opcional $ / 100g o 100ml para modo gramos (R4) */}
-                    {isGranel && parsedPrice > 0 && granelMode === GRANEL_MODE_GR_ML && (
-                        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/40 rounded-xl px-2.5 py-1.5 flex items-center justify-between text-[11px] animate-in fade-in">
-                            <span className="text-amber-800 dark:text-amber-300 font-semibold">
-                                Equiv. ref. por {isLiquidProduct(granelUnit) ? '100 ml' : '100 g'}:
-                            </span>
-                            <span className="font-black text-amber-900 dark:text-amber-200">
-                                ${(parsedPrice / 10).toFixed(2)} / {isLiquidProduct(granelUnit) ? '100ml' : '100g'}
-                                {effectiveRate > 0 && (
-                                    <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold ml-1.5">
-                                        ({((parsedPrice * effectiveRate) / 10).toFixed(2)} Bs)
-                                    </span>
-                                )}
-                            </span>
-                        </div>
-                    )}
-
-                    {/* ─── OPCCIÓN LEGIBLE Y EXPLICATIVA: DOBLE PRECIO ─── */}
-                    <div className="pt-2 border-t border-emerald-500/20">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (pricingMode === 'dual_usd') {
-                                    setPricingMode('tasa_dia');
-                                    setPriceBsUsdRef('');
-                                } else {
-                                    setPricingMode('dual_usd');
-                                    if (!priceBsUsdRef && priceUsd) setPriceBsUsdRef(priceUsd);
-                                }
-                            }}
-                            className={`w-full flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer text-left ${
-                                pricingMode === 'dual_usd'
-                                    ? 'bg-emerald-500/15 border-emerald-500/40 ring-1 ring-emerald-500/30'
-                                    : 'bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:border-emerald-400/50'
-                            }`}
-                        >
-                            <div className="flex items-center gap-2.5 pr-2">
-                                <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                                    pricingMode === 'dual_usd'
-                                        ? 'bg-emerald-500 border-emerald-500 text-white'
-                                        : 'border-slate-400 dark:border-slate-600 bg-transparent'
-                                }`}>
-                                    {pricingMode === 'dual_usd' && <span className="w-1.5 h-1.5 rounded-full bg-white block" />}
-                                </span>
-                                <div>
-                                    <span className="text-xs font-black text-slate-800 dark:text-slate-100 block leading-tight">
-                                        ¿Deseas cobrar un precio diferente si pagan en Bolívares?
-                                    </span>
-                                    <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 block mt-0.5 leading-tight">
-                                        Permite fijar un precio en $ para divisas/efectivo y un $ Ref para Pago Móvil / Punto
-                                    </span>
-                                </div>
-                            </div>
-                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 uppercase tracking-wider ${
-                                pricingMode === 'dual_usd'
-                                    ? 'bg-emerald-500 text-white shadow-sm'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                            }`}>
-                                {pricingMode === 'dual_usd' ? 'ACTIVADO' : '+ ACTIVAR'}
-                            </span>
-                        </button>
-
-                        {pricingMode === 'dual_usd' && (
-                            <div className="mt-2.5 bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-300 dark:border-emerald-800 space-y-2 animate-in fade-in slide-in-from-top-1 shadow-sm">
-                                <div className="flex justify-between items-center flex-wrap gap-1">
-                                    <label className="text-[11px] font-black text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
-                                        Precio Ref. en $ para pagos en Bolívares
-                                    </label>
-                                    {parseFloat(priceBsUsdRef) > 0 && (
-                                        <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 rounded-md">
-                                            = {(parseFloat(priceBsUsdRef) * effectiveRate).toFixed(2)} Bs
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-emerald-600 dark:text-emerald-400">$</span>
-                                    <input
-                                        type="number"
-                                        inputMode="decimal"
-                                        value={priceBsUsdRef}
-                                        onChange={(e) => setPriceBsUsdRef(e.target.value)}
-                                        placeholder={priceUsd || "2.00"}
-                                        className="w-full bg-emerald-50/40 dark:bg-slate-950 p-2.5 pl-8 pr-3 rounded-xl font-black text-emerald-900 dark:text-emerald-100 outline-none border border-emerald-300 dark:border-emerald-700 text-xs focus:ring-2 focus:ring-emerald-500 transition-all"
-                                    />
-                                </div>
-                                <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-medium leading-relaxed bg-emerald-50/80 dark:bg-emerald-950/40 p-2 rounded-lg border border-emerald-200/50 dark:border-emerald-800/40">
-                                    💡 <strong>Ejemplo de Cobro:</strong> El cliente pagará <strong>${priceUsd || '0.00'}</strong> si entrega divisas/efectivo $, o <strong>${priceBsUsdRef || priceUsd || '0.00'}</strong> ({((parseFloat(priceBsUsdRef) || parseFloat(priceUsd) || 0) * effectiveRate).toFixed(2)} Bs) si paga por Pago Móvil, Punto o Efectivo Bs.
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-                {isLote && sellByUnit && parsedUnits > 1 && (
-                    <div className="bg-white dark:bg-slate-800/80 p-3 rounded-xl border border-surface-300 dark:border-surface-800/40 space-y-2 animate-in fade-in slide-in-from-top-1">
-                        <div className="flex justify-between items-center">
-                            <label className="text-[10px] font-bold text-brand-dark dark:text-brand uppercase tracking-wider">Precio por Unidad Suelta</label>
-                            {parsedPrice > 0 && parsedUnits > 0 && (
-                                <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-md">
-                                    Auto: {copEnabled && tasaCop > 0
-                                        ? `${Math.round((parsedPrice / parsedUnits) * tasaCop).toLocaleString('es-CO')} COP`
-                                        : `$${(parsedPrice / parsedUnits).toFixed(2)}`}
-                                </span>
-                            )}
-                        </div>
-                        {copEnabled ? (
-                            /* ── COP mode: COP input primary, USD + Bs derived ── */
-                            <div className="space-y-2">
-                                <div>
-                                    <label className="text-[9px] font-bold text-amber-600 ml-0.5 mb-0.5 block">Pesos COP</label>
-                                    <input type="number" inputMode="decimal" value={unitPriceCop}
-                                        onChange={e => {
-                                            const val = e.target.value;
-                                            setUnitPriceCop(val);
-                                            setUnitPriceUsd(val && parseFloat(val) > 0 && tasaCop > 0
-                                                ? (parseFloat(val) / tasaCop).toFixed(4)
-                                                : '');
-                                        }}
-                                        placeholder={parsedPrice > 0 && parsedUnits > 0 && tasaCop > 0
-                                            ? Math.round((parsedPrice / parsedUnits) * tasaCop).toString()
-                                            : '0'}
-                                        className="w-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 p-3 rounded-xl font-black text-amber-800 dark:text-amber-400 outline-none focus:ring-2 focus:ring-amber-500/50 text-sm" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-[9px] font-bold text-emerald-500 ml-0.5 mb-0.5 block">USD ($)</label>
-                                        <div className="w-full bg-emerald-50/50 dark:bg-slate-900 border border-emerald-100 dark:border-emerald-900/30 p-3 rounded-xl font-black text-emerald-700 dark:text-emerald-400 text-sm">
-                                            {effectiveUnitPrice > 0 ? effectiveUnitPrice.toFixed(2) : '—'}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[9px] font-bold text-brand ml-0.5 mb-0.5 block">Bolívares (Bs)</label>
-                                        <div className="w-full bg-brand-light/50 dark:bg-slate-900 border border-surface-200 dark:border-surface-800/30 p-3 rounded-xl font-black text-brand-dark dark:text-brand text-sm flex items-center justify-between">
-                                            {effectiveRate > 0 && effectiveUnitPrice > 0
-                                                ? (effectiveUnitPrice * effectiveRate).toFixed(2)
-                                                : '—'}
-                                            <span className="text-[8px] bg-brand-light dark:bg-surface-800/30 text-brand px-1.5 py-0.5 rounded font-black">Bs</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            /* ── No COP mode: USD input primary, Bs derived ── */
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label className="text-[9px] font-bold text-emerald-500 ml-0.5 mb-0.5 block">USD ($)</label>
-                                    <input type="number" inputMode="decimal" value={unitPriceUsd}
-                                        onChange={e => setUnitPriceUsd(e.target.value)}
-                                        placeholder={parsedPrice > 0 && parsedUnits > 0 ? (parsedPrice / parsedUnits).toFixed(2) : '0.00'}
-                                        className="w-full bg-brand-light/50 dark:bg-slate-900 border border-surface-200 dark:border-surface-700/30 p-3 rounded-xl font-black text-brand-dark dark:text-brand outline-none focus:ring-2 focus:ring-brand/50 text-sm" />
-                                </div>
-                                <div>
-                                    <label className="text-[9px] font-bold text-brand ml-0.5 mb-0.5 block">Bolívares (Bs)</label>
-                                    <div className="w-full bg-brand-light/50 dark:bg-slate-900 border border-surface-200 dark:border-surface-800/30 p-3 rounded-xl font-black text-brand-dark dark:text-brand text-sm flex items-center justify-between">
-                                        {effectiveRate > 0
-                                            ? (effectiveUnitPrice * effectiveRate).toFixed(2)
-                                            : '—'}
-                                        <span className="text-[8px] bg-brand-light dark:bg-surface-800/30 text-brand px-1.5 py-0.5 rounded font-black">Bs</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        <p className="text-[9px] text-slate-400 italic">Déjalo vacío para usar el precio auto-calculado (lote ÷ unidades)</p>
-                    </div>
-                )}
-
-                {/* ─── MARGIN PANEL ─── */}
-                <div className={`p-3 rounded-xl border space-y-1.5 min-h-[60px] ${mainMarginPct !== null && mainMarginPct < 0
-                    ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/30'
-                    : mainMarginPct !== null && mainMarginPct === 0
-                        ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30'
-                        : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
-                    }`}>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Margen de Ganancia</p>
-                    {parsedPrice > 0 && parsedCost > 0 ? (
-                        <div className="space-y-1.5">
-                            {/* Main margin */}
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-500 font-medium">{isLote ? 'Margen Bulto:' : isGranel ? `Margen / ${granelLabel}:` : 'Margen / Unidad:'}</span>
-                                <span className={`font-black ${mainMarginPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                    {mainMarginPct.toFixed(1)}%
-                                    <span className="text-xs ml-1.5 opacity-80 font-bold">(${mainMarginUsd.toFixed(2)})</span>
-                                </span>
-                            </div>
-
-                            {/* IVA incluido: margen real sobre el precio sin IVA */}
-                            {realMarginPct !== null && (
-                                <div className="flex justify-between items-center text-xs" data-testid="real-margin-iva">
-                                    <span className="text-slate-500 font-medium">Sin IVA ${netPriceUsd.toFixed(2)} · margen real:</span>
-                                    <span className={`font-black ${realMarginPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                        {realMarginPct.toFixed(1)}%
-                                        <span className="ml-1.5 opacity-80 font-bold">(${realMarginUsd.toFixed(2)})</span>
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Unit margin for lote with sellByUnit */}
-                            {isLote && sellByUnit && parsedUnits > 1 && unitMarginPct !== null && (
-                                <div className="flex justify-between items-center text-sm border-t border-slate-200/50 dark:border-slate-700/50 pt-1.5">
-                                    <span className="text-slate-500 font-medium">Margen Unidad:</span>
-                                    <span className={`font-black ${unitMarginPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                        {unitMarginPct.toFixed(1)}%
-                                        <span className="text-xs ml-1.5 opacity-80 font-bold">(${unitMarginUsd.toFixed(2)})</span>
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Warnings */}
-                            {mainMarginPct < 0 && (
-                                <p className="text-[10px] font-bold text-rose-500 flex items-center gap-1 mt-1">
-                                    <AlertTriangle size={11} /> Estás vendiendo a pérdida
-                                </p>
-                            )}
-                            {mainMarginPct === 0 && (
-                                <p className="text-[10px] font-bold text-amber-500 flex items-center gap-1 mt-1">
-                                    <AlertTriangle size={11} /> Punto de equilibrio (sin ganancia)
-                                </p>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="text-xs text-slate-400 italic">
-                            Ingresa Precio y Costo para calcular tu margen.
-                            {parsedPrice > 0 && parsedCost === 0 && (
-                                <p className="text-[10px] font-bold text-amber-500 flex items-center gap-1 mt-1 not-italic">
-                                    <AlertTriangle size={11} /> Sin costo: no podrás ver tu ganancia real en reportes
-                                </p>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* ─── STOCK & ALERTA SECTION ─── */}
-                {isLote ? (
-                    <div className="grid grid-cols-3 gap-3 animate-in fade-in duration-200">
-                        <div>
-                            <label className="text-[10px] font-black text-slate-400 ml-1 mb-1 block uppercase truncate">Bultos / Cajas</label>
-                            <input 
-                                type="number" 
-                                step="any"
-                                value={stockInLotes || ''} 
-                                onChange={e => {
-                                    const lotesVal = e.target.value;
-                                    setStockInLotes(lotesVal);
-                                    const numLotes = parseFloat(lotesVal) || 0;
-                                    const derivedUnits = Math.round(numLotes * parsedUnits);
-                                    setStock(lotesVal ? derivedUnits.toString() : '');
-                                }} 
-                                placeholder="0"
-                                className="w-full bg-slate-50 dark:bg-slate-800 p-3.5 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm" 
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-black text-slate-400 ml-1 mb-1 block uppercase truncate">Equiv. Unidades</label>
-                            <input 
-                                type="number" 
-                                value={stock || ''} 
-                                onChange={e => {
-                                    const unitsVal = e.target.value;
-                                    setStock(unitsVal);
-                                    const numUnits = parseFloat(unitsVal) || 0;
-                                    const derivedLotes = parsedUnits > 0 ? parseFloat((numUnits / parsedUnits).toFixed(2)) : 0;
-                                    setStockInLotes(unitsVal ? derivedLotes.toString() : '');
-                                }} 
-                                placeholder="0"
-                                className="w-full bg-slate-50 dark:bg-slate-800 p-3.5 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm" 
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-black text-amber-500 ml-1 mb-1 block uppercase flex items-center gap-1 truncate">
-                                <AlertTriangle size={10} /> Alerta (Uds)
-                            </label>
-                            <input 
-                                type="number" 
-                                step="1"
-                                inputMode="numeric" 
-                                value={lowStockAlert} 
-                                onChange={e => setLowStockAlert(e.target.value)} 
-                                placeholder="5"
-                                className="w-full bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 p-3.5 rounded-xl font-bold text-amber-700 dark:text-amber-400 outline-none focus:ring-2 focus:ring-amber-500/50 text-sm" 
-                            />
-                            {parsedAlert > 0 && parsedUnits > 0 && (
-                                <p className="text-[9px] text-amber-500/80 font-bold mt-1 ml-1 truncate">= {alertLotesCalc.toFixed(1)} bultos</p>
-                            )}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 gap-3 animate-in fade-in duration-200">
-                        <div>
-                            <label className="text-xs font-bold text-slate-400 ml-1 mb-1 block uppercase">
-                                {isGranel
-                                    ? (granelMode === GRANEL_MODE_GR_ML
-                                        ? (isLiquidProduct(granelUnit) ? 'Stock Inicial (ml)' : 'Stock Inicial (gramos)')
-                                        : (isLiquidProduct(granelUnit) ? 'Stock Inicial (Litro)' : 'Stock Inicial (Kg)'))
-                                    : 'Stock'}
-                            </label>
-                            <input 
-                                type="number" 
-                                step={stockStep}
-                                inputMode={stockInputMode} 
-                                value={stock} 
-                                onChange={e => setStock(e.target.value)} 
-                                placeholder={stockPlaceholder}
-                                className="w-full bg-slate-50 dark:bg-slate-800 p-3.5 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm" 
-                            />
-                            {/* Asistencia inmediata de equivalencia canónica en vivo (R2) */}
-                            {isGranel && granelMode === GRANEL_MODE_GR_ML && stock !== '' && stock !== null && stock !== undefined && (() => {
-                                const canonicalUnit = isLiquidProduct(granelUnit) ? 'L' : 'kg';
-                                const displayUnit = isLiquidProduct(granelUnit) ? 'ml' : 'g';
-                                const cleaned = String(stock).trim().replace(/\s/g, '').replace(/,/g, '.');
-                                const num = parseFloat(cleaned);
-                                if (!Number.isFinite(num) || num < 0) return null;
-                                if (num === 0) {
-                                    return (
-                                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 ml-1 animate-in fade-in duration-200">
-                                            = 0.000 {canonicalUnit} en inventario
-                                        </p>
-                                    );
-                                }
-
-                                const parsed = parseWeightInput(stock, GRANEL_MODE_GR_ML);
-                                if (!parsed) return null;
-
-                                const { grams, canonicalKg } = parsed;
-                                const isDecimalUnderOne = num < 1;
-
-                                if (isDecimalUnderOne) {
-                                    return (
-                                        <div className="flex flex-wrap items-center gap-1 mt-1 ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-bold animate-in fade-in duration-200">
-                                            <span>💡 = {canonicalKg.toFixed(3)} {canonicalUnit} en inventario (detectado como {grams} {displayUnit})</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => setStock(String(grams))}
-                                                className="underline hover:text-amber-700 dark:hover:text-amber-300 font-black cursor-pointer ml-1"
-                                            >
-                                                Fijar {grams} {displayUnit}
-                                            </button>
-                                        </div>
-                                    );
-                                }
-
-                                return (
-                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 ml-1 animate-in fade-in duration-200">
-                                        = {canonicalKg.toFixed(3)} {canonicalUnit} en inventario
-                                    </p>
-                                );
-                            })()}
-                            {isGranel && granelMode === GRANEL_MODE_KG_LT && stock !== '' && stock !== null && stock !== undefined && (() => {
-                                const canonicalUnit = isLiquidProduct(granelUnit) ? 'L' : 'kg';
-                                const cleaned = String(stock).trim().replace(/\s/g, '').replace(/,/g, '.');
-                                const num = parseFloat(cleaned);
-                                if (!Number.isFinite(num) || num < 0) return null;
-                                return (
-                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 ml-1 animate-in fade-in duration-200">
-                                        = {num.toFixed(3)} {canonicalUnit} en inventario
-                                    </p>
-                                );
-                            })()}
-                            {!isLote && parsedUnits > 1 && (parseInt(stock) || 0) > 0 && (() => {
-                                const parsedStock = parseInt(stock) || 0;
-                                const bultos = Math.floor(parsedStock / parsedUnits);
-                                const sobrante = parsedStock % parsedUnits;
-                                let msg = '';
-                                if (bultos > 0) {
-                                    msg = `= ${bultos} bulto${bultos !== 1 ? 's' : ''}`;
-                                    if (sobrante > 0) {
-                                        msg += ` y ${sobrante} ud${sobrante !== 1 ? 's' : ''} suelta${sobrante !== 1 ? 's' : ''}`;
-                                    } else {
-                                        msg += ' exacto' + (bultos !== 1 ? 's' : '');
-                                    }
-                                } else {
-                                    msg = `= ${sobrante} ud${sobrante !== 1 ? 's' : ''} suelta${sobrante !== 1 ? 's' : ''} (menos de 1 bulto)`;
-                                }
-                                return (
-                                    <p className="text-[10px] text-brand font-bold mt-1 ml-1 animate-in fade-in duration-200">
-                                        {msg}
-                                    </p>
-                                );
-                            })()}
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-amber-500 ml-1 mb-1 block uppercase flex items-center gap-1">
-                                <AlertTriangle size={10} /> Alerta mín. ({alertLabel})
-                            </label>
-                            <input 
-                                type="number" 
-                                step={stockStep}
-                                inputMode={isGranel ? 'decimal' : 'numeric'} 
-                                value={displayedAlert}
-                                onChange={e => handleAlertChange(e.target.value)}
-                                placeholder={isGranel ? (granelMode === GRANEL_MODE_GR_ML ? '5000' : '5') : '5'}
-                                className="w-full bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 p-3.5 rounded-xl font-bold text-amber-700 dark:text-amber-400 outline-none focus:ring-2 focus:ring-amber-500/50 text-sm" />
-                        </div>
-                    </div>
-                )}
-
-                {/* ─── PRE-SAVE SUMMARY ─── */}
-                {name && parsedPrice > 0 && (
-                    <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                        <button onClick={() => setShowSummary(!showSummary)}
-                            type="button"
-                            className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-800/50 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
-                            <span>📋 Resumen antes de guardar</span>
-                            {showSummary ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        </button>
-                        {showSummary && (
-                            <div className="px-3 py-2.5 space-y-1.5 text-xs bg-white dark:bg-slate-900 animate-in fade-in slide-in-from-top-1 duration-150">
-                                <div className="flex justify-between"><span className="text-slate-400">Nombre:</span><span className="font-bold text-slate-700 dark:text-white">{name}</span></div>
-                                <div className="flex justify-between"><span className="text-slate-400">Categoría:</span><span className="font-bold text-slate-700 dark:text-white">{categories.find(c => c.id === category)?.label || category}</span></div>
-                                <div className="flex justify-between"><span className="text-slate-400">Tipo:</span><span className="font-bold text-slate-700 dark:text-white">{PACKAGING_TYPES.find(p => p.id === packagingType)?.label}</span></div>
-                                <div className="flex justify-between"><span className="text-slate-400">Precio USD/BS:</span><span className="font-bold text-emerald-600">${parsedPrice.toFixed(2)}{priceSuffix} / {(parsedPrice * effectiveRate).toFixed(2)} Bs{isGranel && parsedPrice > 0 && granelMode === GRANEL_MODE_GR_ML && ` ($${(parsedPrice / 10).toFixed(2)} / ${isLiquidProduct(granelUnit) ? '100ml' : '100g'})`}</span></div>
-                                {copEnabled && tasaCop > 0 && <div className="flex justify-between"><span className="text-amber-500/80">Precio COP:</span><span className="font-bold text-amber-600">{(priceCop && parseFloat(priceCop) > 0 ? Math.round(parseFloat(priceCop)) : Math.round(parsedPrice * tasaCop)).toLocaleString('es-CO')} COP{priceSuffix}</span></div>}
-                                {parsedCost > 0 && <div className="flex justify-between"><span className="text-slate-400">Costo:</span><span className="font-bold text-slate-600">${parsedCost.toFixed(2)}{priceSuffix}</span></div>}
-                                {mainMarginPct !== null && <div className="flex justify-between"><span className="text-slate-400">Margen:</span><span className={`font-black ${mainMarginPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{mainMarginPct.toFixed(1)}%</span></div>}
-                                {isLote && <div className="flex justify-between"><span className="text-slate-400">Uds/Bulto:</span><span className="font-bold text-brand">{parsedUnits}</span></div>}
-                                {isLote && sellByUnit && <div className="flex justify-between"><span className="text-slate-400">Venta suelta:</span><span className="font-bold text-brand">Sí — ${effectiveUnitPrice.toFixed(2)}/ud</span></div>}
-                                <div className="flex justify-between">
-                                    <span className="text-slate-400">Stock:</span>
-                                    <span className="font-bold text-slate-700 dark:text-white">
-                                        {isLote
-                                            ? `${parsedStockLotes} bultos (${stockUnitsCalc} uds)`
-                                            : isGranel && granelMode === GRANEL_MODE_GR_ML
-                                                ? (() => {
-                                                    const cleaned = String(stock ?? '').trim().replace(/\s/g, '').replace(/,/g, '.');
-                                                    const num = parseFloat(cleaned);
-                                                    const cUnit = isLiquidProduct(granelUnit) ? 'L' : 'kg';
-                                                    const dUnit = isLiquidProduct(granelUnit) ? 'ml' : 'g';
-                                                    if (!Number.isFinite(num) || num <= 0) return `0 ${dUnit} (= 0.000 ${cUnit})`;
-                                                    const pWeight = parseWeightInput(stock, GRANEL_MODE_GR_ML);
-                                                    const cKg = pWeight ? pWeight.canonicalKg : 0;
-                                                    const dQty = pWeight ? pWeight.grams : 0;
-                                                    return `${dQty} ${dUnit} (= ${cKg.toFixed(3)} ${cUnit})`;
-                                                })()
-                                                : isGranel && granelMode === GRANEL_MODE_KG_LT
-                                                    ? (() => {
-                                                        const cleaned = String(stock ?? '').trim().replace(/\s/g, '').replace(/,/g, '.');
-                                                        const num = parseFloat(cleaned);
-                                                        const cUnit = isLiquidProduct(granelUnit) ? 'L' : 'kg';
-                                                        if (!Number.isFinite(num) || num <= 0) return `0.000 ${cUnit}`;
-                                                        return `${num.toFixed(3)} ${cUnit}`;
-                                                    })()
-                                                    : `${stock || 0}`}
-                                    </span>
-                                </div>
-                                {barcode && <div className="flex justify-between"><span className="text-slate-400">Código:</span><span className="font-bold text-slate-700 dark:text-white">{barcode}</span></div>}
-                            </div>
-                        )}
-                    </div>
-                )}
+            {/* Columna derecha sticky (desktop): vista previa viva + CTA primario */}
+            <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-2 space-y-4">
+                {previewNode}
+                {footerAction}
             </div>
         </div>
     );

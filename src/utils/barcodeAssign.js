@@ -4,15 +4,19 @@
  * Portado desde preciosaldia-farmacia (src/utils/barcodeAssign.js).
  */
 
+import { findPresentationByBarcode } from './presentations.js';
+
 const clean = (v) => (v === null || v === undefined ? '' : String(v).trim());
 
-/** ¿El producto responde a este código? (código principal, códigos alternos o id). */
+/** ¿El producto responde a este código? (código principal, alternos, presentaciones o id). */
 export function productHasCode(product, code) {
     const c = clean(code);
     if (!product || !c) return false;
     return clean(product.barcode) === c
         || String(product.id) === c
-        || (Array.isArray(product.altBarcodes) && product.altBarcodes.some((alt) => clean(alt) === c));
+        || clean(product?.midPack?.barcode) === c
+        || (Array.isArray(product.altBarcodes) && product.altBarcodes.some((alt) => clean(alt) === c))
+        || (Array.isArray(product.presentations) && product.presentations.some((lvl) => clean(lvl?.barcode) === c));
 }
 
 /** Primer producto que responde a alguno de los códigos dados. */
@@ -25,7 +29,25 @@ export function findProductByCode(products = [], ...codes) {
     return null;
 }
 
-/** Otro producto que ya usa este código (principal, alterno o id), sin contar `exceptId`. */
+/**
+ * Resuelve producto y, si el código pertenece de forma específica a una
+ * presentación (ej. Blíster o Caja con código propio), también la devuelve.
+ */
+export function findProductAndPresentationByCode(products = [], ...codes) {
+    const list = Array.isArray(products) ? products : [];
+    for (const code of codes) {
+        const product = list.find((p) => productHasCode(p, code));
+        if (product) {
+            return {
+                product,
+                presentation: findPresentationByBarcode(product, code),
+            };
+        }
+    }
+    return null;
+}
+
+/** Otro producto que ya usa este código (principal, alterno, presentación o id), sin contar `exceptId`. */
 export function findOtherProductWithCode(products = [], code, exceptId = null) {
     const list = Array.isArray(products) ? products : [];
     return list.find((p) => (exceptId == null || String(p?.id) !== String(exceptId)) && productHasCode(p, code)) || null;
@@ -34,9 +56,17 @@ export function findOtherProductWithCode(products = [], code, exceptId = null) {
 /** Filtro especial del inventario: artículos que comparten código de barras. */
 export const DUPLICATE_CODE_FILTER = 'codigo-repetido';
 
-/** Todos los códigos de un producto (principal, alternos y blíster), sin repetidos. */
+/** Todos los códigos de un producto (principal, alternos, blíster y presentaciones), sin repetidos. */
 function productCodes(product) {
-    const codes = [product?.barcode, ...(Array.isArray(product?.altBarcodes) ? product.altBarcodes : []), product?.midPack?.barcode];
+    const presCodes = Array.isArray(product?.presentations)
+        ? product.presentations.map((lvl) => lvl?.barcode)
+        : [];
+    const codes = [
+        product?.barcode,
+        ...(Array.isArray(product?.altBarcodes) ? product.altBarcodes : []),
+        product?.midPack?.barcode,
+        ...presCodes,
+    ];
     return [...new Set(codes.map(clean).filter(Boolean))];
 }
 

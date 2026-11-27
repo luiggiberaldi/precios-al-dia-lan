@@ -22,6 +22,7 @@ import {
 } from '../../utils/granel';
 import SmartImage from '../SmartImage';
 import { showToast } from '../Toast';
+import { getSellablePresentations, resolveProductPresentations, pluralizePresentationName } from '../../utils/presentations';
 
 const formatBs = (n) => new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
@@ -194,12 +195,26 @@ const SearchBar = forwardRef(function SearchBar({
                                                     {catInfo.label}
                                                 </span>
                                             )}
-                                            {/* BULTOS-001: badge de presentación — distingue bulto de unidad */}
-                                            {formatPresentationLabel(p) && (
-                                                <span className="flex items-center gap-0.5 text-[9px] font-black text-brand dark:text-brand">
-                                                    <Package size={9} /> {formatPresentationLabel(p)}
-                                                </span>
-                                            )}
+                                            {/* BULTOS-001: badge de presentación — distingue bulto / multinivel de unidad */}
+                                            {(() => {
+                                                const presBadge = formatPresentationLabel(p);
+                                                const sellables = isGranelProduct(p) ? [] : getSellablePresentations(p);
+                                                if (sellables.length > 1) {
+                                                    return (
+                                                        <span className="flex items-center gap-0.5 text-[9px] font-black text-brand dark:text-brand">
+                                                            <Package size={9} /> {sellables.length} pres. · {sellables[sellables.length - 1]?.name} ×{sellables[sellables.length - 1]?.factorToBase}
+                                                        </span>
+                                                    );
+                                                }
+                                                if (presBadge) {
+                                                    return (
+                                                        <span className="flex items-center gap-0.5 text-[9px] font-black text-brand dark:text-brand">
+                                                            <Package size={9} /> {presBadge}
+                                                        </span>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                             {p.pricingMode === 'dual_usd' && p.priceBsUsdRef > 0 && (
                                                 <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800/60">
                                                     Doble $: ${p.priceUsdt || p.priceUsd} / ${p.priceBsUsdRef} Ref
@@ -266,36 +281,87 @@ const SearchBar = forwardRef(function SearchBar({
                 </div>
             )}
 
-            {/* ─── POPUP JERARQUÍA: Paquete o Unidad ─── */}
-            {hierarchyPending && (
-                <div className="absolute top-full mt-2 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-2 border-surface-300 dark:border-surface-800 rounded-2xl shadow-2xl shadow-primary/10 overflow-hidden">
-                    <div className="p-3 bg-brand-light dark:bg-surface-800/20 border-b border-surface-200 dark:border-surface-800">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-black text-brand-dark dark:text-brand uppercase tracking-wider">¿Cómo lo vendes?</p>
-                                <p className="text-[11px] text-brand/70 dark:text-brand/50 font-medium mt-0.5">{hierarchyPending.name}</p>
+            {/* ─── POPUP JERARQUÍA: 2 o 3 Presentaciones ─── */}
+            {hierarchyPending && (() => {
+                const allLevels = resolveProductPresentations(hierarchyPending);
+                const baseUnitName = allLevels[0]?.name || 'Unidad';
+                const sellables = [...getSellablePresentations(allLevels)].reverse();
+                const hasCustomSellables = sellables.length >= 2;
+
+                return (
+                    <div className="absolute top-full mt-2 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-2 border-surface-300 dark:border-surface-800 rounded-2xl shadow-2xl shadow-primary/10 overflow-hidden">
+                        <div className="p-3 bg-brand-light dark:bg-surface-800/20 border-b border-surface-200 dark:border-surface-800">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-black text-brand-dark dark:text-brand uppercase tracking-wider">¿Cómo lo vendes?</p>
+                                    <p className="text-[11px] text-brand/70 dark:text-brand/50 font-medium mt-0.5">{hierarchyPending.name}</p>
+                                </div>
+                                <button type="button" onClick={() => setHierarchyPending(null)} className="min-h-8 min-w-8 flex items-center justify-center p-1 text-brand hover:text-brand-dark cursor-pointer"><X size={16} /></button>
                             </div>
-                            <button onClick={() => setHierarchyPending(null)} className="p-1 text-brand hover:text-brand-dark"><X size={16} /></button>
                         </div>
+
+                        {hasCustomSellables ? (
+                            <div className={`grid gap-2.5 p-3 ${sellables.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
+                                {sellables.map((lvl, idx) => {
+                                    const isBase = lvl.id === 'unit';
+                                    const isPrimary = idx === 0;
+                                    const usdVal = Number(lvl.priceUsd) || 0;
+                                    const copVal = lvl.priceCop || Math.round(usdVal * tasaCop);
+                                    const priceLabel = copEnabled && copPrimary && tasaCop > 0
+                                        ? `${formatCop(copVal)} COP`
+                                        : `$${usdVal.toFixed(2)}`;
+                                    return (
+                                        <button
+                                            key={lvl.id}
+                                            type="button"
+                                            data-testid={`hierarchy-option-${lvl.id}`}
+                                            onClick={() => addToCart(hierarchyPending, null, lvl.id)}
+                                            className={`min-h-[48px] flex flex-col items-center justify-center gap-1.5 p-3.5 rounded-xl border-2 transition-all active:scale-95 cursor-pointer ${
+                                                isBase
+                                                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 hover:bg-emerald-100'
+                                                    : isPrimary
+                                                        ? 'bg-brand-light dark:bg-surface-800/30 border-surface-300 dark:border-surface-700 hover:border-brand'
+                                                        : 'bg-surface-50 dark:bg-surface-800/20 border-brand/30 hover:border-brand'
+                                            }`}
+                                        >
+                                            {isBase
+                                                ? <Box size={22} className="text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                                                : <Package size={22} className="text-brand-dark dark:text-brand" aria-hidden="true" />
+                                            }
+                                            <span className={`text-xs font-black uppercase ${isBase ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-dark dark:text-brand'}`}>
+                                                {lvl.name}
+                                            </span>
+                                            <span className={`text-sm font-black font-mono tabular-nums ${isBase ? 'text-emerald-600 dark:text-emerald-400' : 'text-brand-dark dark:text-brand'}`}>
+                                                {priceLabel}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                                                {lvl.factorToBase} {pluralizePresentationName(baseUnitName, lvl.factorToBase)}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-3 p-3">
+                                <button type="button" onClick={() => addToCart(hierarchyPending, null, 'package')}
+                                    className="min-h-[48px] flex flex-col items-center gap-2 p-4 rounded-xl bg-brand-light dark:bg-surface-800/20 border-2 border-surface-300 dark:border-surface-800 hover:border-brand hover:bg-brand-light dark:hover:bg-surface-800/40 transition-all active:scale-95">
+                                    <Package size={24} className="text-brand-dark dark:text-brand" />
+                                    <span className="text-xs font-black text-brand-dark dark:text-brand uppercase">Caja/Bulto</span>
+                                    <span className="text-sm font-black text-brand-dark dark:text-brand">{copEnabled && copPrimary && tasaCop > 0 ? `${formatCop(getCop(hierarchyPending, tasaCop))} COP` : `$${hierarchyPending.priceUsdt?.toFixed(2)}`}</span>
+                                    <span className="text-[9px] text-slate-400 font-bold">{hierarchyPending.unitsPerPackage} uds</span>
+                                </button>
+                                <button type="button" onClick={() => addToCart(hierarchyPending, null, 'unit')}
+                                    className="min-h-[48px] flex flex-col items-center gap-2 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border-2 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all active:scale-95">
+                                    <Box size={24} className="text-emerald-600 dark:text-emerald-400" />
+                                    <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 uppercase">Unidad</span>
+                                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{copEnabled && copPrimary && tasaCop > 0 ? `${formatCop(hierarchyPending.unitPriceUsd * tasaCop)} COP` : `$${hierarchyPending.unitPriceUsd?.toFixed(2)}`}</span>
+                                    <span className="text-[9px] text-slate-400 font-bold">1 ud</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
-                    <div className="grid grid-cols-2 gap-3 p-3">
-                        <button onClick={() => addToCart(hierarchyPending, null, 'package')}
-                            className="flex flex-col items-center gap-2 p-4 rounded-xl bg-brand-light dark:bg-surface-800/20 border-2 border-surface-300 dark:border-surface-800 hover:border-brand hover:bg-brand-light dark:hover:bg-surface-800/40 transition-all active:scale-95">
-                            <Package size={24} className="text-brand-dark dark:text-brand" />
-                            <span className="text-xs font-black text-brand-dark dark:text-brand uppercase">Caja/Bulto</span>
-                            <span className="text-sm font-black text-brand-dark dark:text-brand">{copEnabled && copPrimary && tasaCop > 0 ? `${formatCop(getCop(hierarchyPending, tasaCop))} COP` : `$${hierarchyPending.priceUsdt?.toFixed(2)}`}</span>
-                            <span className="text-[9px] text-slate-400 font-bold">{hierarchyPending.unitsPerPackage} uds</span>
-                        </button>
-                        <button onClick={() => addToCart(hierarchyPending, null, 'unit')}
-                            className="flex flex-col items-center gap-2 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border-2 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all active:scale-95">
-                            <Box size={24} className="text-emerald-600 dark:text-emerald-400" />
-                            <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 uppercase">Unidad</span>
-                            <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{copEnabled && copPrimary && tasaCop > 0 ? `${formatCop(hierarchyPending.unitPriceUsd * tasaCop)} COP` : `$${hierarchyPending.unitPriceUsd?.toFixed(2)}`}</span>
-                            <span className="text-[9px] text-slate-400 font-bold">1 ud</span>
-                        </button>
-                    </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* ─── POPUP PESAJE: Kg / Litro ─── */}
             {weightPending && (

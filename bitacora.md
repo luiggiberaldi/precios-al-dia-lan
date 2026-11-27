@@ -516,3 +516,11 @@ mostraba $0 aunque la caja había confirmado las 8 compras: invitaba a cargarlas
 **Prueba del trigger:** un bloque `DO` movió 1 s la fecha del doc más reciente, leyó el aviso (coincidía) y lanzó un error a propósito para deshacer todo. La fecha real quedó igual. Como se deshizo, Realtime no repartió nada.
 **Efecto hoy:** ninguno visible todavía. Las cajas y supervisores publicados no usan la tabla de avisos; el ahorro empieza al publicar la rama `fix/egress-realtime`.
 **Dato al margen:** los avisos más pesados son `bodega_products_v1` viejos (hasta 583 KB, de julio y octubre) de equipos que ya no escriben. No generan egress mientras nadie los reescriba.
+
+
+## 2026-11-27 — Presentaciones multinivel (1, 2 o 3 niveles), rediseño del formulario y estabilidad de pestañas (v1.2.0)
+
+**Contexto:** Crear y editar productos con varios niveles de empaque (como `Caja → Blíster → Tableta` o `Caja → Paquete → Unidad`) solo soportaba 2 niveles fijos (`Bulto` / `Unidad`) y mostraba campos de bulto incluso para productos simples.
+**Cambios:** Se implementaron las 5 fases del plan `docs/plans/2026-11-27-plan-presentaciones-multinivel-productos.md`: motor puro `src/utils/presentations.js` (equivalencias, reparto de costo, desglose de stock y alertas de coherencia), compatibilidad con descuento de stock, escaneo por código de cada nivel, cesta viva y valoración (`granel.js`, `barcodeAssign.js`, `cartSync.js`, `inventoryValuation.js`, `checkoutProcessor.js`), rediseño unificado de 2 columnas con vista previa en Caja en `src/components/Products/form/*`, `ProductFormModal.jsx` y `RemoteProductFormModal.jsx`, y soporte multinivel en `SalesView.jsx`, `SearchBar.jsx`, `CategoryBar.jsx`, `ProductCard.jsx` y `StockBatchModal.jsx`.
+**Casos y errores:** `CASO-007`.
+**Verificación:** Vitest `2915/2916` en corrida masiva (`realtimePublicationGuardrails.test.js` pasó `4/4` en corrida aislada tras timeout por CPU), Playwright `tests/e2e/producto-presentaciones.e2e.spec.js` `3/3` (desktop `1366×768` y móvil `375×812`), ESLint `0` errores en `src/` y tests nuevos, `npm run typecheck` `0` errores y `npm run build` exitoso.

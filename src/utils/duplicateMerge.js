@@ -16,10 +16,14 @@ export const CHECK_DUPS_AFTER_IMPORT_KEY = 'pda_check_dups_after_import';
 const clean = (v) => (v === null || v === undefined ? '' : String(v).trim());
 
 function productCodes(product) {
+    const presentationCodes = Array.isArray(product?.presentations)
+        ? product.presentations.map((lvl) => lvl?.barcode)
+        : [];
     const codes = [
         product?.barcode,
         ...(Array.isArray(product?.altBarcodes) ? product.altBarcodes : []),
         product?.midPack?.barcode,
+        ...presentationCodes,
     ];
     return [...new Set(codes.map(clean).filter(Boolean))];
 }
@@ -222,6 +226,10 @@ export function buildMergedProduct(keep, absorbedList = [], { sumStock = true } 
         for (const c of Array.isArray(p.altBarcodes) ? p.altBarcodes : []) {
             const cc = clean(c);
             if (cc && cc !== mainCode) altSet.add(cc);
+        }
+        for (const lvl of Array.isArray(p.presentations) ? p.presentations : []) {
+            const lc = clean(lvl?.barcode);
+            if (lc && lc !== mainCode) altSet.add(lc);
         }
     }
     if (mainCode || keep.barcode !== undefined) next.barcode = mainCode;

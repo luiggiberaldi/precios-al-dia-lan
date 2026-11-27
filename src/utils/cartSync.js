@@ -24,7 +24,8 @@
  *   - Sin dependencias de React.
  */
 
-import { round0 } from './dinero.js';
+import { round0, round4 } from './dinero.js';
+import { resolveProductPresentations, getPrimarySellablePresentation } from './presentations.js';
 
 const CUSTOM_ID_PREFIX = 'custom_';
 
@@ -36,9 +37,19 @@ export function isSyntheticCartLine(item) {
         || String(item._originalId || '').startsWith(CUSTOM_ID_PREFIX);
 }
 
-/** Nombre de la línea según el modo de venta (paridad con addToCart). */
-export function cartLineName(baseName, mode) {
-    return mode === 'unit' ? `${baseName} (Ud.)` : baseName;
+/** Nombre de la línea según el modo de venta o presentación (paridad con addToCart). */
+export function cartLineName(baseName, modeOrLevel) {
+    if (modeOrLevel && typeof modeOrLevel === 'object') {
+        if (modeOrLevel.id === 'mid' && modeOrLevel.name) {
+            return `${baseName} (${modeOrLevel.name})`;
+        }
+        if (modeOrLevel.id === 'unit') {
+            const label = modeOrLevel.name && modeOrLevel.name !== 'Unidad' ? modeOrLevel.name : 'Ud.';
+            return `${baseName} (${label})`;
+        }
+        return baseName;
+    }
+    return modeOrLevel === 'unit' ? `${baseName} (Ud.)` : baseName;
 }
 
 /**
@@ -46,13 +57,57 @@ export function cartLineName(baseName, mode) {
  * MISMA fórmula que `addToCart`; si una cambia, la otra también.
  *
  * @param {object} product        Producto del catálogo (vigente).
- * @param {'package'|'unit'} mode Modo de venta de la línea.
+ * @param {'package'|'unit'|'mid'|'pack'} mode Modo de venta o id de nivel de la línea.
  * @param {number} unitsPerPackage Unidades por empaque de la línea.
  * @param {{tasaCop?: number, effectiveRate?: number}} ctx
  */
 export function deriveCartFields(product, mode, unitsPerPackage, ctx = {}) {
     const tasaCop = Number(ctx.tasaCop) || 0;
     const effectiveRate = Number(ctx.effectiveRate) || 0;
+
+    const hasMultilevel = Array.isArray(product?.presentations) && product.presentations.length > 0;
+    if (hasMultilevel || mode === 'mid' || mode === 'pack') {
+        const levels = resolveProductPresentations(product);
+        const primary = getPrimarySellablePresentation(levels) || levels[0];
+        const matched = (mode === 'package'
+            ? primary
+            : levels.find((l) => l.id === mode) || (mode === 'unit' ? levels[0] : primary))
+            || { id: 'unit', name: 'Unidad', factorToBase: 1 };
+
+        const factor = Math.max(1, Number(matched.factorToBase) || 1);
+        const priceCop = matched.priceCop || null;
+        const fallbackUsd = matched.priceUsd ?? (parseFloat(product?.priceUsd ?? product?.priceUsdt) || 0); // eslint-disable-line no-restricted-syntax -- paridad exacta con addToCart
+        const priceUsd = (priceCop && tasaCop > 0) ? priceCop / tasaCop : fallbackUsd;
+
+        const baseFactor = Number(product?.unitsPerPackage) || 1;
+        const packageCostUsd = product?.costUsd || 0;
+        const costUsd = matched.costUsd != null
+            ? round4(matched.costUsd)
+            : round4((packageCostUsd / baseFactor) * factor);
+        const costBs = effectiveRate > 0
+            ? costUsd * effectiveRate
+            : (product?.costBs ? round4((product.costBs / baseFactor) * factor) : 0);
+
+        return {
+            priceUsd,
+            priceCop,
+            exactBs: product?.exactBs || null,
+            costUsd,
+            costBs,
+            pricingMode: product?.pricingMode,
+            priceBsUsdRef: matched.priceBsUsdRef ?? product?.priceBsUsdRef ?? null,
+            sellByUnit: product?.sellByUnit,
+            unitPriceUsd: product?.unitPriceUsd,
+            unitPriceCop: product?.unitPriceCop,
+            unitsPerPackage: product?.unitsPerPackage,
+            _unitsPerPackage: factor,
+            _presentationId: matched.id,
+            _presentationName: matched.name,
+            _factorToBase: factor,
+            ...(product?.packagingType !== undefined ? { packagingType: product.packagingType } : {}),
+        };
+    }
+
     const isUnit = mode === 'unit';
     const perPackage = Number(product?.unitsPerPackage) || 1;
 
@@ -62,7 +117,9 @@ export function deriveCartFields(product, mode, unitsPerPackage, ctx = {}) {
         const unitCop = product.unitPriceCop
             || (product.priceCop ? round0(product.priceCop / perPackage) : null);
         priceCop = unitCop || null;
-        priceUsd = (unitCop && tasaCop > 0) ? unitCop / tasaCop : product.unitPriceUsd;
+        priceUsd = (unitCop && tasaCop > 0)
+            ? unitCop / tasaCop
+            : (product.unitPriceUsd ?? (parseFloat(product.priceUsdt) || 0)); // eslint-disable-line no-restricted-syntax -- fallback seguro para productos simples sin presentaciones explícitas
     } else {
         priceCop = product.priceCop || null;
         priceUsd = (product.priceCop && tasaCop > 0)
@@ -119,9 +176,13 @@ export function resyncCartItems(cart, products, ctx = {}) {
             return { ...item, _productMissing: true };
         }
 
-        const fresh = deriveCartFields(product, item._mode, item._unitsPerPackage, ctx);
+        const targetModeOrLevel = item._presentationId || item._mode;
+        const fresh = deriveCartFields(product, targetModeOrLevel, item._unitsPerPackage, ctx);
         const fieldsChanged = Object.keys(fresh).some(k => !Object.is(item[k], fresh[k]));
-        const nextName = cartLineName(product.name, item._mode);
+        const matchedPres = item._presentationId && Array.isArray(product.presentations)
+            ? product.presentations.find(l => l.id === item._presentationId)
+            : null;
+        const nextName = cartLineName(product.name, matchedPres || item._mode);
         const nameChanged = typeof product.name === 'string' && item.name !== nextName;
 
         if (!fieldsChanged && !nameChanged && !item._productMissing) return item;

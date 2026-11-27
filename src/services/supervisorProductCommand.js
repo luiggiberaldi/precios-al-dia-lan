@@ -79,6 +79,11 @@ export const EDITABLE_PRODUCT_FIELDS = Object.freeze([
     'costFactor',
     'unit',
     'packagingType',
+    'packagingMode',
+    'costSourceLevel',
+    'presentations',
+    'midPack',
+    'altBarcodes',
     'granelUnit',
     'unitsPerPackage',
     'sellByUnit',
@@ -144,6 +149,57 @@ export function normalizeProductFieldValue(key, value, product = {}) {
 
         case 'sellByUnit':
             return Boolean(value);
+
+        case 'packagingMode':
+            return ['simple', 'multilevel', 'granel'].includes(value) ? value : null;
+
+        case 'costSourceLevel':
+            return ['unit', 'mid', 'pack'].includes(value) ? value : null;
+
+        case 'altBarcodes': {
+            if (!Array.isArray(value)) return null;
+            const list = value
+                .map((v) => (typeof v === 'string' ? v.trim() : String(v ?? '').trim()))
+                .filter(Boolean);
+            return list.length > 0 ? list : null;
+        }
+
+        case 'midPack': {
+            if (!isRecord(value)) return null;
+            const code = typeof value.barcode === 'string' ? value.barcode.trim() : '';
+            const units = Number(value.units);
+            if (!code && !(Number.isFinite(units) && units > 0)) return null;
+            return {
+                barcode: code || null,
+                units: Number.isFinite(units) && units > 0 ? units : null,
+                name: typeof value.name === 'string' && value.name.trim() ? value.name.trim() : null,
+            };
+        }
+
+        case 'presentations': {
+            if (!Array.isArray(value) || value.length === 0) return null;
+            const numOrNull = (raw) => {
+                if (raw === undefined || raw === null || raw === '') return null;
+                const n = Number(raw);
+                return Number.isFinite(n) ? n : null;
+            };
+            const tupleList = value.slice(0, 3)
+                .filter(isRecord)
+                .map((lvl) => [
+                    typeof lvl.id === 'string' && lvl.id.trim() ? lvl.id.trim() : null,
+                    numOrNull(lvl.level),
+                    typeof lvl.name === 'string' && lvl.name.trim() ? lvl.name.trim() : null,
+                    numOrNull(lvl.containsQty),
+                    numOrNull(lvl.factorToBase),
+                    Boolean(lvl.sellable),
+                    numOrNull(lvl.priceUsd),
+                    numOrNull(lvl.priceCop),
+                    numOrNull(lvl.priceBsUsdRef),
+                    numOrNull(lvl.costUsd),
+                    typeof lvl.barcode === 'string' && lvl.barcode.trim() ? lvl.barcode.trim() : null,
+                ]);
+            return tupleList.length > 0 ? tupleList : null;
+        }
 
         default:
             return value;

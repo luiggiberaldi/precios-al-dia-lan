@@ -25,8 +25,19 @@ export function matchesSearch(fields, query) {
 // desplegable del buscador y el grid siempre filtren igual. Cualquier campo
 // nuevo se agrega aquí y ambas superficies quedan sincronizadas.
 export function productMatchesSearch(product, query) {
+    const presCodes = Array.isArray(product?.presentations)
+        ? product.presentations.map(lvl => lvl?.barcode)
+        : [];
+    const altCodes = Array.isArray(product?.altBarcodes) ? product.altBarcodes : [];
     return matchesSearch(
-        [product?.name, product?.barcode, product?.id != null ? String(product.id) : ''],
+        [
+            product?.name,
+            product?.barcode,
+            product?.id != null ? String(product.id) : '',
+            product?.midPack?.barcode,
+            ...altCodes,
+            ...presCodes,
+        ],
         query,
     );
 }

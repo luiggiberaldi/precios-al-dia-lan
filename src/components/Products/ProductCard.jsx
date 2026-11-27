@@ -6,6 +6,12 @@ import { showToast } from '../Toast';
 import SmartImage from '../SmartImage';
 import { isGranelProduct, isLowStockProduct, granelStockUnitLabel, parseStockInput, formatStockDisplay, formatLowStockAlert, adjustStockValue } from '../../utils/granel'; // GRANEL-001
 import { marginOverPricePercent } from '../../utils/productCostFactor';
+import {
+    resolveProductPresentations,
+    getSellablePresentations,
+    decomposeStockByLevels,
+    pluralizePresentationName,
+} from '../../utils/presentations';
 
 export default function ProductCard({
     product: p,
@@ -28,8 +34,17 @@ export default function ProductCard({
 }) {
     // GRANEL-001: edición inline rápida del stock al tocar el número.
     const isGranel = isGranelProduct(p);
+    const levels = isGranel ? [] : resolveProductPresentations(p);
+    const sellables = isGranel ? [] : getSellablePresentations(levels);
+    const baseName = levels[0]?.name || 'Unidad';
+    const hasHierarchy = !isGranel && levels.length > 1;
+    const stockDecomposition = hasHierarchy && (p.stock ?? 0) > 0
+        ? decomposeStockByLevels(p.stock ?? 0, levels)
+        : null;
     // El stock granel vive en kg/L aunque el producto se rotule en g/ml.
-    const unitShort = isGranel ? granelStockUnitLabel(p) : 'UND';
+    const unitShort = isGranel
+        ? granelStockUnitLabel(p)
+        : (baseName !== 'Unidad' ? pluralizePresentationName(baseName, p.stock ?? 0).toUpperCase() : 'UND');
     const [isEditingStock, setIsEditingStock] = useState(false);
     const [stockDraft, setStockDraft] = useState('');
     const stockInputRef = useRef(null);
@@ -294,10 +309,13 @@ ${showSecondary ? `[PRECIO SECUNDARIO]
             <div className="p-3 lg:p-2.5 flex flex-col flex-1">
                 <h3 className="font-bold text-slate-700 dark:text-slate-200 text-[13px] lg:text-[12px] leading-tight line-clamp-2 mb-2">{p.name}</h3>
 
-                {/* Units per package info */}
-                {p.unit === 'paquete' && p.unitsPerPackage && (
+                {/* Presentaciones configuradas */}
+                {hasHierarchy && (
                     <div className="flex items-center gap-1 text-[10px] font-bold text-brand dark:text-brand mb-2 mt-[-4px]">
-                        <Package size={11} /> Bulto · {p.unitsPerPackage} uds
+                        <Package size={11} />
+                        {levels.length >= 3
+                            ? `${levels[2].name} ${levels[2].factorToBase} · ${levels[1].name} ${levels[1].factorToBase}`
+                            : `${levels[1].name} · ${levels[1].factorToBase} ${pluralizePresentationName(baseName, levels[1].factorToBase)}`}
                     </div>
                 )}
 
@@ -339,7 +357,20 @@ ${showSecondary ? `[PRECIO SECUNDARIO]
                                 )}
                             </>
                         )}
-                        {p.unit === 'paquete' && p.sellByUnit && (
+                        {sellables.length > 1 ? (
+                            <p className="text-[10px] font-bold text-brand dark:text-brand mt-0.5 flex items-center gap-1 flex-wrap">
+                                <Layers size={10} className="shrink-0" />
+                                {[...sellables].slice(0, -1).reverse().map((lvl, idx) => (
+                                    <span key={lvl.id}>
+                                        {idx > 0 ? ' · ' : ''}
+                                        {lvl.name}{' '}
+                                        {copEnabled && tasaCop > 0 && copPrimary
+                                            ? `${formatCop(lvl.priceCop || Math.round((lvl.priceUsd || 0) * tasaCop))} COP`
+                                            : `$${(lvl.priceUsd || 0).toFixed(2)}`}
+                                    </span>
+                                ))}
+                            </p>
+                        ) : p.unit === 'paquete' && p.sellByUnit && (
                             <p className="text-[10px] font-bold text-brand dark:text-brand mt-0.5 flex items-center gap-0.5">
                                 <Layers size={10} />
                                 {copEnabled && tasaCop > 0
@@ -397,8 +428,8 @@ ${showSecondary ? `[PRECIO SECUNDARIO]
                             )}
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">{unitShort}</span>
                             <span className="text-[8px] text-slate-400 leading-none">{formatLowStockAlert(p)}</span>
-                            {p.unit === 'paquete' && p.unitsPerPackage > 0 && Math.floor((p.stock ?? 0) / p.unitsPerPackage) > 0 && (
-                                <span className="text-[8px] text-slate-400 leading-none">= {Math.floor((p.stock ?? 0) / p.unitsPerPackage)} bultos</span>
+                            {stockDecomposition && (
+                                <span className="text-[8px] text-slate-400 leading-tight text-center mt-0.5">= {stockDecomposition.text}</span>
                             )}
                         </div>
                         {!readOnly && (

@@ -9,7 +9,7 @@ import { NUBE_BRAND } from '../nube/brand';
 const ITEM_BASE = 'flex items-center gap-3 rounded-xl px-3 text-sm font-bold transition-colors';
 const ITEM_IDLE = 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5';
 
-export default function SideNav({ tabs, activeTab, setActiveTab, triggerHaptic, collapsed, onToggle, requireLogin, usuarioActivo, logout }) {
+export default function SideNav({ tabs, activeTab, setActiveTab, triggerHaptic, collapsed, onToggle, animateTransition = false, requireLogin, usuarioActivo, logout }) {
   const { cart } = useCart();
   // Cuenta artículos distintos de la cesta, no cantidades (igual que la barra inferior).
   const totalCartItems = Array.isArray(cart) ? cart.length : 0;
@@ -30,7 +30,7 @@ export default function SideNav({ tabs, activeTab, setActiveTab, triggerHaptic, 
 
   return (
     <aside
-      className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-30 flex-col bg-white dark:bg-surface-900 border-r border-slate-200 dark:border-white/10 transition-[width] duration-200 ${collapsed ? 'w-16' : 'w-56'}`}
+      className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-30 flex-col bg-white dark:bg-surface-900 border-r border-slate-200 dark:border-white/10 ${animateTransition ? 'transition-[width] duration-200' : ''} ${collapsed ? 'w-16' : 'w-56'}`}
       aria-label="Navegación principal"
     >
       <div className={`flex items-center gap-3 px-3 pt-4 pb-2 ${collapsed ? 'justify-center px-0' : ''}`}>

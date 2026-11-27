@@ -9,12 +9,14 @@ import { useVoiceSearch } from '../hooks/useVoiceSearch';
 import { useNotifications } from '../hooks/useNotifications';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { normalizeBarcode, isLikelyBarcode } from '../utils/barcodeNormalizer';
+import { findProductAndPresentationByCode } from '../utils/barcodeAssign';
+import { getSellablePresentations, resolveProductPresentations } from '../utils/presentations';
 import { showToast } from '../components/Toast';
 import { ShoppingCart, X, DollarSign, CheckCircle2, Trash2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useProductContext } from '../context/ProductContext';
 import { isGranelProduct, parseCartQuantity, adjustStockValue, parseEan13ScaleBarcode, calculateItemStockDeduction } from '../utils/granel'; // GRANEL-001
-import { deriveCartFields, resyncCartItems } from '../utils/cartSync'; // SYNC-CESTA-001
+import { deriveCartFields, resyncCartItems, cartLineName } from '../utils/cartSync'; // SYNC-CESTA-001
 import { buildCashAdvanceProduct } from '../utils/cashAdvance';
 
 // Components
@@ -332,10 +334,10 @@ export default function SalesView({ triggerHaptic, isActive }) {
                 if (p) { addToCart({ ...p, isWeight: true }, weightKg, null, true); return; }
             }
 
-            // Producto regular
-            const product = products.find(p => p.barcode === normalized || String(p.id) === normalized);
-            if (product) {
-                addToCart(product, null, null, true);
+            // Producto regular o presentación por código propio
+            const hit = findProductAndPresentationByCode(products, normalized);
+            if (hit) {
+                addToCart(hit.product, null, hit.presentation?.id ?? null, true);
             } else {
                 playError();
                 showToast(`Producto no encontrado (${normalized})`, 'warning');
@@ -363,10 +365,10 @@ export default function SalesView({ triggerHaptic, isActive }) {
             }
         }
 
-        // Buscar producto regular por código de barras o ID exactamente
-        const product = products.find(p => p.barcode === normalized || String(p.id) === normalized);
-        if (product) {
-            addToCart(product, null, null, true);
+        // Buscar producto o presentación por código de barras o ID exactamente
+        const hit = findProductAndPresentationByCode(products, normalized);
+        if (hit) {
+            addToCart(hit.product, null, hit.presentation?.id ?? null, true);
             // Limpiamos la barra tras pegarse
             setTimeout(() => setSearchTerm(''), 10);
         }
@@ -510,8 +512,12 @@ export default function SalesView({ triggerHaptic, isActive }) {
         triggerHaptic && triggerHaptic();
         const isAdvance = !!product.isCashAdvance;
 
+        const productIsGranel = isGranelProduct(product);
+        const sellables = !isAdvance && !productIsGranel ? getSellablePresentations(product) : [];
+        const hasAnySellablePrice = sellables.some(l => (Number(l.priceUsd) > 0 || Number(l.priceCop) > 0));
+
         // Validación temprana: rechazar productos sin precio válido
-        if (!isAdvance && (!product.priceUsdt || isNaN(product.priceUsdt) || product.priceUsdt <= 0)) {
+        if (!isAdvance && !hasAnySellablePrice && (!product.priceUsdt || isNaN(product.priceUsdt) || product.priceUsdt <= 0)) {
             playError();
             showToast('Este producto no tiene precio válido. Edítalo primero.', 'warning');
             return;
@@ -528,14 +534,16 @@ export default function SalesView({ triggerHaptic, isActive }) {
 
         playAdd();
 
-        if (product.sellByUnit && product.unitPriceUsd && !forceMode && !qtyOverride) { setHierarchyPending(product); return; }
-        const productIsGranel = isGranelProduct(product);
+        if (!isAdvance && !productIsGranel && sellables.length > 1 && !forceMode && !qtyOverride) { setHierarchyPending(product); return; }
         if (productIsGranel && !qtyOverride) { setWeightPending(product); return; }
+
+        const hasExplicitPres = Array.isArray(product.presentations) && product.presentations.length > 0;
+        const targetMode = forceMode || (hasExplicitPres && !productIsGranel && sellables.length === 1 ? sellables[0].id : 'package');
 
         // SYNC-CESTA-001: los campos derivados de la línea salen de la MISMA
         // función que usa la re-sincronización viva (utils/cartSync.js), para que
         // el ítem cargado y el catálogo vigente nunca diverjan.
-        const derived = deriveCartFields(product, forceMode === 'unit' ? 'unit' : 'package', product.unitsPerPackage, { tasaCop, effectiveRate });
+        const derived = deriveCartFields(product, targetMode, product.unitsPerPackage, { tasaCop, effectiveRate });
         // When priceCop is the source of truth, derive USD from COP at current rate
         let priceToUse = derived.priceUsd;
         let cartId = product.id;
@@ -550,11 +558,27 @@ export default function SalesView({ triggerHaptic, isActive }) {
             return;
         }
 
-        if (forceMode === 'unit') {
+        if (hasExplicitPres || targetMode === 'mid' || targetMode === 'pack') {
+            const matchedPres = resolveProductPresentations(product).find(l => l.id === derived._presentationId);
+            cartId = derived._presentationId === 'pack' || sellables.length <= 1
+                ? product.id
+                : `${product.id}__${derived._presentationId}`;
+            cartName = sellables.length <= 1
+                ? product.name
+                : cartLineName(product.name, matchedPres || targetMode);
+        } else if (targetMode === 'unit') {
             // El precio unitario ya viene derivado por deriveCartFields.
             cartId = product.id + '_unit';
             cartName = product.name + ' (Ud.)';
         }
+
+        const presSnapshot = derived._presentationId
+            ? {
+                _presentationId: derived._presentationId,
+                _presentationName: derived._presentationName,
+                _factorToBase: derived._factorToBase,
+            }
+            : {};
 
         // Pre-calculate stock check BEFORE setCart to avoid React StrictMode double-firing
         if (!isAdvance && !allowNegativeStock) {
@@ -564,12 +588,12 @@ export default function SalesView({ triggerHaptic, isActive }) {
             const existingQtyForThis = existingInCart ? existingInCart.qty : 0;
             const newQty = existingQtyForThis + addingQty;
             // BULTOS-001: unidades canónicas de stock que consumirá esta línea
-            // (unidad suelta → qty; bulto → qty × uds/bulto; granel → qty).
             const stockNeeded = calculateItemStockDeduction({
                 ...product,
                 qty: newQty,
-                _mode: forceMode || 'package',
-                _unitsPerPackage: product.unitsPerPackage || 1,
+                _mode: derived._presentationId || targetMode,
+                _unitsPerPackage: derived._unitsPerPackage ?? (product.unitsPerPackage || 1),
+                ...presSnapshot,
             });
 
             const otherCartItems = currentCart.filter(i => (i._originalId || i.id) === product.id && i.id !== cartId);
@@ -591,13 +615,12 @@ export default function SalesView({ triggerHaptic, isActive }) {
             const existingInCart = currentCart.find(i => i.id === cartId && i.priceUsd === priceToUse);
             const existingQtyForThis = existingInCart ? existingInCart.qty : 0;
             const newQty = existingQtyForThis + (qtyOverride || 1);
-            // BULTOS-001: unidades canónicas de stock que consumirá esta línea
-            // (unidad suelta → qty; bulto → qty × uds/bulto; granel → qty).
             const stockNeeded = calculateItemStockDeduction({
                 ...product,
                 qty: newQty,
-                _mode: forceMode || 'package',
-                _unitsPerPackage: product.unitsPerPackage || 1,
+                _mode: derived._presentationId || targetMode,
+                _unitsPerPackage: derived._unitsPerPackage ?? (product.unitsPerPackage || 1),
+                ...presSnapshot,
             });
 
             const otherCartItems = currentCart.filter(i => (i._originalId || i.id) === product.id && i.id !== cartId);
@@ -631,7 +654,10 @@ export default function SalesView({ triggerHaptic, isActive }) {
                 unit: product.unit ?? null,
                 granelUnit: productIsGranel ? (product.granelUnit ?? product.unit ?? null) : null,
                 packagingType: product.packagingType ?? null,
-                _originalId: product.id, _mode: forceMode || 'package', _unitsPerPackage: product.unitsPerPackage || 1,
+                _originalId: product.id,
+                _mode: derived._presentationId || targetMode,
+                _unitsPerPackage: derived._unitsPerPackage ?? (product.unitsPerPackage || 1),
+                ...presSnapshot,
             }, ...prev];
         });
         handleSetSearchTerm('');
@@ -742,10 +768,10 @@ export default function SalesView({ triggerHaptic, isActive }) {
                 if (p) { addToCart({ ...p, isWeight: true }, weightKg, null, true); handleSetSearchTerm(''); return; }
             }
 
-            // 2. Coincidencia exacta de código de barras o ID
-            const exactMatch = products.find(p => p.barcode === normalized || String(p.id) === normalized || p.barcode === rawTerm || String(p.id) === rawTerm);
-            if (exactMatch) {
-                addToCart(exactMatch, null, null, true);
+            // 2. Coincidencia exacta de código de barras (general o por presentación) o ID
+            const exactHit = findProductAndPresentationByCode(products, normalized, rawTerm);
+            if (exactHit) {
+                addToCart(exactHit.product, null, exactHit.presentation?.id ?? null, true);
                 handleSetSearchTerm('');
                 return;
             }

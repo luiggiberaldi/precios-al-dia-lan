@@ -495,7 +495,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
 
     if (isLoading) {
         return (
-            <div className="flex-1 p-3 sm:p-6 space-y-4">
+            <div className="flex-1 p-3 sm:p-5 lg:p-6 xl:p-8 space-y-4">
                 <Skeleton className="h-14 w-40 rounded-2xl" />
                 <div className="grid grid-cols-3 gap-3">
                     <Skeleton className="h-24 rounded-2xl" />

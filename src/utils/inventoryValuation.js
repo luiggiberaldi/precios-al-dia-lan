@@ -16,26 +16,48 @@
  */
 
 import { round2 } from './dinero.js';
+import {
+    resolveProductPresentations,
+    getSellablePresentations,
+    getPrimarySellablePresentation,
+} from './presentations.js';
 
-/** Producto vendido en bultos (cajas/lotes) con factor entero > 1. */
+/** Producto vendido en bultos/cajas o presentaciones múltiples con factor > 1. */
 export function isPackageProduct(product) {
+    if (Array.isArray(product?.presentations) && product.presentations.length > 0) {
+        const levels = resolveProductPresentations(product);
+        return getSellablePresentations(levels).some((l) => l.factorToBase > 1);
+    }
     const uPP = Number(product?.unitsPerPackage);
     return (product?.packagingType === 'lote' || product?.unit === 'paquete')
         && Number.isFinite(uPP) && uPP > 1;
 }
 
-/** Unidades canónicas por bulto (1 si no es producto de bulto). */
+/** Unidades canónicas por empaque principal (1 si no es producto de bulto/multinivel). */
 export function packageFactor(product) {
+    if (Array.isArray(product?.presentations) && product.presentations.length > 0) {
+        const primary = getPrimarySellablePresentation(product);
+        return primary && primary.factorToBase > 1 ? primary.factorToBase : 1;
+    }
     return isPackageProduct(product) ? Number(product.unitsPerPackage) : 1;
 }
 
 /**
  * Precio de venta por UNIDAD canónica.
- * - Venta por unidad con precio explícito → ese precio (ya es por unidad).
- * - Bulto → precioDeBulto / unitsPerPackage.
+ * - Multinivel con unidad base vendible → ese precio directo.
+ * - Multinivel / bulto → precioDePresentacionPrincipal / factorToBase.
  * - Suelto/granel → su precio (ya es por unidad/kg).
  */
 export function perUnitRetailUsd(product) {
+    if (Array.isArray(product?.presentations) && product.presentations.length > 0) {
+        const levels = resolveProductPresentations(product);
+        const unitLvl = levels.find((l) => l.id === 'unit');
+        if (unitLvl?.sellable && Number(unitLvl.priceUsd) > 0) return Number(unitLvl.priceUsd);
+        const primary = getPrimarySellablePresentation(levels);
+        if (primary && Number(primary.priceUsd) > 0) {
+            return Number(primary.priceUsd) / (primary.factorToBase || 1);
+        }
+    }
     if (product?.sellByUnit && Number(product?.unitPriceUsd) > 0) return Number(product.unitPriceUsd);
     // FIN-030: priceUsdt (typo histórico) y priceUsd son alias del mismo valor.
     const price = Number(product?.priceUsd ?? product?.priceUsdt) || 0;
@@ -43,10 +65,18 @@ export function perUnitRetailUsd(product) {
 }
 
 /**
- * Costo por UNIDAD canónica. `costUsd` es por bulto en productos de bulto
- * (misma convención que usa FinancialEngine para el COGS de ventas por unidad).
+ * Costo por UNIDAD canónica. `costUsd` en niveles superiores se divide por su factor.
  */
 export function perUnitCostUsd(product) {
+    if (Array.isArray(product?.presentations) && product.presentations.length > 0) {
+        const levels = resolveProductPresentations(product);
+        const unitLvl = levels.find((l) => l.id === 'unit');
+        if (unitLvl && Number(unitLvl.costUsd) > 0) return Number(unitLvl.costUsd);
+        const primary = getPrimarySellablePresentation(levels);
+        if (primary && Number(primary.costUsd) > 0) {
+            return Number(primary.costUsd) / (primary.factorToBase || 1);
+        }
+    }
     const cost = Number(product?.costUsd) || 0;
     return cost / packageFactor(product);
 }

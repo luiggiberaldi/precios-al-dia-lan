@@ -3,6 +3,7 @@ import { Modal } from '../Modal';
 import ProductFormQuick from '../Products/ProductFormQuick';
 import { useProductContext } from '../../context/ProductContext';
 import { buildProductPayload, derivePricingFromEdit, roundDerivedPrice, formatPriceUsdInput } from '../../utils/productProcessor';
+import { buildPresetPresentations, validatePresentationCoherence } from '../../utils/presentations';
 import { prepareProductFormState } from '../../hooks/useProductForm';
 import { getGranelUnitMode } from '../../utils/granel';
 import { showToast } from '../Toast';
@@ -40,6 +41,10 @@ export default function RemoteProductFormModal({ isOpen, onClose, targetDeviceId
     const [image, setImage] = useState(null);
 
     const [packagingType, setPackagingType] = useState('suelto');
+    const [packagingMode, setPackagingMode] = useState('simple');
+    const [presentations, setPresentations] = useState(() => buildPresetPresentations('simple'));
+    const [costSourceLevel, setCostSourceLevel] = useState('unit');
+    const [stockByLevel, setStockByLevel] = useState({ unit: 0 });
     const [unitsPerPackage, setUnitsPerPackage] = useState('1');
     const [stockInLotes, setStockInLotes] = useState('');
     const [granelUnit, setGranelUnit] = useState('kg');
@@ -76,6 +81,10 @@ export default function RemoteProductFormModal({ isOpen, onClose, targetDeviceId
             setIsSearchingImage(false);
 
             setPackagingType(formState.packagingType || 'suelto');
+            setPackagingMode(formState.packagingMode || 'simple');
+            setPresentations(Array.isArray(formState.presentations) ? formState.presentations : buildPresetPresentations('simple'));
+            setCostSourceLevel(formState.costSourceLevel || 'unit');
+            setStockByLevel(formState.stockByLevel || { unit: 0 });
             setUnitsPerPackage(formState.unitsPerPackage != null ? String(formState.unitsPerPackage) : '1');
             setStockInLotes(formState.stockInLotes != null ? String(formState.stockInLotes) : '0');
             setGranelUnit(formState.granelUnit || 'kg');
@@ -105,6 +114,10 @@ export default function RemoteProductFormModal({ isOpen, onClose, targetDeviceId
             setIsSearchingImage(false);
 
             setPackagingType('suelto');
+            setPackagingMode('simple');
+            setPresentations(buildPresetPresentations('simple'));
+            setCostSourceLevel('unit');
+            setStockByLevel({ unit: 0 });
             setUnitsPerPackage('1');
             setStockInLotes('');
             setGranelUnit('kg');
@@ -294,12 +307,34 @@ export default function RemoteProductFormModal({ isOpen, onClose, targetDeviceId
         // Solo se valida si el código es nuevo o cambió (no estorba al editar un producto ya cargado).
         const typedBarcode = String(barcode ?? '').trim();
         const savedBarcode = productToEdit ? String(productToEdit.barcode ?? '').trim() : '';
-        const owner = typedBarcode && typedBarcode !== savedBarcode
-            ? findOtherProductWithCode(products, typedBarcode, productToEdit?.id ?? null)
-            : null;
-        if (owner) {
-            showToast(`El código ${typedBarcode} ya pertenece a «${owner.name}»`, 'warning');
-            return;
+        const savedPresCodes = new Set(
+            Array.isArray(productToEdit?.presentations)
+                ? productToEdit.presentations.map((l) => String(l?.barcode ?? '').trim()).filter(Boolean)
+                : [],
+        );
+        const codesToCheck = [
+            ...(typedBarcode && typedBarcode !== savedBarcode ? [typedBarcode] : []),
+            ...(packagingMode !== 'granel'
+                ? presentations
+                    .map((l) => String(l?.barcode ?? '').trim())
+                    .filter((c) => c && !savedPresCodes.has(c) && c !== savedBarcode)
+                : []),
+        ];
+        for (const candidateCode of codesToCheck) {
+            const owner = findOtherProductWithCode(products, candidateCode, productToEdit?.id ?? null);
+            if (owner) {
+                showToast(`El código ${candidateCode} ya pertenece a «${owner.name}»`, 'warning');
+                return;
+            }
+        }
+        if (packagingMode !== 'granel') {
+            const blocking = validatePresentationCoherence(presentations).find(
+                (w) => w.type === 'duplicate_level_barcode' || w.type === 'no_sellable_level',
+            );
+            if (blocking) {
+                showToast(blocking.message, 'warning');
+                return;
+            }
         }
 
         try {
@@ -320,6 +355,11 @@ export default function RemoteProductFormModal({ isOpen, onClose, targetDeviceId
                 stock,
                 stockInLotes,
                 packagingType,
+                packagingMode,
+                presentations,
+                costSourceLevel,
+                stockByLevel,
+                usePresentations: packagingMode !== 'granel',
                 unitsPerPackage,
                 granelUnit,
                 sellByUnit,
@@ -421,7 +461,7 @@ export default function RemoteProductFormModal({ isOpen, onClose, targetDeviceId
             isOpen={isOpen}
             onClose={onClose}
             title={productToEdit ? "Editar Producto Remoto" : "Nuevo Producto Remoto"}
-            size="max-w-2xl"
+            size="max-w-md md:max-w-5xl"
         >
             <div className="space-y-6">
                 <ProductFormQuick
@@ -449,6 +489,10 @@ export default function RemoteProductFormModal({ isOpen, onClose, targetDeviceId
                     unitPriceUsd={unitPriceUsd} setUnitPriceUsd={setUnitPriceUsd}
                     unitPriceCop={unitPriceCop} setUnitPriceCop={setUnitPriceCop}
                     packagingType={packagingType} setPackagingType={setPackagingType}
+                    packagingMode={packagingMode} setPackagingMode={setPackagingMode}
+                    presentations={presentations} setPresentations={setPresentations}
+                    costSourceLevel={costSourceLevel} setCostSourceLevel={setCostSourceLevel}
+                    stockByLevel={stockByLevel} setStockByLevel={setStockByLevel}
                     stockInLotes={stockInLotes} setStockInLotes={setStockInLotes}
                     granelUnit={granelUnit} setGranelUnit={setGranelUnit}
                     effectiveRate={bcvRate}

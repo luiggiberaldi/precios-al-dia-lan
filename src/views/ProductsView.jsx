@@ -33,6 +33,7 @@ import { useProductFiltering } from '../hooks/useProductFiltering';
 import { useProductForm } from '../hooks/useProductForm';
 import { findOtherProductWithCode, findProductByCode, DUPLICATE_CODE_FILTER } from '../utils/barcodeAssign';
 import { findSimilarNameProduct, shouldCheckName } from '../utils/similarName';
+import { validatePresentationCoherence } from '../utils/presentations';
 import DuplicateNameConfirm from '../components/Products/DuplicateNameConfirm';
 import DuplicateMergeModal from '../components/Products/DuplicateMergeModal';
 import {
@@ -353,6 +354,10 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
         lowStockAlert, setLowStockAlert,
         image, setImage,
         packagingType, setPackagingType,
+        packagingMode, setPackagingMode,
+        presentations, setPresentations,
+        costSourceLevel, setCostSourceLevel,
+        stockByLevel, setStockByLevel,
         stockInLotes, setStockInLotes,
         granelUnit, setGranelUnit,
         ivaMode, setIvaMode,
@@ -523,24 +528,52 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
 
     const handleSave = () => {
         triggerHaptic && triggerHaptic();
-        if (!name || (!priceUsd && !priceBs)) {
+        const hasValidPrice = packagingMode !== 'granel' && Array.isArray(presentations) && presentations.length > 0
+            ? presentations.some((l) => l.sellable && ((Number(l.priceUsd) || 0) > 0 || (Number(l.priceCop) || 0) > 0))
+            : Boolean(priceUsd || priceBs);
+        if (!name || !hasValidPrice) {
             setIsFormShaking(true);
             setTimeout(() => setIsFormShaking(false), 500);
             return showToast('Nombre y precio requeridos', 'warning');
         }
 
+        if (packagingMode !== 'granel') {
+            const blocking = validatePresentationCoherence(presentations).find(
+                (w) => w.type === 'duplicate_level_barcode' || w.type === 'no_sellable_level',
+            );
+            if (blocking) {
+                setIsFormShaking(true);
+                setTimeout(() => setIsFormShaking(false), 500);
+                return showToast(blocking.message, 'warning');
+            }
+        }
+
         // Dos productos con el mismo código: al escanear, la caja agregaría el primero que encuentre.
         // Solo se revisa un código nuevo o cambiado: un repetido heredado de datos viejos no
         // debe impedir editar el precio o el stock del producto.
-        const savedBarcode = editingId ? String(products.find(p => p.id === editingId)?.barcode ?? '').trim() : '';
+        const savedProd = editingId ? products.find(p => p.id === editingId) : null;
+        const savedBarcode = savedProd ? String(savedProd.barcode ?? '').trim() : '';
+        const savedPresCodes = new Set(
+            Array.isArray(savedProd?.presentations)
+                ? savedProd.presentations.map((l) => String(l?.barcode ?? '').trim()).filter(Boolean)
+                : [],
+        );
         const typedBarcode = String(barcode ?? '').trim();
-        const owner = typedBarcode && typedBarcode !== savedBarcode
-            ? findOtherProductWithCode(products, typedBarcode, editingId)
-            : null;
-        if (owner) {
-            setIsFormShaking(true);
-            setTimeout(() => setIsFormShaking(false), 500);
-            return showToast(`El código ${typedBarcode} ya pertenece a «${owner.name}»`, 'warning');
+        const candidateCodes = [
+            ...(typedBarcode && typedBarcode !== savedBarcode ? [typedBarcode] : []),
+            ...(packagingMode !== 'granel'
+                ? presentations
+                    .map((l) => String(l?.barcode ?? '').trim())
+                    .filter((c) => c && c !== savedBarcode && !savedPresCodes.has(c))
+                : []),
+        ];
+        for (const candidateCode of candidateCodes) {
+            const owner = findOtherProductWithCode(products, candidateCode, editingId);
+            if (owner) {
+                setIsFormShaking(true);
+                setTimeout(() => setIsFormShaking(false), 500);
+                return showToast(`El código ${candidateCode} ya pertenece a «${owner.name}»`, 'warning');
+            }
         }
 
         const productData = buildProductPayload({
@@ -548,7 +581,12 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
             packagingType, unitsPerPackage, granelUnit, sellByUnit, unitPriceUsd, unitPriceCop,
             category, lowStockAlert, ivaMode,
             granelUnitMode: getGranelUnitMode(),
-            lowStockAlertCanonical: true
+            lowStockAlertCanonical: true,
+            packagingMode,
+            presentations,
+            costSourceLevel,
+            stockByLevel,
+            usePresentations: packagingMode !== 'granel',
         }, effectiveRate);
 
         // Nombre parecido a otro artículo: se avisa (no se bloquea) antes de crear el segundo.
@@ -1066,6 +1104,10 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
                 unitPriceUsd={unitPriceUsd} setUnitPriceUsd={setUnitPriceUsd}
                 unitPriceCop={unitPriceCop} setUnitPriceCop={setUnitPriceCop}
                 packagingType={packagingType} setPackagingType={setPackagingType}
+                packagingMode={packagingMode} setPackagingMode={setPackagingMode}
+                presentations={presentations} setPresentations={setPresentations}
+                costSourceLevel={costSourceLevel} setCostSourceLevel={setCostSourceLevel}
+                stockByLevel={stockByLevel} setStockByLevel={setStockByLevel}
                 ivaMode={ivaMode} setIvaMode={setIvaMode}
                 stockInLotes={stockInLotes} setStockInLotes={setStockInLotes}
                 granelUnit={granelUnit} setGranelUnit={setGranelUnit}

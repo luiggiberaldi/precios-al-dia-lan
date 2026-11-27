@@ -35,6 +35,10 @@ export default function ProductFormModal({
     unitPriceCop, setUnitPriceCop,
 
     packagingType, setPackagingType,
+    packagingMode, setPackagingMode,
+    presentations, setPresentations,
+    costSourceLevel, setCostSourceLevel,
+    stockByLevel, setStockByLevel,
     stockInLotes, setStockInLotes,
     ivaMode, setIvaMode,
     granelUnit, setGranelUnit,
@@ -169,16 +173,32 @@ export default function ProductFormModal({
             return name && name.trim().length >= 3;
         }
         if (wizardStep === 2) {
+            if (packagingMode === 'multilevel') {
+                return Array.isArray(presentations) && presentations.length >= 2 && presentations.every((l) => l.level === 1 || (Number(l.containsQty) || 0) >= 2);
+            }
             if (packagingType === 'lote') {
                 return (parseInt(unitsPerPackage) || 0) > 0;
             }
             return true;
         }
         if (wizardStep === 3) {
+            if (packagingMode !== 'granel' && Array.isArray(presentations) && presentations.length > 0) {
+                return presentations.some((l) => l.sellable && ((Number(l.priceUsd) || 0) > 0 || (Number(l.priceCop) || 0) > 0));
+            }
             return (parseFloat(priceUsd) || 0) > 0 || (parseFloat(priceBs) || 0) > 0 || (parseFloat(priceCop) || 0) > 0;
         }
         return true;
     };
+
+    const saveCtaButton = (
+        <button
+            type="button"
+            onClick={handleSave}
+            className="w-full min-h-[48px] bg-brand hover:bg-brand-dark text-white py-3.5 rounded-2xl font-black uppercase tracking-wider shadow-lg shadow-brand/20 active:scale-95 transition-all text-sm cursor-pointer"
+        >
+            {isEditing ? 'Actualizar Producto' : 'Guardar Producto'}
+        </button>
+    );
 
     const commonProps = {
         editingId,
@@ -204,6 +224,10 @@ export default function ProductFormModal({
         unitPriceUsd, setUnitPriceUsd,
         unitPriceCop, setUnitPriceCop,
         packagingType, setPackagingType,
+        packagingMode, setPackagingMode,
+        presentations, setPresentations,
+        costSourceLevel, setCostSourceLevel,
+        stockByLevel, setStockByLevel,
         stockInLotes, setStockInLotes,
         granelUnit, setGranelUnit,
         ivaMode, setIvaMode,
@@ -218,15 +242,16 @@ export default function ProductFormModal({
         handleAutoSearchImage,
         imageMatches,
         setImageMatches,
-        handleSelectImage
+        handleSelectImage,
+        footerAction: saveCtaButton,
     };
 
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
-            title={isEditing ? "Editar Producto" : "Nuevo Producto"}
-            size="max-w-sm md:max-w-3xl"
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={isEditing ? 'Editar Producto' : 'Nuevo Producto'}
+            size="max-w-md md:max-w-5xl"
             className={isFormShaking ? 'animate-shake border-red-500 shadow-xl shadow-red-500/20' : ''}
         >
             <div className="space-y-4">
@@ -364,12 +389,9 @@ export default function ProductFormModal({
 
                 {/* ─── BOTONES DE ACCIÓN / NAVEGACIÓN ─── */}
                 {formMode === 'quick' ? (
-                    <button 
-                        onClick={handleSave} 
-                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase tracking-wider shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-sm"
-                    >
-                        {isEditing ? "Actualizar Producto" : "Guardar Producto"}
-                    </button>
+                    <div className="lg:hidden pt-1">
+                        {saveCtaButton}
+                    </div>
                 ) : (
                     <div className="flex gap-3 pt-2">
                         {wizardStep > 1 && (

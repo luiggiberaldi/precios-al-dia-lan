@@ -78,7 +78,25 @@ export default function App() {
   }, []);
   const salesAutoCollapse = activeTab === 'ventas' && isNarrowScreen;
   const effectiveSidebarCollapsed = salesAutoCollapse ? !salesSidebarOpen : sidebarCollapsed;
+  // Solo animar el ancho/margen de la barra lateral cuando el usuario pulsa "Plegar/Expandir",
+  // nunca al cambiar de pestaña (evita que Ventas se expanda e Inicio/Inventario se retraigan).
+  const [animateSidebar, setAnimateSidebar] = useState(false);
+  const sidebarAnimTimerRef = useRef(null);
+  const prevTabRef = useRef(activeTab);
+  const isTabSwitch = prevTabRef.current !== activeTab;
+  useEffect(() => {
+    prevTabRef.current = activeTab;
+    if (animateSidebar) {
+      clearTimeout(sidebarAnimTimerRef.current);
+      setAnimateSidebar(false);
+    }
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps -- solo cancelar transición al cambiar de pestaña
+  useEffect(() => () => clearTimeout(sidebarAnimTimerRef.current), []);
+  const shouldAnimateLayout = animateSidebar && !isTabSwitch;
   const toggleSidebar = () => {
+    clearTimeout(sidebarAnimTimerRef.current);
+    setAnimateSidebar(true);
+    sidebarAnimTimerRef.current = setTimeout(() => setAnimateSidebar(false), 240);
     if (salesAutoCollapse) { setSalesSidebarOpen((o) => !o); return; }
     setSidebarCollapsed(c => { localStorage.setItem('sidebar_collapsed', c ? '0' : '1'); return !c; });
   };
@@ -522,12 +540,13 @@ export default function App() {
           triggerHaptic={triggerHaptic}
           collapsed={effectiveSidebarCollapsed}
           onToggle={toggleSidebar}
+          animateTransition={shouldAnimateLayout}
           requireLogin={requireLogin}
           usuarioActivo={usuarioActivo}
           logout={logout}
         />
         {/* En PC el contenido deja el ancho de la barra lateral (--sbw) y se centra hasta 1600px. */}
-        <main style={{ '--sbw': effectiveSidebarCollapsed ? '4rem' : '14rem' }} className={`flex-1 min-h-0 w-full max-w-full px-0 ${activeTab === 'ventas' ? 'lg:px-4 xl:px-5 2xl:px-8' : 'lg:pl-[max(1.5rem,calc((100vw-var(--sbw)-1600px)/2))] lg:pr-[max(1.5rem,calc((100vw-var(--sbw)-1600px)/2))]'} mx-auto relative ${isKeyboardOpen ? 'pb-2' : 'pb-[4.75rem] lg:pb-1'} flex flex-col overflow-y-auto transition-[margin,padding] duration-200 lg:w-auto lg:mr-0 ${effectiveSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56'}`}>
+        <main style={{ '--sbw': effectiveSidebarCollapsed ? '4rem' : '14rem' }} className={`flex-1 min-h-0 w-full max-w-full px-0 ${activeTab === 'ventas' ? 'lg:px-4 xl:px-5 2xl:px-8' : 'lg:pl-[max(1.5rem,calc((100vw-var(--sbw)-1600px)/2))] lg:pr-[max(1.5rem,calc((100vw-var(--sbw)-1600px)/2))]'} mx-auto relative ${isKeyboardOpen ? 'pb-2' : 'pb-[4.75rem] lg:pb-1'} flex flex-col overflow-y-auto ${shouldAnimateLayout ? 'transition-[margin,padding] duration-200' : ''} lg:w-auto lg:mr-0 ${effectiveSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56'}`}>
 
           {/* Hidden Admin Trigger Area */}
         <div
@@ -549,7 +568,7 @@ export default function App() {
           </ErrorBoundary>
         </div>
 
-        <div className={`flex-1 flex flex-col ${activeTab === 'catalogo' ? '' : 'hidden'}`}>
+        <div className={`flex-1 min-h-0 flex flex-col ${activeTab === 'catalogo' ? '' : 'hidden'}`}>
           <ErrorBoundary>
             <PremiumGuard featureName="Inventario de Productos">
               {(activeTab === 'catalogo' || mountedViews.catalogo) && (

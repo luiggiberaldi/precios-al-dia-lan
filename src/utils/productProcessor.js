@@ -1,7 +1,7 @@
 // FIN-017: Reemplaza Math.round(raw/safeRate*100)/100 por divR + round2 de dinero.js.
 // FIN-030: Mantiene `priceUsdt` (typo histórico) pero añade alias `priceUsd` (mismo valor)
 //          para migración gradual hacia el nombre canónico.
-import { round2, round3, round4, round6, divR, mulR, round0 } from './dinero.js';
+import { round2, round3, round4, divR, mulR, round0 } from './dinero.js';
 import { CurrencyService } from '../services/CurrencyService.js'; // FIN-017-pattern: safeParse en vez de parseFloat.
 import {
     normalizePackagingType,
@@ -43,21 +43,15 @@ export function derivePricingFromEdit(editedField, { cost, price, factor }) {
     return { field: null, value: null };
 }
 
-/** Bajo este precio (USD) se guardan 6 decimales; desde aquí, 4. */
-export const LOW_PRICE_EXTRA_DECIMALS_BELOW_USD = 0.1;
+import {
+    LOW_PRICE_EXTRA_DECIMALS_BELOW_USD,
+    normalizePriceUsd,
+    computeFactorToBase,
+    composeBaseStock,
+    projectLegacyFieldsFromPresentations,
+} from './presentations.js';
 
-/**
- * Precio de venta en USD que se guarda: 4 decimales (6 bajo $0.10), a cualquier nivel de precio.
- * Redondear a centavos movía el margen elegido (costo $0.04 al 30% → $0.06 = 33%;
- * costo $0.20 al 30% → $0.29 = 31%). Así el margen se conserva (< 0.05 puntos); la pantalla
- * sigue mostrando 2 decimales y el cobro por línea se redondea a centavos
- * (0.057143 × 100 = $5.71). Un precio escrito a centavos queda igual (1.43 → 1.43).
- */
-export function normalizePriceUsd(rawPrice) {
-    const value = Number(rawPrice);
-    if (!Number.isFinite(value) || value <= 0) return 0;
-    return value < LOW_PRICE_EXTRA_DECIMALS_BELOW_USD ? round6(value) : round4(value);
-}
+export { LOW_PRICE_EXTRA_DECIMALS_BELOW_USD, normalizePriceUsd };
 
 /** Texto del campo de precio USD: 2 decimales, o los exactos si el precio los necesita. */
 export function formatPriceUsdInput(rawPrice) {
@@ -126,6 +120,75 @@ export function buildProductPayload(formData, effectiveRate) {
     const formattedName = name.replace(/(^\w{1})|(\s+\w{1})/g, letter => letter.toUpperCase());
     // FIN-022-pattern: validar tasa antes de usarla (sin fallback silencioso a 1).
     const safeRate = effectiveRate > 0 ? effectiveRate : 1;
+
+    // Ruta multinivel (1, 2 o 3 niveles): solo activa cuando vienen presentaciones explícitas
+    // para el nuevo flujo o cuando no se están inyectando campos legacy planos sobre ellas.
+    const hasMultilevelLevels = Array.isArray(formData.presentations) && formData.presentations.length > 0;
+    const hasFlatLegacyPrice = priceUsd !== undefined || priceBs !== undefined || priceCop !== undefined || costUsd !== undefined;
+    const usePresentationsPath = formData.packagingMode !== 'granel'
+        && hasMultilevelLevels
+        && (formData.usePresentations === true
+            || formData.packagingMode === 'multilevel'
+            || (formData.packagingMode === 'simple' && !hasFlatLegacyPrice));
+
+    if (usePresentationsPath) {
+        const normalizedLevels = computeFactorToBase(formData.presentations);
+        const projected = projectLegacyFieldsFromPresentations(normalizedLevels, {
+            packagingMode: formData.packagingMode,
+            costSourceLevel: formData.costSourceLevel,
+            baseBarcode: barcode,
+        });
+
+        const finalPriceUsd = projected.priceUsd;
+        const finalCostUsd = projected.costUsd > 0
+            ? (projected.costUsd >= LOW_PRICE_EXTRA_DECIMALS_BELOW_USD ? round2(projected.costUsd) : round4(projected.costUsd))
+            : 0;
+        const finalCostBs = costBs
+            ? round2(CurrencyService.safeParse(costBs))
+            : (finalCostUsd > 0 ? mulR(finalCostUsd, safeRate) : 0);
+
+        let finalStock = 0;
+        if (stock !== null && stock !== undefined && stock !== '') {
+            finalStock = parseStockInput(stock, false) ?? 0;
+        } else if (formData.stockByLevel && typeof formData.stockByLevel === 'object') {
+            finalStock = composeBaseStock(formData.stockByLevel, normalizedLevels);
+        }
+
+        const finalLowStockAlert = lowStockAlert !== null && lowStockAlert !== undefined && lowStockAlert !== ''
+            ? (parseStockInput(lowStockAlert, false) ?? 5)
+            : 5;
+
+        const rawRef = projected.priceBsUsdRef ?? formData.priceBsUsdRef;
+        const parsedBsUsdRef = (rawRef && CurrencyService.safeParse(rawRef) > 0)
+            ? round2(CurrencyService.safeParse(rawRef))
+            : null;
+        const rawPricingMode = formData.pricingMode || (parsedBsUsdRef !== null ? 'dual_usd' : 'tasa_dia');
+        const pricingMode = (rawPricingMode === 'dual_usd' && parsedBsUsdRef !== null)
+            ? 'dual_usd'
+            : 'tasa_dia';
+
+        return {
+            name: formattedName,
+            barcode: barcode ? barcode.trim() : null,
+            ...projected,
+            pricingMode,
+            priceBsUsdRef: pricingMode === 'dual_usd' ? parsedBsUsdRef : null,
+            costUsd: finalCostUsd,
+            costBs: finalCostBs,
+            ...(formData.costFactor !== undefined ? {
+                costFactor: resolveCostFactor(finalCostUsd, finalPriceUsd, formData.costFactor)
+                    ?? (formData.costFactor !== null && formData.costFactor !== '' && Number.isFinite(Number(formData.costFactor))
+                        ? Number(formData.costFactor)
+                        : null),
+            } : {}),
+            stock: finalStock,
+            granelUnit: null,
+            stockInLotes: null,
+            category: category,
+            lowStockAlert: finalLowStockAlert,
+            ivaRate: formData.ivaMode === 'exento' ? 0 : undefined,
+        };
+    }
 
     // FIN-017: usar divR (división redondeada) en vez de Math.round(raw/safeRate*100)/100.
     // safeParse para normalizar input del usuario (maneja coma decimal y separadores de miles).
@@ -250,7 +313,8 @@ export function buildProductPayload(formData, effectiveRate) {
         sellByUnit: isLote ? sellByUnit : false,
         unitPriceUsd: isLote && sellByUnit ? finalUnitPrice : null,
         unitPriceCop: isLote && sellByUnit ? finalUnitPriceCop : null,
-        stockInLotes: isLote && stockInLotes ? parseInt(stockInLotes) : null,
+        // INV-16: stockInLotes ya no se persiste truncado; siempre se deriva desde stock.
+        stockInLotes: null,
         category: category,
         lowStockAlert: finalLowStockAlert,
         // IVA por producto: exento guarda 0%. General escribe undefined para que la fusión

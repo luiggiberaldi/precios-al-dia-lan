@@ -550,6 +550,13 @@ export const formatSaleItemQuantity = (item, mode = getGranelUnitMode(), { short
  * @param {object} item Producto del catálogo o línea de venta.
  */
 export const formatPresentationLabel = (item) => {
+    if (!item) return null;
+    if (item._presentationId) {
+        const factor = Number(item._factorToBase ?? 1);
+        if (item._presentationId === 'unit' || !Number.isFinite(factor) || factor <= 1) return null;
+        const label = String(item._presentationName || '').trim() || 'Presentación';
+        return `${label} · ${factor} uds`;
+    }
     const uPP = Number(item?._unitsPerPackage ?? item?.unitsPerPackage);
     if (!((item?.packagingType === 'lote' || item?.unit === 'paquete') && Number.isFinite(uPP) && uPP > 1)) return null;
     const saleMode = item?._mode ?? (String(item?.id ?? '').endsWith('_unit') ? 'unit' : 'package');
@@ -816,6 +823,13 @@ export const qtyFromMoneyAmount = (amount, currency, unitPriceUsd, effectiveRate
 export function calculateItemStockDeduction(item) {
     // Granel: usa la cantidad directa en kg/L
     if (isGranelProduct(item)) return item.qty;
+
+    // Multinivel explícito: unidad base = qty; niveles superiores multiplican por _factorToBase
+    if (item?._presentationId) {
+        if (item._presentationId === 'unit') return item.qty;
+        const factor = Number(item._factorToBase);
+        return item.qty * (Number.isFinite(factor) && factor > 0 ? factor : 1);
+    }
 
     // Modo 'unit': una unidad suelta equivale a 1 unidad en stock canónico
     if (item._mode === 'unit') return item.qty;

@@ -10,6 +10,12 @@ import {
     kgToGrams,
     formatStockDisplay,
 } from '../utils/granel';
+import {
+    buildPresetPresentations,
+    resolveProductPresentations,
+    decomposeStockByLevels,
+    composeBaseStock,
+} from '../utils/presentations';
 
 /**
  * Hook para el formulario de producto.
@@ -44,6 +50,10 @@ const INITIAL_STATE = {
     lowStockAlert: '5',
     image: undefined,
     packagingType: 'suelto',
+    packagingMode: 'simple',
+    presentations: buildPresetPresentations('simple'),
+    costSourceLevel: 'unit',
+    stockByLevel: { unit: 0 },
     stockInLotes: '',
     granelUnit: 'kg',
     // IVA por producto: '' = usar la tasa general; 'exento' = 0%.
@@ -134,8 +144,21 @@ export function prepareProductFormState(product, effectiveRate, granelMode = get
 
     if (isGranel || patch.packagingType === 'granel') {
         patch.granelUnit = isLiquidProduct(product) ? 'litro' : 'kg';
+        patch.packagingMode = 'granel';
+        patch.presentations = [];
+        patch.costSourceLevel = 'unit';
+        patch.stockByLevel = {};
     } else {
         patch.granelUnit = 'kg';
+        const resolvedLevels = resolveProductPresentations(product);
+        patch.presentations = resolvedLevels;
+        patch.packagingMode = product.packagingMode || (resolvedLevels.length > 1 ? 'multilevel' : 'simple');
+        patch.costSourceLevel = product.costSourceLevel
+            || (patch.packagingType === 'lote' && resolvedLevels.length > 1
+                ? resolvedLevels[resolvedLevels.length - 1].id
+                : 'unit');
+        const decomposed = decomposeStockByLevels(product.stock ?? 0, resolvedLevels);
+        patch.stockByLevel = Object.fromEntries(decomposed.parts.map((pt) => [pt.id, pt.qty]));
     }
 
     // Stock in lotes
@@ -181,6 +204,23 @@ export function useProductForm() {
     const setLowStockAlert = useCallback((v) => dispatch({ type: 'SET', field: 'lowStockAlert', value: v }), []);
     const setImage = useCallback((v) => dispatch({ type: 'SET', field: 'image', value: v }), []);
     const setPackagingType = useCallback((v) => dispatch({ type: 'SET', field: 'packagingType', value: v }), []);
+    const setPackagingMode = useCallback((v) => dispatch({ type: 'SET', field: 'packagingMode', value: v }), []);
+    const setPresentations = useCallback((v) => dispatch({ type: 'SET', field: 'presentations', value: v }), []);
+    const setCostSourceLevel = useCallback((v) => dispatch({ type: 'SET', field: 'costSourceLevel', value: v }), []);
+    const setStockByLevel = useCallback((nextByLevel, explicitLevels) => {
+        const levelsForSum = Array.isArray(explicitLevels) && explicitLevels.length > 0
+            ? explicitLevels
+            : state.presentations;
+        const total = composeBaseStock(nextByLevel, levelsForSum);
+        dispatch({
+            type: 'PATCH',
+            patch: {
+                stockByLevel: nextByLevel,
+                stock: String(total),
+                stockTouched: true,
+            },
+        });
+    }, [state.presentations]);
     const setStockInLotes = useCallback((v) => dispatch({ type: 'SET_STOCK', field: 'stockInLotes', value: v }), []);
     const setGranelUnit = useCallback((v) => dispatch({ type: 'SET', field: 'granelUnit', value: v }), []);
     const setIsFormShaking = useCallback((v) => dispatch({ type: 'SET', field: 'isFormShaking', value: v }), []);
@@ -217,6 +257,10 @@ export function useProductForm() {
         lowStockAlert: state.lowStockAlert, setLowStockAlert,
         image: state.image, setImage,
         packagingType: state.packagingType, setPackagingType,
+        packagingMode: state.packagingMode, setPackagingMode,
+        presentations: state.presentations, setPresentations,
+        costSourceLevel: state.costSourceLevel, setCostSourceLevel,
+        stockByLevel: state.stockByLevel, setStockByLevel,
         stockInLotes: state.stockInLotes, setStockInLotes,
         granelUnit: state.granelUnit, setGranelUnit,
         ivaMode: state.ivaMode, setIvaMode,

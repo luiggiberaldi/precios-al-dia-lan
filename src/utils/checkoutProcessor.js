@@ -274,6 +274,9 @@ export async function processSaleTransaction({
             // "1 ud" (el carrito los trae; antes se descartaban al persistir).
             _mode: i._mode ?? null,
             _unitsPerPackage: i._unitsPerPackage ?? i.unitsPerPackage ?? null,
+            _presentationId: i._presentationId ?? null,
+            _presentationName: i._presentationName ?? null,
+            _factorToBase: i._factorToBase ?? null,
             _originalId: i._originalId ?? null,
             isCashAdvance: i.isCashAdvance || null,
             montoEfectivo: i.montoEfectivo || null,

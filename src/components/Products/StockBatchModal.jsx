@@ -7,6 +7,48 @@ import { storageService } from '../../utils/storageService';
 // Cierre FIX-VENTAS-STOCK-SUPERVISOR §4: escritos del catálogo bajo pos_write_lock.
 import { mutateCatalogLocked } from '../../utils/catalogLock';
 import { isGranelProduct, isLowStockProduct, granelStockUnitLabel, parseStockInput, adjustStockValue, formatStockDisplay, formatLowStockAlert } from '../../utils/granel'; // GRANEL-001
+import { resolveProductPresentations, pluralizePresentationName } from '../../utils/presentations';
+
+function resolveBatchOptions(p, tempPkgSize = 0) {
+    if (!p || isGranelProduct(p)) return [];
+    if (tempPkgSize > 1) {
+        return [
+            { id: 'lotes', shortLabel: 'Bulto', label: `Bultos (${tempPkgSize} uds)`, factor: tempPkgSize },
+            { id: 'uds', shortLabel: 'Ud', label: 'Uds', factor: 1 },
+        ];
+    }
+    const levels = resolveProductPresentations(p);
+    if (levels.length > 1) {
+        return [...levels].reverse().map((lvl) => ({
+            id: lvl.id,
+            shortLabel: lvl.name,
+            label: lvl.factorToBase > 1 ? `${lvl.name} (${lvl.factorToBase} uds)` : lvl.name,
+            factor: lvl.factorToBase,
+        }));
+    }
+    const stored = p.unitsPerPackage ?? 1;
+    if (stored > 1) {
+        return [
+            { id: 'lotes', shortLabel: 'Bulto', label: `Bultos (${stored} uds)`, factor: stored },
+            { id: 'uds', shortLabel: 'Ud', label: 'Uds', factor: 1 },
+        ];
+    }
+    return [];
+}
+
+function resolveBatchUnitMeta(p, adjUnit, tempPkgSize = 0) {
+    const options = resolveBatchOptions(p, tempPkgSize);
+    if (options.length === 0) {
+        return { options: [], selected: { id: 'uds', shortLabel: 'Ud', label: 'Uds', factor: 1 } };
+    }
+    let selected = options.find((o) => o.id === adjUnit);
+    if (!selected) {
+        if (adjUnit === 'lotes') selected = options[0];
+        else if (adjUnit === 'uds') selected = options[options.length - 1];
+        else selected = options[0];
+    }
+    return { options, selected };
+}
 
 // ─── FILA DEL CATÁLOGO (PICKER LIMPIO CON CHECKMARK) ───
 function CatalogRow({ p, isSelected, direction, onToggle }) {
@@ -136,29 +178,35 @@ function AdjustRow({ p, qty, direction, adjUnit, tempPkgSize, onSetQty, onSetAdj
     };
 
     const stock = p.stock ?? 0;
-    // Usar el tamaño temporal si existe (editado inline), sino el del producto
+    // Usar el tamaño temporal si existe (editado inline), sino presentaciones / unitsPerPackage
     const storedUpp = (p.unitsPerPackage ?? 1) > 1 ? (p.unitsPerPackage ?? 1) : 1;
-    const unitsPerPkg = tempPkgSize > 1 ? tempPkgSize : storedUpp;
-    const hasBulk = unitsPerPkg > 1;
+    const { options: levelOptions, selected: selectedUnitMeta } = resolveBatchUnitMeta(p, adjUnit, tempPkgSize);
+    const factor = selectedUnitMeta.factor || 1;
+    const hasBulk = levelOptions.length > 0;
 
-    // Delta y stock nuevo calculados correctamente según la unidad elegida
+    // Delta y stock nuevo calculados correctamente según el nivel elegido
     // GRANEL-001: aritmética sin drift; granel admite decimales hasta 3 decimales.
-    const delta = hasBulk && adjUnit === 'lotes' ? qty * unitsPerPkg : qty;
+    const delta = hasBulk && factor > 1 ? qty * factor : qty;
     const allowNegative = typeof window !== 'undefined' && localStorage.getItem('allow_negative_stock') === 'true';
     const isExcessEgreso = direction === 'egreso' && delta > stock && !allowNegative;
     const newStock = direction === 'ingreso'
         ? adjustStockValue(stock, delta, isGranel)
         : (allowNegative ? adjustStockValue(stock, -delta, isGranel) : Math.max(0, adjustStockValue(stock, -delta, isGranel)));
 
-    // Label del cambio — GRANEL-001: muestra la unidad real para granel (+2.5 kg)
-    const deltaLabel = hasBulk && adjUnit === 'lotes'
-        ? `${direction === 'ingreso' ? '+' : '-'}${qty} bulto${qty !== 1 ? 's' : ''} de ${unitsPerPkg} uds`
+    // Label del cambio — muestra el nombre real del nivel (+3 Blísters de 10 uds)
+    const signPrefix = direction === 'ingreso' ? '+' : '-';
+    const deltaLabel = hasBulk && factor > 1
+        ? `${signPrefix}${qty} ${pluralizePresentationName(selectedUnitMeta.shortLabel, qty)} de ${factor} uds`
         : isGranel
-            ? `${direction === 'ingreso' ? '+' : '-'}${formatStockDisplay(delta, true)} ${unitLabel}`
-            : `${direction === 'ingreso' ? '+' : '-'}${delta} ud${delta !== 1 ? 's' : ''}`;
+            ? `${signPrefix}${formatStockDisplay(delta, true)} ${unitLabel}`
+            : `${signPrefix}${delta} ud${delta !== 1 ? 's' : ''}`;
 
-    // Cuantos bultos tiene en inventario ahora
-    const currentBultos = hasBulk ? Math.floor(stock / unitsPerPkg) : null;
+    // Cuantos empaques superiores tiene en inventario ahora
+    const topFactor = levelOptions[0]?.factor || storedUpp;
+    const currentBultos = topFactor > 1 ? Math.floor(stock / topFactor) : null;
+    const topNamePlural = levelOptions[0]?.shortLabel
+        ? pluralizePresentationName(levelOptions[0].shortLabel, currentBultos ?? 0).toLowerCase()
+        : 'bultos';
 
     const inputVal = tempPkgSize > 0 ? tempPkgSize : (storedUpp > 1 ? storedUpp : '');
 
@@ -198,7 +246,7 @@ function AdjustRow({ p, qty, direction, adjUnit, tempPkgSize, onSetQty, onSetAdj
                         )}
                         {currentBultos !== null && (
                             <span className="text-[9px] font-black text-brand bg-brand-light/75 dark:bg-slate-800 dark:text-brand px-2 py-0.5 rounded border border-brand/20">
-                                {currentBultos} bulto{currentBultos !== 1 ? 's' : ''} actuales
+                                {currentBultos} {topNamePlural} actuales
                             </span>
                         )}
                     </div>
@@ -276,31 +324,28 @@ function AdjustRow({ p, qty, direction, adjUnit, tempPkgSize, onSetQty, onSetAdj
                     />
                 </div>
 
-                {/* Toggle Uds / Bultos — solo si tiene tamano valido */}
+                {/* Selector por niveles / bulto */}
                 {hasBulk && (
-                    <div className="flex items-center gap-1">
-                        <button
-                            type="button"
-                            onClick={() => onSetAdjUnit(p.id, 'uds')}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all border ${
-                                adjUnit === 'uds'
-                                    ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-900 dark:border-slate-100 shadow-sm'
-                                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-slate-500 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                        >
-                            Uds
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => onSetAdjUnit(p.id, 'lotes')}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all border ${
-                                adjUnit === 'lotes'
-                                    ? 'bg-brand text-white border-brand shadow-sm shadow-brand/20'
-                                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-brand hover:text-brand dark:hover:text-brand-light'
-                            }`}
-                        >
-                            Bultos ({unitsPerPkg} uds)
-                        </button>
+                    <div className="flex items-center gap-1 flex-wrap">
+                        {levelOptions.map((opt) => {
+                            const active = selectedUnitMeta.id === opt.id;
+                            return (
+                                <button
+                                    key={opt.id}
+                                    type="button"
+                                    onClick={() => onSetAdjUnit(p.id, opt.id)}
+                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all border cursor-pointer ${
+                                        active
+                                            ? opt.factor > 1
+                                                ? 'bg-brand text-white border-brand shadow-sm shadow-brand/20'
+                                                : 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-900 dark:border-slate-100 shadow-sm'
+                                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-brand hover:text-brand dark:hover:text-brand-light'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -357,12 +402,21 @@ export default function StockBatchModal({
             .filter(([, qty]) => qty > 0)
             .map(([productId, qty]) => {
                 const p = allProducts.find(x => x.id === productId);
-                const unitsPerPkg = getEffectiveUpp(p);
-                const adjUnit = adjustmentUnits[productId] || (unitsPerPkg > 1 ? 'lotes' : 'uds');
-                const deltaUnits = (unitsPerPkg > 1 && adjUnit === 'lotes') ? qty * unitsPerPkg : qty;
-                return { productId, qty, adjUnit, unitsPerPkg, deltaUnits, p };
+                const tempSize = tempPackageSizes[productId] || 0;
+                const { selected } = resolveBatchUnitMeta(p, adjustmentUnits[productId], tempSize);
+                const factor = selected.factor || 1;
+                const deltaUnits = factor > 1 ? qty * factor : qty;
+                return {
+                    productId,
+                    qty,
+                    adjUnit: selected.id,
+                    unitName: selected.shortLabel,
+                    unitsPerPkg: factor,
+                    deltaUnits,
+                    p,
+                };
             }),
-    [adjustments, adjustmentUnits, allProducts, getEffectiveUpp]);
+    [adjustments, adjustmentUnits, allProducts, tempPackageSizes]);
 
     const totalItems = activeAdjustments.reduce((sum, { deltaUnits }) => sum + deltaUnits, 0);
     // GRANEL-001: ¿hay al menos un producto a granel en el ajuste? (suma decimal posible)
@@ -556,14 +610,14 @@ export default function StockBatchModal({
                                 {direction === 'ingreso' ? 'Ingreso' : 'Egreso'} masivo - {activeAdjustments.length} prod - {formatStockDisplay(totalItems, hasGranelInAdjust)} uds totales
                             </p>
                             <div className="space-y-2.5 max-h-[42vh] overflow-y-auto scrollbar-hide pr-1">
-                                {activeAdjustments.map(({ productId, qty, adjUnit, unitsPerPkg, deltaUnits, p }) => {
+                                {activeAdjustments.map(({ productId, qty, unitName, unitsPerPkg, deltaUnits, p }) => {
                                     const stock = p?.stock ?? 0;
                                     const allowNegative = typeof window !== 'undefined' && localStorage.getItem('allow_negative_stock') === 'true';
                                     const isExcess = direction === 'egreso' && deltaUnits > stock && !allowNegative;
                                     const newStock = direction === 'ingreso'
                                         ? stock + deltaUnits
                                         : (allowNegative ? stock - deltaUnits : Math.max(0, stock - deltaUnits));
-                                    const isBulkMode = unitsPerPkg > 1 && adjUnit === 'lotes';
+                                    const isBulkMode = unitsPerPkg > 1;
                                     const hasInlineEdit = (tempPackageSizes[productId] || 0) > 1;
                                     const rowIsGranel = isGranelProduct(p);
                                     const rowUnitLabel = rowIsGranel ? granelStockUnitLabel(p) : 'ud';
@@ -579,7 +633,7 @@ export default function StockBatchModal({
                                             <div className="flex items-center justify-between gap-2 mt-0.5">
                                                 <p className={`text-[10px] font-black ${direction === 'ingreso' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
                                                     {isBulkMode
-                                                        ? `${direction === 'ingreso' ? '+' : '-'}${qty} bulto${qty !== 1 ? 's' : ''} x ${unitsPerPkg} uds = ${direction === 'ingreso' ? '+' : '-'}${deltaUnits} uds`
+                                                        ? `${direction === 'ingreso' ? '+' : '-'}${qty} ${pluralizePresentationName(unitName || 'Bulto', qty)} x ${unitsPerPkg} uds = ${direction === 'ingreso' ? '+' : '-'}${deltaUnits} uds`
                                                         : rowIsGranel
                                                             ? `${direction === 'ingreso' ? '+' : '-'}${formatStockDisplay(deltaUnits, true)} ${rowUnitLabel}`
                                                             : `${direction === 'ingreso' ? '+' : '-'}${deltaUnits} ud${deltaUnits !== 1 ? 's' : ''}`
