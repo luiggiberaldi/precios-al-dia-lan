@@ -23,10 +23,22 @@ export default function PaymentMethodsManager({ triggerHaptic }) {
     const [newCurrency, setNewCurrency] = useState('BS');
     const [newIcon, setNewIcon] = useState('Banknote');
 
-    const copEnabled = localStorage.getItem('cop_enabled') === 'true';
+    const [copEnabled, setCopEnabled] = useState(() => localStorage.getItem('cop_enabled') === 'true');
 
     useEffect(() => {
         getAllPaymentMethods().then(setMethods);
+        if (typeof window === 'undefined') return undefined;
+        const onUpdate = (e) => {
+            const key = e?.detail?.key;
+            if (!key || key === 'bodega_payment_methods_v1') {
+                getAllPaymentMethods().then(setMethods);
+            }
+            if (!key || key === 'cop_enabled') {
+                setCopEnabled(localStorage.getItem('cop_enabled') === 'true');
+            }
+        };
+        window.addEventListener('app_storage_update', onUpdate);
+        return () => window.removeEventListener('app_storage_update', onUpdate);
     }, []);
 
     const handleAdd = async () => {

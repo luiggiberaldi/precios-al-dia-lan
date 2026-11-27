@@ -123,7 +123,7 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
         let timer = null;
         const onStorageUpdate = (e) => {
             const key = e?.detail?.key;
-            if (![SALES_KEY, 'bodega_customers_v1', CUSTOMER_LEDGER_KEY].includes(key)) return;
+            if (![SALES_KEY, 'bodega_customers_v1', CUSTOMER_LEDGER_KEY, 'bodega_suppliers_v1', 'bodega_supplier_invoices_v1'].includes(key)) return;
             clearTimeout(timer);
             timer = setTimeout(load, 50);
         };
@@ -181,6 +181,21 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
         })();
         return () => { alive = false; };
     }, [isActive, isNubeManager, reportsScope, from, to, remoteRefreshTick]);
+
+    // Tiempo real: refrescar reportes multi-caja cuando otra caja cobra o anula.
+    useEffect(() => {
+        if (isActive === false || !isNubeManager || reportsScope !== 'all' || typeof window === 'undefined') return undefined;
+        let timer = null;
+        const onRemoteCash = () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => setRemoteRefreshTick((n) => n + 1), 400);
+        };
+        window.addEventListener('pdn_remote_cash_updated', onRemoteCash);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('pdn_remote_cash_updated', onRemoteCash);
+        };
+    }, [isActive, isNubeManager, reportsScope]);
 
     const effectiveSales = useMemo(() => {
         if (!isNubeManager || reportsScope !== 'all') return allSales;

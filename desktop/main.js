@@ -248,7 +248,8 @@ function createWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 768,
-    show: true,
+    show: false,
+    backgroundColor: '#f8fafc',
     title: 'Precios al Día LAN',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -267,19 +268,26 @@ function createWindow() {
         : path.join(process.resourcesPath, 'dist/index.html'))
     : path.join(__dirname, '../dist/index.html');
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+  let shown = false;
+  const revealWindow = () => {
+    if (shown || !mainWindow || mainWindow.isDestroyed()) return;
+    shown = true;
     mainWindow.maximize();
+    mainWindow.show();
     mainWindow.focus();
-  });
+  };
+
+  mainWindow.once('ready-to-show', revealWindow);
+  // Respaldo por si `ready-to-show` tarda en equipos lentos: garantiza mostrar la ventana.
+  const showFallback = setTimeout(revealWindow, 4000);
+  showFallback.unref?.();
 
   mainWindow.webContents.on('did-fail-load', (_e, code, desc) => {
     console.error('[LAN] Error cargando interfaz:', code, desc);
+    revealWindow();
   });
 
   mainWindow.loadFile(indexPath);
-  mainWindow.maximize();
-  mainWindow.show();
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (

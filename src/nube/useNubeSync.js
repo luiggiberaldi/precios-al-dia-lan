@@ -338,6 +338,12 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             await supplierLedger.pull();
         })();
 
+        const emitRemoteCashUpdate = (collection) => {
+            if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('pdn_remote_cash_updated', { detail: { collection } }));
+            }
+        };
+
         // Canales en vivo que se reabren solos si Supabase los corta; al volver se baja
         // lo que pasó mientras estuvieron caídos.
         const channel = keepChannel(client, `pdn-sync-${accountId}`,
@@ -345,10 +351,28 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
                 (payload) => {
                     const c = payload?.new?.collection;
                     if (c === 'reset') { onResetRef.current?.(); return; }
-                    if (c === 'cash_voids') { syncRemoteCashVoids(); ledger.pull(); refreshLevels(); return; }
+                    if (c === 'cash_voids') {
+                        syncRemoteCashVoids();
+                        ledger.pull();
+                        refreshLevels();
+                        emitRemoteCashUpdate('cash_voids');
+                        return;
+                    }
+                    if (c === 'cash') {
+                        emitRemoteCashUpdate('cash');
+                        return;
+                    }
                     engine.pull(c ? [c] : undefined);
                 }),
-            { onUp: ({ reconnected }) => { if (reconnected) { engine.pull().then(ensureRateReady); syncRemoteCashVoids(); } } });
+            {
+                onUp: ({ reconnected }) => {
+                    if (reconnected) {
+                        engine.pull().then(ensureRateReady);
+                        syncRemoteCashVoids();
+                        emitRemoteCashUpdate('reconnect');
+                    }
+                },
+            });
         const levelsChannel = keepChannel(client, `pdn-stock-${accountId}-${sedeId || 'todas'}`,
             (ch) => ch.on('postgres_changes', { event: '*', schema: 'public', table: 'stock_levels', ...(sedeId ? { filter: `sede_id=eq.${sedeId}` } : {}) },
                 (payload) => { if (!disposed && !stock.applyRealtime(payload?.new)) refreshLevels(); }),

@@ -143,12 +143,17 @@ export default function CustomersView({ triggerHaptic, isActive }) {
         if (isActive) loadData();
     }, [isActive]);
 
-    // BAJ-02: refrescar clientes y cartera en vivo cuando otra caja sincroniza cambios.
+    // BAJ-02: refrescar clientes, cartera, Cashea y métodos de pago en vivo cuando otra caja sincroniza cambios.
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
         const onStorageUpdate = (e) => {
             const key = e?.detail?.key;
-            if (key === 'bodega_customers_v1' || key === CUSTOMER_LEDGER_KEY) {
+            if (
+                key === 'bodega_customers_v1'
+                || key === CUSTOMER_LEDGER_KEY
+                || key === 'bodega_cashea_ledger_v1'
+                || key === 'bodega_payment_methods_v1'
+            ) {
                 loadData();
             }
         };

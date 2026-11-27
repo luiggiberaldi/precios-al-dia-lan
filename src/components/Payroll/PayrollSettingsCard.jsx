@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Wallet } from 'lucide-react';
 import { SectionCard } from '../SettingsShared';
 import { showToast } from '../Toast';
@@ -17,6 +17,17 @@ const DESCRIPTIONS = {
  */
 export default function PayrollSettingsCard({ triggerHaptic }) {
     const [valuation, setValuation] = useState(() => readGoodsValuation());
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const onUpdate = (e) => {
+            if (e?.detail?.key === GOODS_VALUATION_KEY) {
+                setValuation(readGoodsValuation());
+            }
+        };
+        window.addEventListener('app_storage_update', onUpdate);
+        return () => window.removeEventListener('app_storage_update', onUpdate);
+    }, []);
 
     const choose = (v) => {
         setValuation(v);

@@ -37,6 +37,20 @@ export function useCheckoutCalculations({
     // -- Cashea Hook Integration --
     const [casheaActive, setCasheaActive] = useState(false);
     const [casheaPercent, setCasheaPercent] = useState(60);
+    const [configTick, setConfigTick] = useState(0);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const WATCHED = new Set([
+            'tax_config_v1', 'cashea_enabled', 'cashea_min_amount',
+            'checkout_smallest_usd_bill', 'checkout_bs_round_step', 'checkout_bs_round_mode',
+        ]);
+        const onCfg = (e) => {
+            if (WATCHED.has(e?.detail?.key)) setConfigTick((n) => n + 1);
+        };
+        window.addEventListener('app_storage_update', onCfg);
+        return () => window.removeEventListener('app_storage_update', onCfg);
+    }, []);
 
     // El crédito aplicado pertenece al cliente seleccionado; nunca se arrastra a otro.
     useEffect(() => {
@@ -64,7 +78,7 @@ export function useCheckoutCalculations({
         // IVA fase 3: configuración fiscal leída del módulo de config.
         const ivaOpts = getCartIvaOpts();
         return FinancialEngine.buildCartTotals(cart, discountData, safeRate, safeTasaCop, isBsPaymentActive, ivaOpts);
-    }, [cart, discountData, safeRate, safeTasaCop, isBsPaymentActive, baseCartTotalUsd, baseCartTotalBs]);
+    }, [cart, discountData, safeRate, safeTasaCop, isBsPaymentActive, baseCartTotalUsd, baseCartTotalBs, configTick]);
 
     const cartTotalUsd = cartTotals.totalUsd;
 

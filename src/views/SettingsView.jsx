@@ -121,6 +121,21 @@ export default function SettingsView({ onClose, theme, toggleTheme, triggerHapti
     const [labelOffsetFontFooter, setLabelOffsetFontFooter] = useState(() => getInitialOffset('label_offset_font_footer', '4', '4'));
     const [allowNegativeStock, setAllowNegativeStock] = useState(() => localStorage.getItem('allow_negative_stock') === 'true');
 
+    // Refresco en vivo cuando otra caja actualiza configuración de negocio / políticas
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const onStorageUpdate = (e) => {
+            const key = e?.detail?.key;
+            if (!key || key === 'business_name') setBusinessName(localStorage.getItem('business_name') || '');
+            if (!key || key === 'business_rif') setBusinessRif(localStorage.getItem('business_rif') || '');
+            if (!key || key === 'business_phone') setBusinessPhone(localStorage.getItem('business_phone') || '');
+            if (!key || key === 'label_currency_mode') setLabelCurrencyMode(localStorage.getItem('label_currency_mode') || 'mixto');
+            if (!key || key === 'allow_negative_stock') setAllowNegativeStock(localStorage.getItem('allow_negative_stock') === 'true');
+        };
+        window.addEventListener('app_storage_update', onStorageUpdate);
+        return () => window.removeEventListener('app_storage_update', onStorageUpdate);
+    }, []);
+
     // Sincronizar offsets en React cuando cambia el modo de moneda o el ancho de papel
     useEffect(() => {
         const isMixto = labelCurrencyMode === 'mixto';

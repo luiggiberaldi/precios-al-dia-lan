@@ -62,6 +62,21 @@ export default function SalesView({ triggerHaptic, isActive }) {
     const [showKeyboardHelp, setShowKeyboardHelp] = useState(false); // Keyboard shortcuts modal state
     const [showCashAdvanceModal, setShowCashAdvanceModal] = useState(false);
 
+    // Re-renderizar en vivo si otra caja cambia políticas de ventas (IVA, avances, Cashea, stock negativo).
+    const [, setSalesConfigTick] = useState(0);
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const WATCHED = new Set([
+            'tax_config_v1', 'allow_negative_stock', 'allow_cash_advance',
+            'cash_advance_default_pct', 'cashea_enabled', 'cashea_min_amount',
+        ]);
+        const onCfg = (e) => {
+            if (WATCHED.has(e?.detail?.key)) setSalesConfigTick((n) => n + 1);
+        };
+        window.addEventListener('app_storage_update', onCfg);
+        return () => window.removeEventListener('app_storage_update', onCfg);
+    }, []);
+
     // Opciones de Avance de Efectivo
     const allowCashAdvance = localStorage.getItem('allow_cash_advance') === 'true';
     const cashAdvanceDefaultPct = parseFloat(localStorage.getItem('cash_advance_default_pct')) || 10;

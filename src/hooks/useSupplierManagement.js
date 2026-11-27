@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { storageService } from '../utils/storageService';
 import { withLock } from '../utils/withLock';
 import { isNubeSyncActive } from '../nube/localWriteHook';
@@ -14,6 +14,8 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
     const [suppliers, setSuppliers] = useState([]);
     const [invoices, setInvoices] = useState([]);
     const [selectedSupplier, setSelectedSupplier] = useState(null);
+    const selectedSupplierIdRef = useRef(null);
+    selectedSupplierIdRef.current = selectedSupplier?.id || null;
 
     // Modales de Proveedores
     const [isAddSupplierModalOpen, setIsAddSupplierModalOpen] = useState(false);
@@ -25,7 +27,7 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
     const [editingInvoice, setEditingInvoice] = useState(null);
     const [deleteInvoiceTarget, setDeleteInvoiceTarget] = useState(null);
 
-    // T20: refresco en vivo al llegar proveedores o facturas desde otra caja.
+    // T20: refresco en vivo al llegar proveedores, facturas o pagos desde otra caja.
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
         const onUpdate = async (e) => {
@@ -37,9 +39,23 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
                     setSelectedSupplier((prev) => (prev ? (fresh.find((s) => s.id === prev.id) || prev) : null));
                 }
             }
+            let latestInvoices = null;
             if (!key || key === 'bodega_supplier_invoices_v1') {
                 const freshInv = await storageService.getItem('bodega_supplier_invoices_v1', []);
-                if (Array.isArray(freshInv)) setInvoices(freshInv);
+                if (Array.isArray(freshInv)) {
+                    setInvoices(freshInv);
+                    latestInvoices = freshInv;
+                }
+            }
+            const activeSupplierId = selectedSupplierIdRef.current;
+            if (activeSupplierId && (!key || key === 'bodega_supplier_invoices_v1' || key === 'bodega_sales_v1')) {
+                const invList = latestInvoices || await storageService.getItem('bodega_supplier_invoices_v1', []);
+                const allSales = await storageService.getItem('bodega_sales_v1', []);
+                const supplierInvoices = (Array.isArray(invList) ? invList : []).filter(i => i.supplierId === activeSupplierId);
+                const supplierPayments = (Array.isArray(allSales) ? allSales : []).filter(s => s.tipo === 'PAGO_PROVEEDOR' && s.supplierId === activeSupplierId);
+                const combined = [...supplierInvoices, ...supplierPayments]
+                    .sort((a, b) => new Date(b.date || b.timestamp) - new Date(a.date || a.timestamp));
+                setSupplierHistoryData(combined);
             }
         };
         window.addEventListener('app_storage_update', onUpdate);

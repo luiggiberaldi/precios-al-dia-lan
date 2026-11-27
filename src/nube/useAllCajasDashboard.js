@@ -29,6 +29,22 @@ export function useAllCajasDashboard(enabled, { localSales = [], bcvRate = 1, pr
         }
     }, [enabled, isActive, remote.refresh]);
 
+    // Tiempo real: cuando otra caja sube una venta, cierre o anulación (`cash`/`cash_voids`),
+    // refrescar automáticamente el resumen multi-caja del Inicio sin recargar.
+    useEffect(() => {
+        if (!enabled || !isActive || typeof window === 'undefined') return undefined;
+        let timer = null;
+        const onRemoteCash = () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => { remote.refresh(); }, 350);
+        };
+        window.addEventListener('pdn_remote_cash_updated', onRemoteCash);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('pdn_remote_cash_updated', onRemoteCash);
+        };
+    }, [enabled, isActive, remote.refresh]);
+
     const labels = useMemo(() => ({
         ...(remote.sales?._deviceLabels || {}),
         ...Object.fromEntries(

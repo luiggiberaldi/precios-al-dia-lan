@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Package, CreditCard, FileText, DollarSign, LayoutGrid,
     ShieldCheck, Zap, Smartphone, Monitor, Check, HandCoins, Printer, Scale,
@@ -100,6 +100,41 @@ export default function SettingsTabVentas({
     // ── IVA (fase 3): configuración fiscal guardada en taxConfig ──
     const [taxConfig, setTaxConfig] = useState(() => loadTaxConfig());
     const [ivaRateInput, setIvaRateInput] = useState(() => String(loadTaxConfig().ivaRate));
+
+    // Refresco en vivo cuando otra caja cambia políticas de ventas, IVA, Cashea o vuelto
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const onStorageUpdate = (e) => {
+            const key = e?.detail?.key;
+            if (!key || key === 'tax_config_v1') {
+                const nextTax = loadTaxConfig();
+                setTaxConfig(nextTax);
+                setIvaRateInput(String(nextTax.ivaRate));
+            }
+            if (!key || key === 'cashea_enabled') setCasheaEnabled(localStorage.getItem('cashea_enabled') === 'true');
+            if (!key || key === 'cashea_min_amount') {
+                const n = parseFloat(localStorage.getItem('cashea_min_amount') || '0');
+                setCasheaMinAmount(isNaN(n) || n < 0 ? '0' : n.toString());
+            }
+            if (!key || key === 'receipt_currency_mode') setReceiptCurrency(localStorage.getItem('receipt_currency_mode') || 'bs');
+            if (!key || key === 'allow_cash_advance') setCashAdvanceEnabled(localStorage.getItem('allow_cash_advance') === 'true');
+            if (!key || key === 'cash_advance_default_pct') {
+                const n = parseFloat(localStorage.getItem('cash_advance_default_pct') || '10');
+                setCashAdvancePct(isNaN(n) || n < 0 ? '10' : n.toString());
+            }
+            if (!key || key === 'checkout_smallest_usd_bill') {
+                const n = parseFloat(localStorage.getItem('checkout_smallest_usd_bill') || '1');
+                setSmallestUsdBill(isNaN(n) || n <= 0 ? '1' : n.toString());
+            }
+            if (!key || key === 'checkout_bs_round_step') {
+                const n = parseFloat(localStorage.getItem('checkout_bs_round_step') || '0');
+                setBsRoundStep(isNaN(n) || n < 0 ? '0' : n.toString());
+            }
+            if (!key || key === 'checkout_bs_round_mode') setBsRoundMode(localStorage.getItem('checkout_bs_round_mode') || 'ceil');
+        };
+        window.addEventListener('app_storage_update', onStorageUpdate);
+        return () => window.removeEventListener('app_storage_update', onStorageUpdate);
+    }, []);
 
     const handleIvaToggle = () => {
         const next = saveTaxConfig({ ...loadTaxConfig(), ivaEnabled: !loadTaxConfig().ivaEnabled });

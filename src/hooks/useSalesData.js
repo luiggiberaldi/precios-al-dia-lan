@@ -121,7 +121,7 @@ export function useSalesData({ setCart, cartRef, isActive }) {
         };
 
         const onStorageUpdate = (e) => {
-            if (e.detail && (e.detail.key === SALES_KEY || e.detail.key === CUSTOMERS_KEY)) {
+            if (e.detail && (e.detail.key === SALES_KEY || e.detail.key === CUSTOMERS_KEY || e.detail.key === 'bodega_payment_methods_v1')) {
                 // Pequeño timeout para dar margen a que IndexedDB haya persistido los datos
                 setTimeout(handleReloadContent, 50);
             }

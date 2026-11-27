@@ -69,8 +69,12 @@
   </script>
 </head>
 
+<body class="bg-slate-50 dark:bg-slate-900">
   <!-- Native HTML Initial Splash Background (First Paint - 0ms Delay) -->
-  <div id="initial-splash-overlay" style="position:fixed;inset:0;z-index:99999;background:#FFFFFF;transition:opacity 0.25s ease;"></div>
+  <div id="initial-splash-overlay" style="position:fixed;inset:0;z-index:99999;background:#f8fafc;display:flex;align-items:center;justify-content:center;transition:opacity 0.25s ease;">
+    <div style="width:36px;height:36px;border-radius:9999px;border:3px solid #cbd5e1;border-top-color:#2b59c3;animation:pdaSpin 0.8s linear infinite;"></div>
+  </div>
+  <style>@keyframes pdaSpin{to{transform:rotate(360deg)}}</style>
   <script>
     (function() {
       try {
