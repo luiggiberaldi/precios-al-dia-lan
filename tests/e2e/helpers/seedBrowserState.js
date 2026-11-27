@@ -205,8 +205,8 @@ export async function neutralizeExternalNetwork(page) {
             return route.continue();
         }
 
-        // Supabase (ambos proyectos): auth/rest/realtime.
-        if (url.includes('supabase.co') || url.includes('supabase.in')) {
+        // Supabase (ambos proyectos + placeholder LAN sin nube): auth/rest/realtime.
+        if (url.includes('supabase.co') || url.includes('supabase.in') || url.includes('supabase-sin-configurar.invalid')) {
             // get_license_status: eco del device_id consultado → licencia permanente.
             // Así la app es "premium" sin importar qué fingerprint genere SEC-008.
             if (url.includes('/rest/v1/rpc/get_license_status')) {

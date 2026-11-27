@@ -26,11 +26,16 @@ export default defineConfig({
             : {}),
     },
     webServer: {
-        command: 'bun run dev -- --host 127.0.0.1 --port 4173',
+        command: 'bunx vite --mode development --host 127.0.0.1 --port 4173',
         url: 'http://127.0.0.1:4173',
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
-        // Ventas remotas (default apagado en producción): el e2e las prueba encendidas.
-        env: { VITE_SUPERVISOR_REMOTE_SALES_ENABLED: 'true' },
+        // Las pruebas e2e de checkout corren contra el POS standalone (sin LanSetupScreen)
+        // y con ventas remotas encendidas.
+        env: {
+            VITE_SUPERVISOR_REMOTE_SALES_ENABLED: 'true',
+            VITE_NUBE_ACCOUNTS: 'false',
+            VITE_LAN_MODE: 'false',
+        },
     },
 });
