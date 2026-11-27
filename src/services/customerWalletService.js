@@ -4,6 +4,7 @@ import {
     CUSTOMER_LEDGER_KEY,
     CUSTOMER_MOVEMENT_TYPES,
     createCustomerLedgerMovement,
+    deterministicInitialMovementId,
     getCustomerBalance,
     hasLedgerSource,
     normalizeCustomer,
@@ -64,6 +65,7 @@ export async function applyCustomerMovementsWithinLock({
         const initialBalance = getCustomerBalance(workingCustomer);
         if (initialBalance !== 0) {
             const initial = createCustomerLedgerMovement({
+                id: deterministicInitialMovementId(customerId),
                 customerId,
                 type: CUSTOMER_MOVEMENT_TYPES.INITIAL,
                 direction: initialBalance >= 0 ? 'CREDIT' : 'DEBIT',

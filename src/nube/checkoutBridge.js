@@ -57,7 +57,22 @@ export async function nubeCommitSale({ sale, cart }) {
  */
 export async function nubeVoidSale(sale, reason) {
     if (!voider || !sale?.nube?.saleId) return null;
+    const saleId = String(sale.nube.saleId);
+    // C5: Si la venta fue rechazada definitivamente por el servidor (nunca entró a `sales`),
+    // descartarla de la lista de rechazadas y permitir la anulación local sin bloquearse en P0002.
+    if (submitter && typeof submitter.rejected === 'function') {
+        const rejectedList = await submitter.rejected().catch(() => []);
+        if (rejectedList.some((r) => String(r?.sale?.id) === saleId)) {
+            await submitter.discardRejected?.(saleId);
+            return null;
+        }
+    }
     if (sale.nube.pending && submitter) await submitter.replay();
-    const res = await voider(sale.nube.saleId, reason);
-    return res?.ok ? null : { rejected: true, message: res?.message || 'No se pudo anular en el servidor' };
+    const res = await voider(saleId, reason);
+    if (res?.ok) return null;
+    if (sale.nube.pending && (res?.code === 'P0002' || /Venta no encontrada/i.test(res?.message || ''))) {
+        await submitter?.discardRejected?.(saleId);
+        return null;
+    }
+    return { rejected: true, message: res?.message || 'No se pudo anular en el servidor' };
 }

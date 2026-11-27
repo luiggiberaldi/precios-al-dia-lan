@@ -9,6 +9,7 @@
  */
 import { useEffect, useState } from 'react';
 import { round0, round2, floorR, ceilR } from './dinero.js';
+import { notifyBusinessConfigChanged } from '../nube/businessConfigSync';
 
 export const BRAND_LOGO_KEY = 'business_logo';
 export const BRAND_LOGO_EVENT = 'brand-logo-changed';
@@ -60,6 +61,7 @@ export function setCustomLogo(dataUrl, storage) {
         return false; // cuota llena
     }
     notify();
+    notifyBusinessConfigChanged(storageOf(storage));
     return true;
 }
 
@@ -68,6 +70,7 @@ export function clearCustomLogo(storage) {
         storageOf(storage)?.removeItem(BRAND_LOGO_KEY);
     } catch { /* nada que limpiar */ }
     notify();
+    notifyBusinessConfigChanged(storageOf(storage));
 }
 
 /** Mayor tamaño que cabe en maxW × maxH conservando la proporción (los PDFs no deforman el logo). */

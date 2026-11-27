@@ -13,7 +13,7 @@
  * (F4), también con id estable. Las ventas viejas se quedan en el respaldo.
  */
 import { validateBackupJson } from '../utils/backupRestoreService';
-import { SYNCED_KEYS, toRecords } from './recordSync';
+import { SYNCED_KEYS, toRecords, MAX_RECORD_ID, MAX_RECORD_BYTES, utf8ByteLength } from './recordSync';
 import { toNubeError } from './accountService';
 
 const BATCH = 400;
@@ -44,11 +44,17 @@ export async function importBackupToCloud(ownerClient, json, { onProgress = () =
     for (const key of Object.keys(SYNCED_KEYS)) {
         if (data[key] == null || exclude.includes(key)) continue;
         const { collection } = SYNCED_KEYS[key];
-        const records = toRecords(key, data[key]);
+        const records = toRecords(key, data[key]).filter((rec) => {
+            if (!rec?.id || rec.id.length > MAX_RECORD_ID) return false;
+            return utf8ByteLength(rec.data) <= MAX_RECORD_BYTES;
+        });
         let done = 0;
         for (let i = 0; i < records.length; i += BATCH) {
             const batch = records.slice(i, i + BATCH).map(({ id, data: d }) => ({ id, data: d, deleted: false }));
-            const { error } = await ownerClient.rpc('push_records', { p_session: session, p_collection: collection, p_records: batch });
+            let { error } = await ownerClient.rpc('push_records_v2', { p_session: session, p_collection: collection, p_records: batch });
+            if (error && (error.code === 'PGRST202' || error.code === '42883')) {
+                ({ error } = await ownerClient.rpc('push_records', { p_session: session, p_collection: collection, p_records: batch }));
+            }
             if (error) throw toNubeError(error);
             done += batch.length;
             onProgress({ collection, done, total: records.length });
@@ -120,18 +126,28 @@ export async function importInitialBalances(ownerClient, json, { accountId, sess
     if (!accountId) throw new Error('Falta la cuenta para importar los saldos');
     const customers = backupData(json).bodega_customers_v1;
     if (!Array.isArray(customers)) return 0;
+    const stamp = backupStamp(json);
+    const { data: existingRows } = await ownerClient.from('customer_balances').select('customer_id, balance_usd');
+    const currentByCust = new Map((existingRows || []).map((r) => [String(r.customer_id), Number(r.balance_usd) || 0]));
     const movements = [];
     for (const c of customers) {
         if (c?.id === undefined) continue;
-        const balance = Math.round(((Number(c.favor) || 0) - (Number(c.deuda) || 0)) * 100) / 100;
-        if (!balance) continue;
+        const cid = String(c.id);
+        const target = Math.round(((Number(c.favor) || 0) - (Number(c.deuda) || 0)) * 100) / 100;
+        const hasPrev = currentByCust.has(cid);
+        const current = currentByCust.get(cid) || 0;
+        const delta = Math.round((target - current) * 100) / 100;
+        if (delta === 0) continue;
+        const isFirst = !hasPrev;
         movements.push({
-            id: await stableUuid(`${accountId}:saldo-inicial:${c.id}`),
-            customer_id: String(c.id),
-            type: 'SALDO_INICIAL_MIGRADO',
-            direction: balance > 0 ? 'CREDIT' : 'DEBIT',
-            amount_usd: Math.abs(balance),
-            reason: 'Saldo importado del respaldo de Precios al Día',
+            id: await stableUuid(isFirst ? `${accountId}:saldo-inicial:${cid}` : `${accountId}:saldo-restore:${stamp}:${cid}`),
+            customer_id: cid,
+            type: isFirst ? 'SALDO_INICIAL_MIGRADO' : (delta > 0 ? 'AJUSTE_CREDITO' : 'AJUSTE_DEBITO'),
+            direction: delta > 0 ? 'CREDIT' : 'DEBIT',
+            amount_usd: Math.abs(delta),
+            source_type: isFirst ? 'MIGRATION' : 'RESTORE',
+            source_id: isFirst ? `backup:${cid}` : `restore:${stamp}:${cid}`,
+            reason: isFirst ? 'Saldo importado del respaldo de Precios al Día' : 'Ajuste de saldo desde respaldo restaurado',
         });
     }
     let done = 0;

@@ -12,6 +12,8 @@ import { FinancialEngine } from '../core/FinancialEngine.js';
 import { CurrencyService } from '../services/CurrencyService.js';
 import { loadTaxConfig, resolveLineIvaRate, getCartIvaOpts } from '../config/taxConfig.js';
 import { nubeCommitSale } from '../nube/checkoutBridge.js';
+import { adjustNubeStockBaseline } from '../nube/localWriteHook.js';
+import { appendCasheaMovementWithinLock } from './casheaLedger.js';
 
 const SALES_KEY = 'bodega_sales_v1';
 const PRODUCTS_KEY = 'bodega_products_v1';
@@ -477,6 +479,11 @@ export async function processSaleTransaction({
         // publicada (`stockEffects`), así que el catálogo se escribe localmente
         // SIN re-publicarse por cada cobro.
         await storageService.setItem(PRODUCTS_KEY, updatedProducts, { skipSyncPush: true });
+        if (stockEffects.length > 0) {
+            await adjustNubeStockBaseline(
+                Object.fromEntries(stockEffects.map((e) => [String(e.productId), e.delta]))
+            );
+        }
         deepFreeze(updatedProducts);
 
         let updatedCustomers = customers;
@@ -536,6 +543,25 @@ export async function processSaleTransaction({
                 updatedCustomers = walletResult.updatedCustomers;
             } else {
                 updatedCustomers = freshCustomers;
+            }
+
+            // C9 (T11): acumular casheaDeuda en el cliente y registrar movimiento aditivo
+            // auditable en `bodega_cashea_ledger_v1` (convergente entre múltiples cajas).
+            if (casheaUsd > FINANCIAL_EPSILON.PAYMENT_ZERO) {
+                updatedCustomers = updatedCustomers.map((c) => {
+                    if (c.id !== freshSelected.id) return c;
+                    return { ...c, casheaDeuda: round2((Number(c.casheaDeuda) || 0) + casheaUsd) };
+                });
+                await storageService.setItem(CUSTOMERS_KEY, updatedCustomers);
+                await appendCasheaMovementWithinLock({
+                    storage: storageService,
+                    id: `cashea-sale:${finalPersistedSale.id}`,
+                    customerId: freshSelected.id,
+                    type: 'VENTA_CASHEA',
+                    deltaUsd: round2(casheaUsd),
+                    sourceSaleId: finalPersistedSale.id,
+                    reason: `Venta Cashea #${saleNumber}`,
+                });
             }
             deepFreeze(updatedCustomers);
         }

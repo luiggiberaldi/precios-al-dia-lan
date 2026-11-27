@@ -4,6 +4,8 @@ import { useReveal } from '../hooks/useReveal';
 import { matchesSearch as matchesSearchFields } from '../utils/searchMatch';
 import { Users, Plus, Search, User, X, Trash2, Pencil, Phone, RefreshCw, Save, ArrowUpRight, Clock, CheckCircle2, CreditCard, ShoppingBag, Truck, Smartphone, Download } from 'lucide-react';
 import { storageService } from '../utils/storageService';
+import { withLock } from '../utils/withLock';
+import { buildUnifiedCustomerHistory } from '../utils/customerHistory';
 import { isNubeSyncActive } from '../nube/localWriteHook';
 import { mergeScreenList } from '../nube/staleListGuard';
 import { showToast } from '../components/Toast';
@@ -75,16 +77,21 @@ export default function CustomersView({ triggerHaptic, isActive }) {
     const [deleteCustomerTarget, setDeleteCustomerTarget] = useState(null);
     const [detailingTransaction, setDetailingTransaction] = useState(null);
 
-    // Guard: evita eliminar clientes con deuda o saldo a favor pendiente
+    // Guard: evita eliminar clientes con deuda, saldo a favor o remesa Cashea pendiente
     const handleDeleteCustomerRequest = (customer) => {
         const deuda = customer.deuda || 0;
         const saldo = customer.favor || 0;
+        const cashea = customer.casheaDeuda || 0;
         if (deuda > 0.005) {
             showToast(`No se puede eliminar: ${customer.name} tiene una deuda de $${deuda.toFixed(2)} pendiente.`, 'error');
             return;
         }
         if (saldo > 0.005) {
             showToast(`No se puede eliminar: ${customer.name} tiene un saldo a favor de $${saldo.toFixed(2)}.`, 'error');
+            return;
+        }
+        if (cashea > 0.005) {
+            showToast(`No se puede eliminar: ${customer.name} tiene una remesa Cashea pendiente de $${cashea.toFixed(2)}.`, 'error');
             return;
         }
         setDeleteCustomerTarget(customer);
@@ -136,13 +143,30 @@ export default function CustomersView({ triggerHaptic, isActive }) {
         if (isActive) loadData();
     }, [isActive]);
 
+    // BAJ-02: refrescar clientes y cartera en vivo cuando otra caja sincroniza cambios.
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const onStorageUpdate = (e) => {
+            const key = e?.detail?.key;
+            if (key === 'bodega_customers_v1' || key === CUSTOMER_LEDGER_KEY) {
+                loadData();
+            }
+        };
+        window.addEventListener('app_storage_update', onStorageUpdate);
+        return () => window.removeEventListener('app_storage_update', onStorageUpdate);
+    }, []);
+
     const saveCustomers = async (updatedCustomers) => {
         // Precios al Día Nube: la lista en pantalla puede estar vieja (otra caja creó o
-        // editó clientes); se funde con la guardada para no borrarlos en la nube.
+        // editó clientes); se funde bajo pos_write_lock para no borrarlos en la nube.
         if (isNubeSyncActive()) {
-            const merged = mergeScreenList({ base: customers, next: updatedCustomers, fresh: await storageService.getItem('bodega_customers_v1', []) });
+            const merged = await withLock('pos_write_lock', async () => {
+                const fresh = await storageService.getItem('bodega_customers_v1', []);
+                const next = mergeScreenList({ base: customers, next: updatedCustomers, fresh });
+                await storageService.setItem('bodega_customers_v1', next);
+                return next;
+            }, { fallbackWarning: false });
             setCustomers(merged);
-            await storageService.setItem('bodega_customers_v1', merged);
             return;
         }
         setCustomers(updatedCustomers);
@@ -185,12 +209,12 @@ export default function CustomersView({ triggerHaptic, isActive }) {
     const toggleHistory = async (customerId) => {
         triggerHaptic && triggerHaptic();
         setExpandedHistory(customerId);
-        const allSales = await storageService.getItem('bodega_sales_v1', []);
-        const customerSales = allSales
-            .filter(s => s.customerId === customerId || s.clienteId === customerId)
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-            .slice(0, 20);
-        setHistoryData(customerSales);
+        const [allSales, freshLedger] = await Promise.all([
+            storageService.getItem('bodega_sales_v1', []),
+            storageService.getItem(CUSTOMER_LEDGER_KEY, []),
+        ]);
+        const customerHistory = buildUnifiedCustomerHistory(customerId, allSales, freshLedger, { limit: 20 });
+        setHistoryData(customerHistory);
     };
 
     const handleResetBalance = async (customer) => {

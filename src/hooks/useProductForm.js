@@ -35,6 +35,7 @@ const INITIAL_STATE = {
     costBs: '',
     costFactor: '0',
     stock: '',
+    stockTouched: false,
     unit: 'unidad',
     unitsPerPackage: '',
     sellByUnit: false,
@@ -53,6 +54,9 @@ const INITIAL_STATE = {
 function reducer(state, action) {
     if (action.type === 'SET') {
         return { ...state, [action.field]: action.value };
+    }
+    if (action.type === 'SET_STOCK') {
+        return { ...state, [action.field]: action.value, stockTouched: true };
     }
     if (action.type === 'RESET') {
         return { ...INITIAL_STATE };
@@ -112,6 +116,7 @@ export function prepareProductFormState(product, effectiveRate, granelMode = get
             ? Number(resolveCostFactor(currentCostUsd, currentPriceUsd, product.costFactor)).toFixed(3)
             : (product.costFactor != null ? product.costFactor.toString() : '0'),
         stock: initialStock,
+        stockTouched: false,
         unit: product.unit || 'unidad',
         unitsPerPackage: product.unitsPerPackage || '',
         sellByUnit: product.sellByUnit || false,
@@ -167,7 +172,7 @@ export function useProductForm() {
     const setCostUsd = useCallback((v) => dispatch({ type: 'SET', field: 'costUsd', value: v }), []);
     const setCostBs = useCallback((v) => dispatch({ type: 'SET', field: 'costBs', value: v }), []);
     const setCostFactor = useCallback((v) => dispatch({ type: 'SET', field: 'costFactor', value: v }), []);
-    const setStock = useCallback((v) => dispatch({ type: 'SET', field: 'stock', value: v }), []);
+    const setStock = useCallback((v) => dispatch({ type: 'SET_STOCK', field: 'stock', value: v }), []);
     const setUnit = useCallback((v) => dispatch({ type: 'SET', field: 'unit', value: v }), []);
     const setUnitsPerPackage = useCallback((v) => dispatch({ type: 'SET', field: 'unitsPerPackage', value: v }), []);
     const setSellByUnit = useCallback((v) => dispatch({ type: 'SET', field: 'sellByUnit', value: v }), []);
@@ -176,7 +181,7 @@ export function useProductForm() {
     const setLowStockAlert = useCallback((v) => dispatch({ type: 'SET', field: 'lowStockAlert', value: v }), []);
     const setImage = useCallback((v) => dispatch({ type: 'SET', field: 'image', value: v }), []);
     const setPackagingType = useCallback((v) => dispatch({ type: 'SET', field: 'packagingType', value: v }), []);
-    const setStockInLotes = useCallback((v) => dispatch({ type: 'SET', field: 'stockInLotes', value: v }), []);
+    const setStockInLotes = useCallback((v) => dispatch({ type: 'SET_STOCK', field: 'stockInLotes', value: v }), []);
     const setGranelUnit = useCallback((v) => dispatch({ type: 'SET', field: 'granelUnit', value: v }), []);
     const setIsFormShaking = useCallback((v) => dispatch({ type: 'SET', field: 'isFormShaking', value: v }), []);
     const setIvaMode = useCallback((v) => dispatch({ type: 'SET', field: 'ivaMode', value: v }), []);
@@ -203,6 +208,7 @@ export function useProductForm() {
         costBs: state.costBs, setCostBs,
         costFactor: state.costFactor, setCostFactor,
         stock: state.stock, setStock,
+        stockTouched: state.stockTouched,
         unit: state.unit, setUnit,
         unitsPerPackage: state.unitsPerPackage, setUnitsPerPackage,
         sellByUnit: state.sellByUnit, setSellByUnit,

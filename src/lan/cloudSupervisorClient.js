@@ -7,7 +7,7 @@
  */
 import { safeUuid } from '../utils/safeUuid';
 import { round2, round4 } from '../utils/dinero';
-import { RATE_KEY } from '../nube/rateSync';
+import { RATE_KEY, unwrapRateRecord, wrapRateRecord } from '../nube/rateSync';
 
 export const CLOUD_SUPERVISOR_SESSION_KEY = 'pdn_lan_cloud_supervisor_v1';
 
@@ -222,7 +222,7 @@ export function createCloudSupervisorClient({
         async loadCurrentRate() {
             const st = await ensureSnapshot();
             const rec = st.snapshot?.rateRecord || null;
-            const d = rec?.data || {};
+            const d = unwrapRateRecord(rec?.data);
             return {
                 rateMode: ['bcv', 'euro', 'usdt', 'manual'].includes(d.rateMode) ? d.rateMode : 'bcv',
                 customRate: d.customRate ?? '',
@@ -304,7 +304,7 @@ export function createCloudSupervisorClient({
                 updatedAt: new Date().toISOString(),
             };
             return enqueue('update_rate', {
-                data: nextData,
+                data: wrapRateRecord(nextData),
                 base_version: current.version ?? null,
             });
         },

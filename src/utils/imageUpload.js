@@ -111,7 +111,7 @@ export async function uploadProductImage(dataUri, opts = {}) {
  * @returns {Promise<{migrated:number,failed:number,total:number,products:Array}>}
  */
 export async function migrateProductImagesToStorage(products, saveFn) {
-    if (!Array.isArray(products) || !supabaseCloud) {
+    if (!Array.isArray(products) || (!supabaseCloud && !isLanModeEnabled())) {
         return { migrated: 0, failed: 0, total: 0, products: products || [] };
     }
 

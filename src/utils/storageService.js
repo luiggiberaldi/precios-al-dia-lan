@@ -94,7 +94,9 @@ export const storageService = {
     async setItem(key, value, options = {}) {
         try {
             // 🧱 CAPA 1: DISYUNTOR DE ALMACENAMIENTO (Circuit Breaker para Catálogo)
-            if (key === 'bodega_products_v1') {
+            // C13: las escrituras provenientes de la nube/LAN (`fromCloud: true`) quedan
+            // exentas para no congelar la caja tras un borrado masivo legítimo en otra caja.
+            if (key === 'bodega_products_v1' && !options?.fromCloud) {
                 const currentCatalog = await localforage.getItem(key);
                 if (Array.isArray(currentCatalog) && currentCatalog.length > 5) {
                     const incomingCount = Array.isArray(value) ? value.length : 0;
@@ -123,8 +125,9 @@ export const storageService = {
 
             await localforage.setItem(key, value);
             localStorage.removeItem(key);
+            const eventSource = options?.fromCloud ? 'remote' : 'local';
             if (typeof window !== "undefined") {
-                window.dispatchEvent(new CustomEvent("app_storage_update", { detail: { key } }));
+                window.dispatchEvent(new CustomEvent("app_storage_update", { detail: { key, source: eventSource } }));
             }
             // BACKUP-004/HOOK-014: el eco se corta EN LA COLA, no solo al ejecutar
             // el push. `queueCloudSync` usa debounce, así que para cuando el push
@@ -135,8 +138,11 @@ export const storageService = {
             // otro documento publicado (el delta de stock embebido en la venta),
             // así que la escritura local es correcta pero NO debe re-publicar el
             // catálogo entero. Solo los call-sites de stock puro lo usan.
+            // `fromCloud` (T01): escritura proveniente del motor de sincronización
+            // remoto; suprime el eco POR ESCRITURA sin afectar escrituras locales
+            // concurrentes de otras claves.
             // Precios al Día Nube: con la nube activa, sincroniza por registro (src/nube).
-            if (!options?.skipSyncPush && !isSyncingFromCloud()) {
+            if (!options?.skipSyncPush && !options?.fromCloud && !isSyncingFromCloud()) {
                 if (isNubeSyncActive()) notifyNubeLocalWrite(key, value);
                 else queueCloudSync(key, value);
             }

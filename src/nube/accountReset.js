@@ -25,6 +25,16 @@ export const RESET_NOTICE_KEY = 'pdn-reset-notice';
 
 /** Claves de IndexedDB que el reinicio NO toca. */
 export const KEEP_LOCAL_KEYS = Object.freeze(['bodega_payment_methods_v1', 'bodega_users_catalog_v1', 'pdn_rate_v1']);
+/** Claves de tasa en localStorage que sobreviven al reinicio cuando keepSettings=true (A6). */
+export const KEEP_RATE_STORAGE_KEYS = Object.freeze([
+    'bodega_rate_mode',
+    'bodega_custom_rate',
+    'bodega_use_auto_rate',
+    'cop_enabled',
+    'auto_cop_enabled',
+    'tasa_cop',
+    'cop_primary',
+]);
 /** Datos del negocio que no empiezan por `bodega_`. */
 export const EXTRA_DATA_KEYS = Object.freeze(['my_categories_v1', 'last_bulk_price_snapshot', 'abasto_audit_log_v1']);
 /**
@@ -122,7 +132,9 @@ export async function wipeLocalData(stores = {}, { keepSettings = true } = {}) {
         for (let i = storage.length - 1; i >= 0; i -= 1) {
             const key = storage.key(i);
             if (!key) continue;
-            if (keepSettings ? (key.startsWith('bodega_') && isDataKey(key)) : (key.startsWith('bodega_') || KEEP_LOCAL_KEYS.includes(key))) {
+            if (keepSettings
+                ? (key.startsWith('bodega_') && isDataKey(key) && !KEEP_RATE_STORAGE_KEYS.includes(key))
+                : (key.startsWith('bodega_') || KEEP_LOCAL_KEYS.includes(key))) {
                 storage.removeItem(key);
             }
         }
@@ -184,6 +196,30 @@ export async function ownerResetAccount({ deviceClient, ownerClient, email, pass
         const [mine, theirs] = await Promise.all([getOwnerAccount(ownerClient), getOwnerAccount(deviceClient)]);
         if (!mine || !theirs || mine.id !== theirs.id) {
             throw new NubeError('Ese correo no es el del dueño de esta cuenta.');
+        }
+        const result = await resetAccount(ownerClient);
+        const local = await checkAccountReset(deviceClient, stores);
+        return { ...result, local };
+    } finally {
+        await ownerSignOut(ownerClient);
+    }
+}
+
+/**
+ * C21 (T15): En LAN local el dueño puede haber creado la cuenta solo con PIN (sin
+ * conocer la contraseña interna generada en bootstrapLocalOwner). Autentica con
+ * `ownerPinSignIn(pin)` en localhost y ejecuta el mismo `reset_account('REINICIAR')`.
+ */
+export async function ownerPinResetAccount({ deviceClient, ownerClient, pin, stores }) {
+    if (!String(pin || '').trim()) throw new NubeError('Escribe tu PIN de dueño.');
+    if (!ownerClient?.lan?.ownerPinSignIn) {
+        throw new NubeError('El reinicio con PIN solo está disponible en modo LAN local.');
+    }
+    try {
+        await ownerClient.lan.ownerPinSignIn(String(pin).trim());
+        const [mine, theirs] = await Promise.all([getOwnerAccount(ownerClient), getOwnerAccount(deviceClient)]);
+        if (!mine || !theirs || mine.id !== theirs.id) {
+            throw new NubeError('No se pudo verificar la cuenta del dueño.');
         }
         const result = await resetAccount(ownerClient);
         const local = await checkAccountReset(deviceClient, stores);

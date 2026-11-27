@@ -8,7 +8,7 @@
  */
 import { safeUuid } from '../utils/safeUuid';
 import { round2, round4 } from '../utils/dinero';
-import { RATE_KEY } from './rateSync';
+import { RATE_KEY, unwrapRateRecord, wrapRateRecord } from './rateSync';
 
 async function rows(promise, what) {
     const { data, error } = await promise;
@@ -190,7 +190,7 @@ export async function loadCurrentRate(client) {
         'la tasa actual',
     );
     const rec = list[0];
-    const d = rec?.data || {};
+    const d = unwrapRateRecord(rec?.data);
     return {
         rateMode: ['bcv', 'euro', 'usdt', 'manual'].includes(d.rateMode) ? d.rateMode : 'bcv',
         customRate: d.customRate ?? '',
@@ -356,7 +356,7 @@ export async function updateSupervisorRate(client, sessionToken, {
         p_collection: 'settings',
         p_records: [{
             id: RATE_KEY,
-            data: nextData,
+            data: wrapRateRecord(nextData),
             ...(current.version != null ? { base_version: current.version } : {}),
         }],
     }, 'actualizar la tasa');

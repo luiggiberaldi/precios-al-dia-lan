@@ -214,6 +214,8 @@ describe('F-18 · Flujos de interfaz React LAN contra servidor real', () => {
         act(() => root.unmount());
         localStorage.clear();
         setLanServerUrl(srv.baseUrl, 'master');
+        window.__PDN_LAN_LOCAL_SECRET__ = srv.localAdminSecret;
+        cleanups.push(async () => { delete window.__PDN_LAN_LOCAL_SECRET__; });
         resetDeviceClient();
         root = createRoot(container);
         await act(async () => {

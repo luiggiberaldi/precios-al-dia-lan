@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BcvApiClient } from '../services/bcvApiClient';
+import { notifyRateChanged } from '../nube/rateSync';
 
 const BCV_API_URL = import.meta.env.VITE_BCV_API_URL || '';
 
@@ -43,6 +44,20 @@ export function useRates() {
         ratesRef.current = rates;
         if (rates) localStorage.setItem('monitor_rates_v12', JSON.stringify(rates));
     }, [rates]);
+
+    // A6: escuchar tasas automáticas sincronizadas desde otra caja con internet (LAN/Nube).
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const onStorageUpdate = (e) => {
+            if (e?.detail?.key !== 'monitor_rates_v12' || e?.detail?.source !== 'remote') return;
+            try {
+                const parsed = JSON.parse(localStorage.getItem('monitor_rates_v12'));
+                if (parsed && parsed.bcv?.price > 0) setRates(parsed);
+            } catch { /* ignorar JSON inválido */ }
+        };
+        window.addEventListener('app_storage_update', onStorageUpdate);
+        return () => window.removeEventListener('app_storage_update', onStorageUpdate);
+    }, []);
 
     const addLog = useCallback((msg, type = 'info') => {
         const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -308,6 +323,12 @@ export function useRates() {
 
             newRates.lastUpdate = new Date();
             setRates(newRates);
+            if (candidates.length > 0 || newUsdtPrice > 0) {
+                try {
+                    localStorage.setItem('monitor_rates_v12', JSON.stringify(newRates));
+                    notifyRateChanged();
+                } catch { /* silencioso */ }
+            }
             if (!isAutoUpdate) addLog("Actualización completada", 'success');
 
             if (!(newRates.bcv?.price > 0)) {

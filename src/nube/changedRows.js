@@ -28,15 +28,15 @@ export function sinceWithOverlap(cursor, overlapMs = CHANGES_OVERLAP_MS) {
  * @param {(q) => q} [opts.filter]  filtros extra (p. ej. la sede)
  * @returns {Promise<{ rows: object[], newest: string|null }>}
  */
-export async function fetchChangedRows(client, table, { select, key, since = null, filter = (q) => q, page = PAGE }) {
+export async function fetchChangedRows(client, table, { select, key, timeCol = 'updated_at', since = null, filter = (q) => q, page = PAGE }) {
     const rows = [];
     let cursor = since;
     let tie = null;
     for (;;) {
         let query = filter(client.from(table).select(select));
-        if (tie !== null) query = query.eq('updated_at', cursor).gt(key, tie);
-        else if (cursor) query = query.gt('updated_at', cursor);
-        const { data, error } = await query.order('updated_at').order(key).limit(page);
+        if (tie !== null) query = query.eq(timeCol, cursor).gt(key, tie);
+        else if (cursor) query = query.gt(timeCol, cursor);
+        const { data, error } = await query.order(timeCol).order(key).limit(page);
         if (error) throw new Error(error.message || `No se pudo leer ${table}`);
         const list = data || [];
         rows.push(...list);
@@ -46,9 +46,9 @@ export async function fetchChangedRows(client, table, { select, key, since = nul
             continue;
         }
         if (list.length < page) break;
-        cursor = last.updated_at;
+        cursor = last[timeCol];
         tie = last[key];
     }
-    const newest = rows.reduce((max, r) => (r.updated_at && (!max || r.updated_at > max) ? r.updated_at : max), null);
+    const newest = rows.reduce((max, r) => (r[timeCol] && (!max || r[timeCol] > max) ? r[timeCol] : max), null);
     return { rows, newest };
 }

@@ -4,6 +4,7 @@ import { formatUsd } from './calculatorUtils';
 import { withLock } from './withLock';
 import { deepFreeze } from './deepFreeze';
 import { CurrencyService } from '../services/CurrencyService';
+import { appendCasheaMovementWithinLock } from './casheaLedger';
 
 /**
  * Registra una REMESA DE CASHEA hacia la bodega.
@@ -100,6 +101,15 @@ export async function processCasheaRemittance({
         };
         sales.unshift(remesaRecord);
         await storageService.setItem('bodega_sales_v1', sales);
+        await appendCasheaMovementWithinLock({
+            storage: storageService,
+            id: `cashea-rem:${remesaRecord.id}`,
+            customerId: customer.id,
+            type: 'COBRO_CASHEA',
+            deltaUsd: -aplicado,
+            sourceSaleId: remesaRecord.id,
+            reason: `Remesa Cashea #${nextSaleNumber}`,
+        });
 
         deepFreeze(newCustomers);
         return { updatedCustomer, newCustomers, aplicado };

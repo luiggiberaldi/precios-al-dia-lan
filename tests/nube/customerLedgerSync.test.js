@@ -2,11 +2,19 @@
  * F4 · cartera de clientes entre dos cajas contra el SQL real (PGlite): E5 de punta a
  * punta (fía en A, abona en B, las dos ven el mismo saldo) y cola que sobrevive sin red.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { createDb, createUser, q } from './sql/harness.js';
 import { FakeSupabase } from './sql/fakeSupabase.js';
-import { createCustomerLedgerSync, applyBalances, toServerMovement, LEDGER_KEY, CUSTOMERS_KEY } from '../../src/nube/customerLedgerSync.js';
+import {
+    createCustomerLedgerSync,
+    applyBalances,
+    toServerMovement,
+    LEDGER_KEY,
+    CUSTOMERS_KEY,
+    LEDGER_REJECTED_KEY,
+} from '../../src/nube/customerLedgerSync.js';
+import { withLock } from '../../src/utils/withLock.js';
 
 function memoryStore() {
     const m = new Map();
@@ -96,5 +104,79 @@ describe('F4 · dos cajas, una cartera', () => {
         expect(await a.sync.pending()).toBe(0);
         await b.sync.pull();
         expect(b.local.get(CUSTOMERS_KEY)[0].deuda).toBe(7);
+    });
+
+    it('C6 doble gasto saldo_favor: pull() NO sobrescribe el saldo local de clientes con movimientos pendientes en queue', async () => {
+        const [a] = await setup(db);
+        // Servidor tiene favor = +10 para maría
+        await a.anotar(mov('maria', 'VUELTO_ACREDITADO', 'CREDIT', 10));
+        await a.sync.pull();
+        expect(a.local.get(CUSTOMERS_KEY)[0]).toMatchObject({ favor: 10, deuda: 0 });
+
+        // Caja A se desconecta y gasta el saldo a favor de $10 localmente -> local favor = 0, movimiento queda en queue
+        a.state.offline = true;
+        a.local.set(CUSTOMERS_KEY, [{ id: 'maria', name: 'María', deuda: 0, favor: 0 }]);
+        await a.anotar(mov('maria', 'SALDO_FAVOR_USADO', 'DEBIT', 10));
+        expect(await a.sync.pending()).toBe(1);
+
+        // Llega un pull() antes de que flush() haya confirmado el movimiento -> servidor sigue devolviendo +10.
+        // applyBalances DEBE omitir a maria porque está en state.queue!
+        await a.sync.pull();
+        expect(a.local.get(CUSTOMERS_KEY)[0]).toMatchObject({ favor: 0, deuda: 0 });
+
+        // Al reconectar y hacer flush + pull -> servidor ya está en 0 y coincide.
+        a.state.offline = false;
+        await a.sync.flush();
+        await a.sync.pull();
+        expect(a.local.get(CUSTOMERS_KEY)[0]).toMatchObject({ favor: 0, deuda: 0 });
+    });
+
+    it('MED-11 applyBalances normaliza clientes corruptos con favor > 0 y deuda > 0 aunque el neto coincida, y respeta skipIds', () => {
+        const { customers, changed } = applyBalances(
+            [
+                { id: 'c-corrupt', deuda: 5, favor: 5 },
+                { id: 'c-queued', deuda: 0, favor: 0 },
+            ],
+            { 'c-corrupt': 0, 'c-queued': 10 },
+            { skipIds: new Set(['c-queued']) },
+        );
+        expect(changed).toBe(1);
+        expect(customers[0]).toMatchObject({ id: 'c-corrupt', deuda: 0, favor: 0 });
+        expect(customers[1]).toMatchObject({ id: 'c-queued', deuda: 0, favor: 0 });
+    });
+
+    it('C8 poison-pill en customerLedgerSync.flush() se aparta a pdn_ledger_rejected_v1 sin bloquear movimientos válidos detrás', async () => {
+        const store = memoryStore();
+        const rpcMock = vi.fn(async (_fn, args) => {
+            const list = args.p_movements || [];
+            if (list.some((m) => m.id === 'mov-bad')) {
+                return { data: null, error: { code: '22023', message: 'Movimiento de cliente inválido' } };
+            }
+            return {
+                data: list.map((m) => ({ id: m.id, customer_id: m.customer_id, balance_after: -5, already_registered: false })),
+                error: null,
+            };
+        });
+        const sync = createCustomerLedgerSync({
+            client: { rpc: rpcMock },
+            getSession: () => 'tok',
+            store,
+            readLocal: async () => [],
+            writeLocal: async () => {},
+            withLocalLock: (fn) => withLock('pos_write_lock', fn, { fallbackWarning: false }),
+        });
+
+        await sync.onLedgerWrite([
+            { id: 'mov-bad', customerId: 'c1', type: 'VENTA_FIADA', direction: 'DEBIT', amountUsd: -5, timestamp: new Date().toISOString() },
+            { id: 'mov-good', customerId: 'c1', type: 'VENTA_FIADA', direction: 'DEBIT', amountUsd: 5, timestamp: new Date().toISOString() },
+        ]);
+        await sync.flush();
+
+        expect(await sync.pending()).toBe(0);
+        const rejected = await store.getItem(LEDGER_REJECTED_KEY);
+        expect(Array.isArray(rejected)).toBe(true);
+        expect(rejected.some((r) => r.id === 'mov-bad')).toBe(true);
+        expect(rpcMock.mock.calls.some((c) => (c[1].p_movements || []).every((m) => m.id === 'mov-good'))).toBe(true);
+        expect(typeof sync.applyKnownBalances).toBe('function');
     });
 });

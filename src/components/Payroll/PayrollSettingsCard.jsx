@@ -3,6 +3,7 @@ import { Wallet } from 'lucide-react';
 import { SectionCard } from '../SettingsShared';
 import { showToast } from '../Toast';
 import { GOODS_VALUATION_KEY, GOODS_VALUATIONS, GOODS_VALUATION_LABELS, readGoodsValuation } from '../../utils/payrollModel';
+import { notifyBusinessConfigChanged } from '../../nube/businessConfigSync';
 
 const DESCRIPTIONS = {
     costo: 'Se le descuenta lo que le costó a la bodega.',
@@ -20,6 +21,7 @@ export default function PayrollSettingsCard({ triggerHaptic }) {
     const choose = (v) => {
         setValuation(v);
         try { localStorage.setItem(GOODS_VALUATION_KEY, v); } catch { /* sin almacenamiento: queda en memoria */ }
+        notifyBusinessConfigChanged();
         triggerHaptic?.();
         showToast(`Mercancía de empleados: ${GOODS_VALUATION_LABELS[v].toLowerCase()}`, 'success');
     };

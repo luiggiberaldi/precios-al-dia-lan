@@ -11,7 +11,7 @@
  * que ve cada caja. Funciones puras salvo `loadDashboardCajas`.
  */
 import { FinancialEngine } from '../core/FinancialEngine';
-import { sumR } from '../utils/dinero';
+import { sumR, mulR } from '../utils/dinero';
 import { getLocalISODate } from '../utils/dateHelpers';
 import { findOpenCashShift, isRecordInOpenCashShift, isShiftCashMovement } from '../utils/cashShift';
 import { calcularEfectivoEsperado } from '../utils/cajaEsperada';
@@ -171,6 +171,80 @@ export function buildAllCajasSummary({
             fondoBreakdown,
             todayReceivables: computeReceivablesMovements(cashFlow),
         },
+    };
+}
+
+/**
+ * T23 (ALT-17): unión deduplicada de todos los registros de esta caja (copia local fresca)
+ * más los registros de las demás cajas de la nube/LAN. Sirve tanto para los Reportes
+ * consolidados («Todas las cajas») como para `weekData` y `topProducts` del Inicio.
+ */
+export function mergeAllCajasRecords({ remoteSales = [], localSales = [], localDeviceId = null, labels = {} } = {}) {
+    const localId = localDeviceId || inferLocalDeviceId(remoteSales, localSales);
+    const localIds = new Set(localSales.filter(Boolean).map((s) => String(s.id)));
+    const localName = (localId && labels[localId]) || 'Esta caja';
+    const localTagged = localSales.filter(Boolean).map((s) => ({
+        ...s,
+        _cajaName: s._cajaName || localName,
+    }));
+    const remoteTagged = remoteSales
+        .filter((s) => {
+            if (!s) return false;
+            if (localId && s._deviceId === localId) return false;
+            if (!s._deviceId && localIds.has(String(s.id))) return false;
+            return true;
+        })
+        .map((s) => ({
+            ...s,
+            _cajaName: (s._deviceId && labels[s._deviceId]) || s._cajaLabel || (s._caja ? `Caja ${s._caja}` : 'Otra caja'),
+        }));
+    return [...localTagged, ...remoteTagged].sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));
+}
+
+/**
+ * T23 (ALT-17): actividad semanal (7 días) y top productos consolidados de TODAS las cajas,
+ * incluyendo ventas de turnos ya cerrados hoy.
+ */
+export function computeConsolidatedDashboardCharts(records = [], { today = getLocalISODate() } = {}) {
+    const dated = withLocalDate(records.filter(Boolean), today);
+    const validSales = dated.filter((s) => s.status !== 'ANULADA' && SALE_TYPES.has(s.tipo));
+
+    const [y, m, d] = String(today).split('-').map(Number);
+    const baseDate = Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)
+        ? new Date(y, m - 1, d)
+        : new Date();
+
+    const weekData = Array.from({ length: 7 }, (_, i) => {
+        const dt = new Date(baseDate);
+        dt.setDate(dt.getDate() - (6 - i));
+        const dateStr = getLocalISODate(dt);
+        const daySales = validSales.filter((s) => s.localDate === dateStr);
+        return { date: dateStr, total: sumR(daySales.map((s) => s.totalUsd || 0)), count: daySales.length };
+    });
+
+    const buildTop = (list) => {
+        const map = {};
+        for (const s of list) {
+            if (!Array.isArray(s.items)) continue;
+            for (const item of s.items) {
+                if (!item || item.isCustom || item.isCashAdvance) continue;
+                const key = item.name || item.id;
+                if (!key) continue;
+                if (!map[key]) map[key] = { name: item.name || key, qty: 0, revenue: 0 };
+                map[key].qty += Number(item.qty) || 0;
+                map[key].revenue = sumR(map[key].revenue, mulR(item.priceUsd || 0, item.qty || 0));
+            }
+        }
+        return Object.values(map).sort((a, b) => b.qty - a.qty).slice(0, 5);
+    };
+
+    const todayCalendarSales = validSales.filter((s) => s.localDate === today);
+    return {
+        weekData,
+        topProducts: buildTop(validSales),
+        todayTopProducts: buildTop(todayCalendarSales),
+        todayCalendarTotalUsd: sumR(todayCalendarSales.map((s) => s.totalUsd || 0)),
+        todayCalendarCount: todayCalendarSales.length,
     };
 }
 

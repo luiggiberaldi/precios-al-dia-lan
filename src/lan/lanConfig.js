@@ -6,6 +6,7 @@ export const LAN_PROTOCOL_VERSION = 1;
 export const DEFAULT_LAN_PORT = 47800;
 export const LAN_SERVER_URL_KEY = 'pdn_lan_server_url_v1';
 export const LAN_ROLE_KEY = 'pdn_lan_device_role_v1';
+export const LAN_SERVER_ID_KEY = 'pdn_lan_server_id_v1';
 
 export function isLanModeEnabled(env = import.meta.env) {
     return env?.VITE_LAN_MODE === 'true';
@@ -91,6 +92,24 @@ export function clearLanServerUrl() {
     try {
         globalThis.localStorage?.removeItem(LAN_SERVER_URL_KEY);
         globalThis.localStorage?.removeItem(LAN_ROLE_KEY);
+        globalThis.localStorage?.removeItem(LAN_SERVER_ID_KEY);
+    } catch {
+        /* entorno sin localStorage */
+    }
+}
+
+export function getLanServerId() {
+    try {
+        return globalThis.localStorage?.getItem(LAN_SERVER_ID_KEY) || null;
+    } catch {
+        return null;
+    }
+}
+
+export function setLanServerId(lanId) {
+    try {
+        if (lanId) globalThis.localStorage?.setItem(LAN_SERVER_ID_KEY, String(lanId));
+        else globalThis.localStorage?.removeItem(LAN_SERVER_ID_KEY);
     } catch {
         /* entorno sin localStorage */
     }

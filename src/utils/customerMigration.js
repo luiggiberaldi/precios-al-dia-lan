@@ -5,6 +5,7 @@ import {
     CUSTOMER_LEDGER_MIGRATION_KEY,
     CUSTOMER_MOVEMENT_TYPES,
     createCustomerLedgerMovement,
+    deterministicInitialMovementId,
     getCustomerBalance,
     normalizeCustomer,
 } from './customerLedger.js';
@@ -65,6 +66,7 @@ export async function migrateCustomerLedgerWithinLock() {
             if (!nextLedger.some(m => m.sourceId === sourceId)) {
                 const balance = getCustomerBalance(normalized);
                 nextLedger.push(createCustomerLedgerMovement({
+                    id: deterministicInitialMovementId(customer.id),
                     customerId: customer.id,
                     type: CUSTOMER_MOVEMENT_TYPES.INITIAL,
                     direction: balance >= 0 ? 'CREDIT' : 'DEBIT',

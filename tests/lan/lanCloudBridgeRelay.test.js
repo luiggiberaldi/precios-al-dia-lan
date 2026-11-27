@@ -16,6 +16,7 @@ import { createLanServer } from '../../desktop/server/lanServer.mjs';
 import { createLanClient } from '../../src/lan/lanClient';
 import * as svc from '../../src/nube/accountService';
 import { createCloudSupervisorClient } from '../../src/lan/cloudSupervisorClient';
+import { createCloudBridge } from '../../desktop/server/cloudBridge.mjs';
 import { safeUuid } from '../../src/utils/safeUuid';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -219,4 +220,80 @@ describe('Puente de Internet para Modo Supervisor (end-to-end)', () => {
         const supCust = await mobileSup.loaders.loadCustomers();
         expect(supCust.find((c) => c.id === 'cli-remoto')?.balance).toBe(-3);
     }, 60_000);
+
+    it('T17 · ALT-10/MED-15: setupBridge no deja enabled=true si falla; ack fallido no marca comando aplicado como failed y reintenta; snapshot respeta snapshotDirty', async () => {
+        const calls = [];
+        let failRegister = true;
+        let failFirstAck = true;
+        let executedCount = 0;
+        const fakeLanDb = {
+            getMeta: async () => null,
+            setMeta: async () => ({}),
+            buildSupervisorSnapshot: async () => ({ accountId: 'acc-1', accountName: 'Test', sales: [] }),
+            executeSupervisorCommand: async () => {
+                executedCount += 1;
+                return { data: { ok: true }, events: [] };
+            },
+        };
+        const bridge = createCloudBridge({
+            lanDb: fakeLanDb,
+            pollIntervalMs: 60_000,
+            heartbeatMs: 60_000,
+            rpcCaller: async (fn, args) => {
+                calls.push({ fn, args });
+                if (fn === 'lan_bridge_register') {
+                    if (failRegister) throw new Error('sin internet');
+                    return [{ account_id: 'acc-1', supervisor_code: args.p_supervisor_code }];
+                }
+                if (fn === 'lan_bridge_claim_commands') {
+                    return executedCount === 0 ? [{ id: 'cmd-1', action: 'refresh_snapshot', payload: {} }] : [];
+                }
+                if (fn === 'lan_bridge_ack_command') {
+                    if (failFirstAck) {
+                        failFirstAck = false;
+                        throw new Error('timeout ack');
+                    }
+                    return null;
+                }
+                return null;
+            },
+        });
+        cleanups.push(async () => bridge.stop());
+
+        // 1. Si lan_bridge_register falla, enabled sigue false
+        await expect(bridge.setupBridge({
+            cloudUrl: 'https://relay.test',
+            cloudAnonKey: 'anon',
+            ownerPin: '123456',
+        })).rejects.toThrow(/sin internet/);
+        expect(bridge.getPublicStatus().enabled).toBe(false);
+
+        // 2. Setup exitoso
+        failRegister = false;
+        const st = await bridge.setupBridge({
+            cloudUrl: 'https://relay.test',
+            cloudAnonKey: 'anon',
+            ownerPin: '123456',
+        });
+        expect(st.enabled).toBe(true);
+
+        // 3. Ciclo 1: ejecuta cmd-1 y falla el ACK -> NO debe enviar status='failed'
+        await bridge.syncOnce();
+        expect(executedCount).toBe(1);
+        const ackCallsAfter1 = calls.filter((c) => c.fn === 'lan_bridge_ack_command');
+        expect(ackCallsAfter1).toHaveLength(1);
+        expect(ackCallsAfter1[0].args.p_status).toBe('applied');
+
+        // 4. Ciclo 2: reintenta ACK como 'applied' sin re-ejecutar, y no empuja snapshot innecesario en ciclo 3
+        await bridge.syncOnce();
+        expect(executedCount).toBe(1);
+        const ackCallsAfter2 = calls.filter((c) => c.fn === 'lan_bridge_ack_command');
+        expect(ackCallsAfter2).toHaveLength(2);
+        expect(ackCallsAfter2[1].args.p_status).toBe('applied');
+
+        const pushesBeforeIdle = calls.filter((c) => c.fn === 'lan_bridge_push_snapshot').length;
+        await bridge.syncOnce();
+        const pushesAfterIdle = calls.filter((c) => c.fn === 'lan_bridge_push_snapshot').length;
+        expect(pushesAfterIdle).toBe(pushesBeforeIdle);
+    });
 });

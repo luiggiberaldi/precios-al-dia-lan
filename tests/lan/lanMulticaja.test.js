@@ -64,8 +64,8 @@ describe('Precios al Día LAN · multicaja sobre servidor local', () => {
         const acc = await svc.getOwnerAccount(owner);
         expect(acc?.name).toBe('Bodega La Esquina');
 
-        // 3. Registrar Caja A directamente con sesión del dueño
-        const cajaA = makeClient(srv.baseUrl);
+        // 3. Registrar Caja A directamente con sesión del dueño (Caja Principal con secreto local)
+        const cajaA = createLanClient({ baseUrl: srv.baseUrl, persistSession: false, localAdminSecret: srv.localAdminSecret });
         const uidA = await svc.ensureDeviceSession(cajaA);
         await svc.registerDevice(owner, {
             deviceUserId: uidA,

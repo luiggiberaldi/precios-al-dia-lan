@@ -95,7 +95,18 @@ function withTimeout(promise, ms) {
  * @param {{getItem, setItem}} deps.store
  * @param {() => boolean} [deps.allowNegative]  ¿la cuenta permite vender bajo cero? (como Bodega)
  */
-export function createSaleSubmitter({ client, getSession, store, allowNegative = () => false, timeoutMs = 8000, onQueueChange = () => {}, onRejectedChange = () => {}, now = () => Date.now(), leaseHours = OFFLINE_LEASE_HOURS }) {
+export function createSaleSubmitter({
+    client,
+    getSession,
+    store,
+    allowNegative = () => false,
+    timeoutMs = 8000,
+    onQueueChange = () => {},
+    onRejectedChange = () => {},
+    onSaleConfirmed = () => {},
+    now = () => Date.now(),
+    leaseHours = OFFLINE_LEASE_HOURS,
+}) {
     let replaying = null;
 
     const markOnline = () => store.setItem(LAST_ONLINE_KEY, new Date(now()).toISOString());
@@ -129,7 +140,14 @@ export function createSaleSubmitter({ client, getSession, store, allowNegative =
 
     async function call(serverSale, offline) {
         const session = getSession();
-        if (!session) return { data: null, error: { message: 'Sin sesión de PIN', status: 0 } };
+        // A2: sin sesión estando online NO se trata como error de red (`status: 0`);
+        // evita que una sesión vencida salte la validación de stock del servidor.
+        if (!session) {
+            return {
+                data: null,
+                error: { message: 'Tu sesión venció. Vuelve a entrar con tu PIN.', code: '42501', status: 401 },
+            };
+        }
         return withTimeout(client.rpc('process_checkout', {
             p_session: session, p_sale: serverSale, p_offline: offline, p_allow_negative: Boolean(allowNegative()),
         }), timeoutMs);
@@ -142,7 +160,12 @@ export function createSaleSubmitter({ client, getSession, store, allowNegative =
      *   { ok: false, message }                     el servidor la rechazó (p. ej. sin stock)
      */
     async function submit(serverSale) {
-        // Si hay ventas viejas en cola, esta va detrás para respetar el orden.
+        // Si hay ventas viejas en cola y el navegador parece online, drenar primero en orden
+        // FIFO para que la venta nueva valide stock en línea (A2).
+        if ((await readQueue()).length) {
+            const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+            if (online) await replay();
+        }
         if ((await readQueue()).length) {
             if (!(await leaseValid())) {
                 return { ok: false, message: `Llevas más de ${leaseHours} horas sin internet. Conéctate para seguir vendiendo.` };
@@ -194,6 +217,9 @@ export function createSaleSubmitter({ client, getSession, store, allowNegative =
                     results.push({ id: next.id, number: row?.number, already: row?.already_registered, shortages: row?.shortages });
                     const rest = (await readQueue()).filter((s) => s.id !== next.id);
                     await writeQueue(rest);
+                    try {
+                        await onSaleConfirmed(next.id, row?.number ?? null);
+                    } catch { /* nunca abortar replay por actualización de UI */ }
                 }
             } finally {
                 replaying = null;
@@ -215,9 +241,26 @@ export function createSaleSubmitter({ client, getSession, store, allowNegative =
         return list.length;
     }
 
+    /** Descarta una venta rechazada definitivamente (o aún en cola) al anularla localmente (C5). */
+    async function discardRejected(saleId) {
+        if (!saleId) return false;
+        const target = String(saleId);
+        const list = await readRejected();
+        const nextRejected = list.filter((r) => String(r?.sale?.id) !== target);
+        const removedFromRejected = nextRejected.length !== list.length;
+        if (removedFromRejected) await writeRejected(nextRejected);
+
+        const q = await readQueue();
+        const nextQueue = q.filter((s) => String(s?.id) !== target);
+        const removedFromQueue = nextQueue.length !== q.length;
+        if (removedFromQueue) await writeQueue(nextQueue);
+
+        return removedFromRejected || removedFromQueue;
+    }
+
     return {
         submit, replay, pending: async () => (await readQueue()).length, readQueue, leaseValid, markOnline,
-        rejected: readRejected, retryRejected,
+        rejected: readRejected, retryRejected, discardRejected,
     };
 }
 
@@ -291,12 +334,24 @@ export async function moveStock(client, session, reason, movements, { reference 
     const { data, error } = await client.rpc('process_stock_movements', {
         p_session: session, p_reason: reason, p_movements: list, p_reference: reference,
     });
-    if (error) throw new Error(error.message || 'No se pudo mover el inventario');
+    if (error) {
+        const err = new Error(error.message || 'No se pudo mover el inventario');
+        if (error.code !== undefined) err.code = error.code;
+        if (error.status !== undefined) err.status = error.status;
+        if (error.details !== undefined) err.details = error.details;
+        throw err;
+    }
     return data;
 }
 
 export async function voidSale(client, session, saleId, reason) {
     const { data, error } = await client.rpc('process_void', { p_session: session, p_sale_id: saleId, p_reason: reason ?? null });
-    if (error) throw new Error(error.message || 'No se pudo anular la venta');
+    if (error) {
+        const err = new Error(error.message || 'No se pudo anular la venta');
+        if (error.code !== undefined) err.code = error.code;
+        if (error.status !== undefined) err.status = error.status;
+        if (error.details !== undefined) err.details = error.details;
+        throw err;
+    }
     return Array.isArray(data) ? data[0] : data;
 }

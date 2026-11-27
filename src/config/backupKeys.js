@@ -22,6 +22,7 @@
 export const IDB_KEYS = Object.freeze([
   'abasto_audit_log_v1',
   'bodega_accounts_v2',
+  'bodega_cashea_ledger_v1',
   'bodega_customers_v1',
   'bodega_customer_ledger_v1',
   'bodega_employees_v1',         // Nómina F2: fichas de empleados
@@ -32,8 +33,11 @@ export const IDB_KEYS = Object.freeze([
   'bodega_products_v1',
   'bodega_sales_v1',
   'bodega_supplier_invoices_v1',
+  'bodega_supplier_ledger_v1',
   'bodega_suppliers_v1',
   'my_categories_v1',
+  'pdn_business_config_v1',
+  'pdn_rate_v1',
 ]);
 
 /**
@@ -46,6 +50,7 @@ export const LS_KEYS = Object.freeze([
   'auto_cop_enabled',
   'bodega_custom_rate',
   'bodega_inventory_view',
+  'bodega_rate_mode',
   'bodega_use_auto_rate',
   'business_logo', // logo propio (data URL, máx. ~300 KB): src/utils/brandLogo.js
   'business_name',
@@ -61,6 +66,7 @@ export const LS_KEYS = Object.freeze([
   'printer_paper_width',
   'street_rate_bs',
   'tasa_cop',
+  'tax_config_v1',
 ]);
 
 /**

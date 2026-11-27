@@ -24,6 +24,12 @@ import ReportsExpensesTab from '../components/Reports/ReportsExpensesTab';
 import ReportsPurchasesTab from '../components/Reports/ReportsPurchasesTab';
 import { useMerchandisePurchases } from '../hooks/useMerchandisePurchases';
 import { printThermalTicket } from '../utils/ticketGenerator';
+import { showToast } from '../components/Toast';
+import { isNubeSyncActive } from '../nube/localWriteHook';
+import { readMemberSession } from '../nube/memberSession';
+import { getDeviceClient } from '../nube/nubeSupabase';
+import { loadAllCajasSalesRange } from '../nube/allCajasSales';
+import { isNubeManagerRole, mergeAllCajasRecords, readDeviceMeta } from '../nube/allCajasToday';
 
 const SALES_KEY = 'bodega_sales_v1';
 
@@ -61,6 +67,11 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
     const [historySearch, setHistorySearch] = useState('');
     const [historyFilter, setHistoryFilter] = useState('all'); // all, completed, voided
     const [voidSaleTarget, setVoidSaleTarget] = useState(null);
+    // T23: selector «Todas las cajas» vs «Esta caja» para dueño/administrador en modo multi-caja.
+    const isNubeManager = isNubeSyncActive() && isNubeManagerRole(readMemberSession()?.role);
+    const [reportsScope, setReportsScope] = useState('all'); // 'all' | 'local'
+    const [remoteCajasState, setRemoteCajasState] = useState({ sales: [], labels: {}, localDeviceId: null, loading: false, error: null });
+    const [remoteRefreshTick, setRemoteRefreshTick] = useState(0);
     // F3: cómo queda la cuenta del cliente si se anula (se muestra en la confirmación).
     const voidImpactLines = useVoidImpact(voidSaleTarget, bcvRate);
     const [recycleOffer, setRecycleOffer] = useState(null);
@@ -83,6 +94,7 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
             setRecycleOffer(sale);
         } catch (error) {
             console.error('Error anulando venta:', error);
+            showToast(error?.message || 'Hubo un problema anulando la venta', 'error');
         }
     };
 
@@ -133,6 +145,53 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
         return getDateRange(selectedRange);
     }, [selectedRange, customFrom, customTo]);
 
+    useEffect(() => {
+        if (isActive === false || !isNubeManager || reportsScope !== 'all') return undefined;
+        let alive = true;
+        setRemoteCajasState((prev) => ({ ...prev, loading: true, error: null }));
+        (async () => {
+            try {
+                const client = getDeviceClient();
+                if (!client) {
+                    if (alive) setRemoteCajasState((prev) => ({ ...prev, loading: false }));
+                    return;
+                }
+                const [remoteSales, meta] = await Promise.all([
+                    loadAllCajasSalesRange(client, { from, to }),
+                    readDeviceMeta(client),
+                ]);
+                if (alive) {
+                    setRemoteCajasState({
+                        sales: remoteSales,
+                        labels: meta.labels || {},
+                        localDeviceId: meta.currentDeviceId || null,
+                        loading: false,
+                        error: null,
+                    });
+                }
+            } catch (err) {
+                if (alive) {
+                    setRemoteCajasState((prev) => ({
+                        ...prev,
+                        loading: false,
+                        error: err?.message || 'No se pudieron cargar las otras cajas',
+                    }));
+                }
+            }
+        })();
+        return () => { alive = false; };
+    }, [isActive, isNubeManager, reportsScope, from, to, remoteRefreshTick]);
+
+    const effectiveSales = useMemo(() => {
+        if (!isNubeManager || reportsScope !== 'all') return allSales;
+        return mergeAllCajasRecords({
+            remoteSales: remoteCajasState.sales,
+            localSales: allSales,
+            localDeviceId: remoteCajasState.localDeviceId,
+            labels: remoteCajasState.labels,
+        });
+    }, [isNubeManager, reportsScope, remoteCajasState, allSales]);
+
     const {
         salesForStats,
         salesForCashFlow,
@@ -152,16 +211,16 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
         expensesUsd,
         expensesBs
     } = useMemo(
-        () => calculateReportsData(allSales, from, to, bcvRate, products, customers),
-        [allSales, from, to, bcvRate, products, customers]
+        () => calculateReportsData(effectiveSales, from, to, bcvRate, products, customers),
+        [effectiveSales, from, to, bcvRate, products, customers]
     );
 
     const groupedClosings = useMemo(() => {
         if (activeTab === 'history') {
-            return groupSalesByCierreId(allSales, from, to);
+            return groupSalesByCierreId(effectiveSales, from, to);
         }
         return [];
-    }, [allSales, from, to, activeTab]);
+    }, [effectiveSales, from, to, activeTab]);
 
     const maxDayTotal = Math.max(...salesByDay.map(d => d.total), 1);
 
@@ -251,15 +310,37 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
                     </div>
                     Reportes
                 </h2>
-                {activeTab !== 'expenses' && activeTab !== 'purchases' && (
-                    <button
-                        onClick={onExportPDF}
-                        disabled={salesForStats.length === 0 && salesForCashFlow.length === 0}
-                        className="flex items-center gap-2 px-4 py-2.5 min-h-[48px] bg-brand hover:bg-brand-dark disabled:bg-slate-300 dark:disabled:bg-surface-700 text-white font-bold rounded-xl text-sm shadow-primary-tone active:scale-95 transition-all"
-                    >
-                        <Download size={16} aria-hidden="true" /> PDF de ventas y caja
-                    </button>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                    {isNubeManager && (
+                        <div className="inline-flex bg-slate-200 dark:bg-surface-800 p-1 rounded-xl gap-1" role="group" aria-label="Alcance de cajas">
+                            <button
+                                type="button"
+                                data-testid="reports-scope-all"
+                                onClick={() => { triggerHaptic && triggerHaptic(); setReportsScope('all'); setRemoteRefreshTick((n) => n + 1); }}
+                                className={`px-3 py-2 text-xs font-bold rounded-lg transition-all ${reportsScope === 'all' ? 'bg-white dark:bg-surface-900 text-brand-dark dark:text-brand shadow-tone-sm' : 'text-slate-600 dark:text-surface-400'}`}
+                            >
+                                {remoteCajasState.loading ? 'Todas las cajas…' : 'Todas las cajas'}
+                            </button>
+                            <button
+                                type="button"
+                                data-testid="reports-scope-local"
+                                onClick={() => { triggerHaptic && triggerHaptic(); setReportsScope('local'); }}
+                                className={`px-3 py-2 text-xs font-bold rounded-lg transition-all ${reportsScope === 'local' ? 'bg-white dark:bg-surface-900 text-brand-dark dark:text-brand shadow-tone-sm' : 'text-slate-600 dark:text-surface-400'}`}
+                            >
+                                Esta caja
+                            </button>
+                        </div>
+                    )}
+                    {activeTab !== 'expenses' && activeTab !== 'purchases' && (
+                        <button
+                            onClick={onExportPDF}
+                            disabled={salesForStats.length === 0 && salesForCashFlow.length === 0}
+                            className="flex items-center gap-2 px-4 py-2.5 min-h-[48px] bg-brand hover:bg-brand-dark disabled:bg-slate-300 dark:disabled:bg-surface-700 text-white font-bold rounded-xl text-sm shadow-primary-tone active:scale-95 transition-all"
+                        >
+                            <Download size={16} aria-hidden="true" /> PDF de ventas y caja
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Tab Selector — 5 tabs (en móvil se desliza) */}

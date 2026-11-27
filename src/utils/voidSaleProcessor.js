@@ -5,9 +5,11 @@ import { sumR, round2, round3, round0 } from './dinero.js';
 import { isGranelProduct, adjustStockValue, calculateItemStockDeduction } from './granel.js'; // GRANEL-001
 import { withLock } from './withLock.js';
 import { nubeVoidSale } from '../nube/checkoutBridge.js';
+import { adjustNubeStockBaseline } from '../nube/localWriteHook.js';
 import { deepFreeze } from './deepFreeze.js';
 import { applyCustomerMovementsWithinLock } from '../services/customerWalletService.js';
 import { CUSTOMER_LEDGER_KEY, CUSTOMER_MOVEMENT_TYPES } from './customerLedger.js';
+import { appendCasheaMovementWithinLock } from './casheaLedger.js';
 
 const SALES_KEY = 'bodega_sales_v1';
 const CUSTOMERS_KEY = 'bodega_customers_v1';
@@ -178,13 +180,20 @@ export async function processVoidSale(saleParam, currentSales, currentProducts, 
         const casheaRemesaUsd = freshSale.tipo === 'COBRO_CASHEA' ? round2(freshSale.totalUsd || 0) : 0;
 
         if (freshSale.customerId && reversalMovements.length > 0) {
-            const walletResult = await applyCustomerMovementsWithinLock({
-                customerId: freshSale.customerId,
-                customers: savedCustomers,
-                user: useAuthStore.getState().usuarioActivo,
-                movements: reversalMovements,
-            });
-            updatedCustomers = walletResult.updatedCustomers;
+            const customerStillExists = savedCustomers.some((c) => c.id === freshSale.customerId);
+            if (customerStillExists) {
+                const walletResult = await applyCustomerMovementsWithinLock({
+                    customerId: freshSale.customerId,
+                    customers: savedCustomers,
+                    user: useAuthStore.getState().usuarioActivo,
+                    movements: reversalMovements,
+                });
+                updatedCustomers = walletResult.updatedCustomers;
+            } else {
+                // A5: el cliente fue eliminado antes de anular; continuar la anulación local
+                // de venta y stock para no quedar divergente con el servidor ya anulado.
+                console.warn('[voidSaleProcessor] Cliente no encontrado al revertir cartera de venta anulada:', freshSale.customerId);
+            }
         }
 
         if (freshSale.customerId && (casheaVentaUsd > 0 || casheaRemesaUsd > 0)) {
@@ -197,6 +206,15 @@ export async function processVoidSale(saleParam, currentSales, currentProducts, 
                     )),
                 };
             });
+            await appendCasheaMovementWithinLock({
+                storage: storageService,
+                id: `cashea-void:${freshSale.id}`,
+                customerId: freshSale.customerId,
+                type: 'ANULACION_CASHEA',
+                deltaUsd: round2(casheaRemesaUsd - casheaVentaUsd),
+                sourceSaleId: freshSale.id,
+                reason: `Anulación ${freshSale.tipo || 'Cashea'}`,
+            });
         }
 
         await storageService.setItem(SALES_KEY, updatedSales);
@@ -204,6 +222,11 @@ export async function processVoidSale(saleParam, currentSales, currentProducts, 
         // Plan de stock delta: la restauración ya viaja dentro del registro de
         // venta anulado; el catálogo local se escribe SIN re-publicarse.
         await storageService.setItem(PRODUCTS_KEY, updatedProducts, { skipSyncPush: true });
+        if (voidEffects.length > 0) {
+            await adjustNubeStockBaseline(
+                Object.fromEntries(voidEffects.map((e) => [String(e.productId), e.delta]))
+            );
+        }
 
         deepFreeze(updatedProducts);
         deepFreeze(updatedCustomers);

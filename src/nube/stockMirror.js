@@ -25,7 +25,16 @@ import { sinceWithOverlap, CHANGES_OVERLAP_MS } from './changedRows.js';
  * @param {() => Promise<void>} [deps.onServerContact]  p. ej. renovar el permiso sin internet
  * @param {number} [deps.overlapMs]  margen hacia atrás de cada lectura (ver changedRows.js)
  */
-export function createStockMirror({ client, sedeId, watcher, readProducts, writeProducts, onServerContact = async () => {}, overlapMs = CHANGES_OVERLAP_MS }) {
+export function createStockMirror({
+    client,
+    sedeId,
+    watcher,
+    readProducts,
+    writeProducts,
+    withLocalLock = (fn) => fn(),
+    onServerContact = async () => {},
+    overlapMs = CHANGES_OVERLAP_MS,
+}) {
     const known = {}; // product_id → { qty, at }
     let cursor = null;
     let chain = Promise.resolve();
@@ -42,14 +51,16 @@ export function createStockMirror({ client, sedeId, watcher, readProducts, write
         const levels = {};
         for (const [id, lv] of Object.entries(known)) levels[id] = lv.qty;
         for (const id of pending) delete levels[id]; // no pisar ajustes sin subir
-        const local = await readProducts();
-        const { products, changed } = applyLevels(local, levels);
-        if (changed) await writeProducts(products);
-        // El «último stock conocido» es el del servidor (o el de un ajuste que aún sube).
-        // Un stock local que el servidor no tiene NO se da por conocido: si no, el
-        // vigilante nunca lo subiría y las otras cajas lo verían en 0.
-        await watcher.setBaseline(products, { only: new Set([...Object.keys(levels), ...pending]) });
-        return changed;
+        return withLocalLock(async () => {
+            const local = await readProducts();
+            const { products, changed } = applyLevels(local, levels);
+            if (changed) await writeProducts(products);
+            // El «último stock conocido» es el del servidor (o el de un ajuste que aún sube).
+            // Un stock local que el servidor no tiene NO se da por conocido: si no, el
+            // vigilante nunca lo subiría y las otras cajas lo verían en 0.
+            await watcher.setBaseline(products, { only: new Set([...Object.keys(levels), ...pending]) });
+            return changed;
+        });
     }
 
     let busy = null;
@@ -85,5 +96,12 @@ export function createStockMirror({ client, sedeId, watcher, readProducts, write
         return true;
     }
 
-    return { refresh, applyRealtime, known: () => ({ ...known }), cursor: () => cursor, idle: () => chain };
+    return {
+        refresh,
+        applyRealtime,
+        applyKnown: () => serial(applyKnown),
+        known: () => ({ ...known }),
+        cursor: () => cursor,
+        idle: () => chain,
+    };
 }

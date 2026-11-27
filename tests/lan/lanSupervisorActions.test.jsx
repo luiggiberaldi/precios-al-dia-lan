@@ -196,8 +196,9 @@ describe('Modo Supervisor editable (LAN)', () => {
         await flush(150);
 
         const { data: rateRows } = await cajaA.from('account_records').select('data').eq('collection', 'settings').eq('id', 'pdn_rate_v1');
-        expect(rateRows[0]?.data?.rateMode).toBe('manual');
-        expect(rateRows[0]?.data?.customRate).toBe('95.50');
+        const storedRate = rateRows[0]?.data?.value ?? rateRows[0]?.data;
+        expect(storedRate?.rateMode).toBe('manual');
+        expect(storedRate?.customRate).toBe('95.50');
 
         // 5. Caja A registra venta de 2 Harina PAN y fía $10 a Carlos Pérez
         const saleId = safeUuid();

@@ -4,7 +4,14 @@
  * Traduce `.auth`, `.from()`, `.rpc()` y `.channel()` a peticiones HTTP + SSE
  * contra el servidor de la Caja Principal en la red del negocio.
  */
-import { LAN_PROTOCOL_VERSION, normalizeLanUrl } from './lanConfig';
+import {
+    LAN_PROTOCOL_VERSION,
+    getElectronLanApi,
+    getLanServerId,
+    normalizeLanUrl,
+    setLanServerId,
+    setLanServerUrl,
+} from './lanConfig';
 
 function createTokenStore(storageKey, persistSession) {
     let mem = null;
@@ -106,10 +113,22 @@ class LanQueryBuilder {
     }
 }
 
-export async function probeLanServer(rawUrl, fetchImpl = globalThis.fetch) {
+export async function probeLanServer(rawUrl, fetchImpl = globalThis.fetch, { timeoutMs = 8000 } = {}) {
     const baseUrl = normalizeLanUrl(rawUrl);
     if (!baseUrl) throw new Error('Escribe la dirección de la Caja Principal.');
-    const res = await fetchImpl(`${baseUrl}/lan/health`, { method: 'GET' });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let res;
+    try {
+        res = await fetchImpl(`${baseUrl}/lan/health`, { method: 'GET', signal: controller.signal });
+    } catch (err) {
+        if (err?.name === 'AbortError' || controller.signal.aborted) {
+            throw new Error('La Caja Principal tardó demasiado en responder (timeout).');
+        }
+        throw err;
+    } finally {
+        clearTimeout(timer);
+    }
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.ok) {
         throw new Error(data?.error || 'No respondió una Caja Principal de Precios al Día LAN.');
@@ -126,16 +145,89 @@ export function createLanClient({
     storageKey = 'pdn-lan-auth',
     persistSession = true,
     fetchImpl = globalThis.fetch,
+    requestTimeoutMs = 15_000,
+    sseIdleTimeoutMs = 45_000,
+    localAdminSecret = null,
+    discoverServers = null,
+    getLanId = null,
+    onServerUrlChanged = null,
+    rediscoverThreshold = 3,
 } = {}) {
     const store = createTokenStore(storageKey, persistSession);
     const activeChannels = new Set();
     let streamAbort = null;
     let streamRunning = false;
     let streamConnected = false;
+    let overrideUrl = null;
+    let consecutiveNetFailures = 0;
+    let rediscoveringPromise = null;
 
-    const resolveUrl = () => normalizeLanUrl(typeof getBaseUrl === 'function' ? getBaseUrl() : baseUrl);
+    const resolveUrl = () => normalizeLanUrl(
+        overrideUrl || (typeof getBaseUrl === 'function' ? getBaseUrl() : baseUrl),
+    );
 
-    async function requestJson(path, { method = 'POST', body = undefined, useAuth = true } = {}) {
+    const resolveExpectedLanId = () => (
+        typeof getLanId === 'function' ? getLanId() : (persistSession ? getLanServerId() : null)
+    );
+
+    async function tryRediscoverLanServer() {
+        if (rediscoveringPromise) return rediscoveringPromise;
+        const discoverFn = typeof discoverServers === 'function'
+            ? discoverServers
+            : getElectronLanApi()?.discoverServers;
+        const expectedLanId = resolveExpectedLanId();
+        if (typeof discoverFn !== 'function' || !expectedLanId) return null;
+
+        rediscoveringPromise = (async () => {
+            try {
+                const found = await discoverFn();
+                if (!Array.isArray(found) || !found.length) return null;
+                const match = found.find((s) => s && s.lanId && String(s.lanId) === String(expectedLanId));
+                if (!match) return null;
+                const candidates = [
+                    ...(Array.isArray(match.urls) ? match.urls : []),
+                    match.primaryUrl,
+                    match.baseUrl,
+                ].filter(Boolean);
+                const currentRoot = resolveUrl();
+                for (const candidate of candidates) {
+                    const norm = normalizeLanUrl(candidate);
+                    if (!norm || norm === currentRoot) continue;
+                    try {
+                        const probe = await probeLanServer(norm, fetchImpl, { timeoutMs: 4000 });
+                        if (probe?.lanId && String(probe.lanId) === String(expectedLanId)) {
+                            overrideUrl = probe.baseUrl;
+                            consecutiveNetFailures = 0;
+                            if (typeof onServerUrlChanged === 'function') {
+                                onServerUrlChanged(probe.baseUrl, probe);
+                            } else if (persistSession) {
+                                setLanServerUrl(probe.baseUrl, 'client');
+                                getElectronLanApi()?.setClientMode?.({ serverUrl: probe.baseUrl })?.catch?.(() => {});
+                            }
+                            if (streamAbort) streamAbort.abort();
+                            return probe.baseUrl;
+                        }
+                    } catch {
+                        /* probar siguiente IP candidata */
+                    }
+                }
+                return null;
+            } catch {
+                return null;
+            } finally {
+                rediscoveringPromise = null;
+            }
+        })();
+        return rediscoveringPromise;
+    }
+
+    function emitSessionExpired(path) {
+        if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('pdn_lan_session_expired', { detail: { path } }));
+        }
+    }
+
+    async function requestJson(path, { method = 'POST', body = undefined, useAuth = true, timeoutMs = requestTimeoutMs } = {}) {
         const root = resolveUrl();
         if (!root) {
             return { ok: false, status: 0, data: null, error: { message: 'Failed to fetch: servidor LAN no configurado', status: 0 } };
@@ -144,14 +236,27 @@ export function createLanClient({
         const headers = {};
         if (body !== undefined) headers['Content-Type'] = 'application/json';
         if (session?.token) headers.Authorization = `Bearer ${session.token}`;
+        const localSecret = localAdminSecret
+            || (typeof globalThis !== 'undefined' ? globalThis.__PDN_LAN_LOCAL_SECRET__ : null);
+        if (localSecret && /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(root)) {
+            headers['X-PDN-Local-Secret'] = localSecret;
+        }
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
             const res = await fetchImpl(`${root}${path}`, {
                 method,
                 headers,
                 body: body !== undefined ? JSON.stringify(body) : undefined,
+                signal: controller.signal,
             });
             const json = await res.json().catch(() => ({}));
+            consecutiveNetFailures = 0;
+            if (path === '/lan/health' && json?.lanId && persistSession) {
+                setLanServerId(json.lanId);
+            }
             if (!res.ok) {
+                if (res.status === 401) emitSessionExpired(path);
                 return {
                     ok: false,
                     status: res.status,
@@ -161,12 +266,24 @@ export function createLanClient({
             }
             return { ok: true, status: res.status, data: json, error: null };
         } catch (err) {
+            const isTimeout = err?.name === 'AbortError' || controller.signal.aborted;
+            consecutiveNetFailures += 1;
+            if (consecutiveNetFailures >= rediscoverThreshold) {
+                await tryRediscoverLanServer();
+            }
             return {
                 ok: false,
                 status: 0,
                 data: null,
-                error: { message: `Failed to fetch: ${err?.message || 'sin conexión LAN'}`, status: 0 },
+                error: {
+                    message: isTimeout
+                        ? 'Failed to fetch: timeout del servidor LAN'
+                        : `Failed to fetch: ${err?.message || 'sin conexión LAN'}`,
+                    status: 0,
+                },
             };
+        } finally {
+            clearTimeout(timer);
         }
     }
 
@@ -203,6 +320,17 @@ export function createLanClient({
         streamConnected = false;
         const controller = new AbortController();
         streamAbort = controller;
+        let timedOut = false;
+        let idleTimer = null;
+
+        const resetWatchdog = () => {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, sseIdleTimeoutMs);
+        };
+        resetWatchdog();
 
         try {
             const res = await fetchImpl(`${root}/lan/events`, {
@@ -210,9 +338,13 @@ export function createLanClient({
                 headers: { Authorization: `Bearer ${session.token}` },
                 signal: controller.signal,
             });
+            if (res.status === 401) {
+                emitSessionExpired('/lan/events');
+            }
             if (!res.ok || !res.body) {
                 throw new Error(`HTTP ${res.status}`);
             }
+            resetWatchdog();
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -220,6 +352,7 @@ export function createLanClient({
             for (;;) {
                 const { value, done } = await reader.read();
                 if (done) break;
+                resetWatchdog(); // cualquier chunk (incluyendo : keepalive) renueva el watchdog
                 buffer += decoder.decode(value, { stream: true });
                 let idx;
                 while ((idx = buffer.indexOf('\n\n')) !== -1) {
@@ -248,17 +381,20 @@ export function createLanClient({
                     }
                 }
             }
-            if (!controller.signal.aborted) {
+            if (!controller.signal.aborted || timedOut) {
                 streamRunning = false;
                 streamConnected = false;
-                notifyAllChannels('CLOSED');
+                notifyAllChannels(timedOut ? 'CHANNEL_ERROR' : 'CLOSED');
             }
         } catch {
-            if (!controller.signal.aborted) {
+            if (!controller.signal.aborted || timedOut) {
                 streamRunning = false;
                 streamConnected = false;
                 notifyAllChannels('CHANNEL_ERROR');
             }
+        } finally {
+            clearTimeout(idleTimer);
+            idleTimer = null;
         }
     }
 
@@ -408,7 +544,18 @@ export function createLanClient({
             getBaseUrl: resolveUrl,
             getToken: () => store.read()?.token || null,
             async health() {
-                return probeLanServer(resolveUrl(), fetchImpl);
+                try {
+                    const info = await probeLanServer(resolveUrl(), fetchImpl, { timeoutMs: requestTimeoutMs });
+                    consecutiveNetFailures = 0;
+                    if (info?.lanId && persistSession) setLanServerId(info.lanId);
+                    return info;
+                } catch (err) {
+                    consecutiveNetFailures += 1;
+                    if (consecutiveNetFailures >= rediscoverThreshold) {
+                        await tryRediscoverLanServer();
+                    }
+                    throw err;
+                }
             },
             async generatePairingCode(accountId = null) {
                 const res = await requestJson('/lan/pairing/code', { method: 'POST', body: { accountId } });

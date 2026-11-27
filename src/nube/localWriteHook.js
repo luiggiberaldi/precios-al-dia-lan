@@ -41,6 +41,46 @@ export function setNubeStockFlusher(fn) {
     stockFlusher = typeof fn === 'function' ? fn : null;
 }
 
+// ─── Ajustar baseline de stock tras venta/anulación (C1) ─────────────────────
+let stockBaselineAdjuster = null;
+
+export function setNubeStockBaselineAdjuster(fn) {
+    stockBaselineAdjuster = typeof fn === 'function' ? fn : null;
+}
+
+/**
+ * Actualiza el baseline local de stockWatcher tras una escritura con `skipSyncPush: true`
+ * (venta o anulación) para impedir doble deducción/restauración. Nunca lanza.
+ */
+export async function adjustNubeStockBaseline(deltas) {
+    if (!stockBaselineAdjuster || !deltas) return false;
+    try {
+        await stockBaselineAdjuster(deltas);
+        return true;
+    } catch (e) {
+        console.warn('[nube] no se pudo ajustar el baseline de stock', e?.message || e);
+        return false;
+    }
+}
+
+// ─── Encolar conteo físico explícito (CONTEO objetivo en servidor) ───────────
+let stockCountSubmitter = null;
+
+export function setNubeStockCountSubmitter(fn) {
+    stockCountSubmitter = typeof fn === 'function' ? fn : null;
+}
+
+export async function submitNubeStockCount(productId, targetQty, note) {
+    if (!stockCountSubmitter) return false;
+    try {
+        await stockCountSubmitter(productId, targetQty, note);
+        return true;
+    } catch (e) {
+        console.warn('[nube] no se pudo encolar conteo físico', e?.message || e);
+        return false;
+    }
+}
+
 /**
  * Espera a que las escrituras ya avisadas se encolen y sube los ajustes de stock al
  * momento. null con la nube apagada (Bodega sigue igual). Nunca lanza.

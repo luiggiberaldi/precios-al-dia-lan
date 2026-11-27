@@ -44,12 +44,12 @@ import {
 } from '../utils/duplicateMerge';
 import { isLikelyBarcode, normalizeBarcode } from '../utils/barcodeNormalizer';
 import { useProductSorting } from '../hooks/useProductSorting';
-import { buildProductPayload, derivePricingFromEdit, roundDerivedPrice, formatPriceUsdInput } from '../utils/productProcessor';
-import { isLowStockProduct, getGranelUnitMode } from '../utils/granel'; // GRANEL-001 / GRANEL-DUAL
+import { buildProductPayload, applyProductFormEdit, derivePricingFromEdit, roundDerivedPrice, formatPriceUsdInput } from '../utils/productProcessor';
+import { isLowStockProduct, getGranelUnitMode, isGranelProduct, normalizeStockValue } from '../utils/granel'; // GRANEL-001 / GRANEL-DUAL
 import { uploadProductImage, migrateCatalogImagesOnce } from '../utils/imageUpload';
 // useAuthStore removed - single-user app
 import { useAudit } from '../hooks/useAudit';
-import { flushNubeStockNow } from '../nube/localWriteHook';
+import { flushNubeStockNow, isNubeSyncActive, submitNubeStockCount } from '../nube/localWriteHook';
 
 export const ProductsView = ({ rates, triggerHaptic }) => {
     // v1.2.0: reveal-on-scroll para banners y secciones de cabecera (NO en grid paginado para evitar re-trigger).
@@ -68,7 +68,7 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
         copPrimary,
         tasaCop,
         adjustStock: baseAdjustStock,
-        setDirectStock
+        setDirectStock: baseSetDirectStock
     } = useProductContext();
     const isCajero = useAuthStore(s => s.requireLogin && s.usuarioActivo?.rol === 'CAJERO');
     const { log: auditLog } = useAudit();
@@ -80,9 +80,14 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
         // Nube: el ajuste confirmado sube al servidor YA (las otras cajas lo ven por
         // Realtime). Sin la nube devuelve null y todo sigue como en Bodega.
         const nube = await flushNubeStockNow();
-        if (nube && !nube.ok) showToast(nube.message, nube.queued ? 'warning' : 'error');
+        if (nube && !nube.ok) {
+            showToast(nube.message, nube.queued ? 'warning' : 'error');
+            // Si el servidor rechazó definitivamente el ajuste (p. ej. sin permiso),
+            // NO registrar un movimiento fantasma en el historial local (M2).
+            if (!nube.queued) return;
+        }
 
-        // Registro silencioso del ajuste de inventario
+        // Registro silencioso del ajuste de inventario bajo pos_write_lock
         try {
             const product = products.find(p => p.id === productId);
             const record = {
@@ -94,11 +99,29 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
                 totalBs: 0,
                 status: 'COMPLETADA',
             };
-            const sales = await storageService.getItem('bodega_sales_v1', []);
-            sales.push(record);
-            await storageService.setItem('bodega_sales_v1', sales);
+            await withLock('pos_write_lock', async () => {
+                const sales = await storageService.getItem('bodega_sales_v1', []);
+                await storageService.setItem('bodega_sales_v1', [...sales, record]);
+            });
         } catch (e) { /* silencioso */ }
-    }
+    };
+
+    // En modo Nube/LAN, fijar stock directamente usa CONTEO físico objetivo en el servidor
+    // para evitar carreras con ventas concurrentes de otra caja (T03).
+    const setDirectStock = async (productId, newStockRaw) => {
+        if (isNubeSyncActive()) {
+            const product = products.find(p => p.id === productId);
+            const allowNeg = localStorage.getItem('allow_negative_stock') === 'true';
+            const normalized = normalizeStockValue(newStockRaw, product ? isGranelProduct(product) : false);
+            const target = allowNeg ? normalized : Math.max(0, normalized);
+            await submitNubeStockCount(productId, target, 'Conteo directo en inventario');
+        }
+        await baseSetDirectStock(productId, newStockRaw);
+        if (isNubeSyncActive()) {
+            const nube = await flushNubeStockNow();
+            if (nube && !nube.ok) showToast(nube.message, nube.queued ? 'warning' : 'error');
+        }
+    };
 
     // ─── FASE 4: LIMPIEZA Y FUSIÓN DE DUPLICADOS ───────────────
     const [isDuplicateMergeOpen, setIsDuplicateMergeOpen] = useState(false);
@@ -154,7 +177,17 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
             `Fusionados ${absorbed.length} duplicado(s) en "${keep.name}" (stock: ${keep.stock ?? 0} → ${built.merged.stock ?? 0})`,
         );
 
-        if (built.stockDelta !== 0) {
+        let clearedAbsorbed = false;
+        if (isNubeSyncActive()) {
+            for (const dup of absorbed) {
+                if (Number(dup.stock || 0) !== 0) {
+                    await submitNubeStockCount(dup.id, 0, `Duplicado fusionado en "${keep.name}"`);
+                    clearedAbsorbed = true;
+                }
+            }
+        }
+
+        if (built.stockDelta !== 0 || clearedAbsorbed) {
             const nube = await flushNubeStockNow();
             if (nube && !nube.ok) {
                 showToast(nube.message, nube.queued ? 'warning' : 'error');
@@ -311,6 +344,7 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
         costBs, setCostBs,
         costFactor, setCostFactor,
         stock, setStock,
+        stockTouched,
         unit, setUnit,
         unitsPerPackage, setUnitsPerPackage,
         sellByUnit, setSellByUnit,
@@ -565,11 +599,10 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
         let updatedProducts;
         if (editingId) {
             updatedProducts = products.map(p =>
-                // FIX-IMAGE-001: `image || p.image` ignoraba el borrado explícito porque
-                // "" (string vacío) es falsy en JS y caía al fallback con la foto vieja.
-                // Ahora solo usamos la imagen previa si image es estrictamente `undefined`
-                // (es decir, el campo nunca fue tocado en el formulario).
-                p.id === editingId ? { ...p, ...productData, image: finalImage !== undefined ? finalImage : p.image } : p
+                // FIX-IMAGE-001 + C2 (T03): si el usuario NO tocó el campo de stock,
+                // applyProductFormEdit omite `stock`/`stockInLotes` para que mergeProduct3Way
+                // preserve cualquier venta concurrente aplicada por otra caja.
+                p.id === editingId ? applyProductFormEdit(p, productData, { stockTouched, finalImage }) : p
             );
             auditLog('INVENTARIO', 'PRODUCTO_EDITADO', `Producto "${name}" editado`);
         } else {
@@ -682,6 +715,10 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
                 return updatedProducts;
             });
             setProducts(persistedProducts);
+            if (isNubeSyncActive() && Number(p?.stock || 0) !== 0) {
+                await submitNubeStockCount(deleteId, 0, `Producto "${p?.name || deleteId}" eliminado`);
+                await flushNubeStockNow();
+            }
             setDeleteId(null);
             triggerHaptic && triggerHaptic();
         }
@@ -1174,6 +1211,12 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
                         onClick={() => {
                             triggerHaptic && triggerHaptic();
                             if (deleteAllConfirmText.trim().toUpperCase() === 'BORRAR') {
+                                if (isNubeSyncActive()) {
+                                    showToast('Con la sincronización multi-caja activa, usa Ajustes → Reiniciar cuenta para vaciar el inventario en todas las cajas.', 'warning');
+                                    setIsDeleteAllModalOpen(false);
+                                    setDeleteAllConfirmText('');
+                                    return;
+                                }
                                 localStorage.setItem('confirm_bulk_delete_catalog_flag', 'true');
                                 setProducts([]);
                                 // Cierre §4: el borrado masivo también se turna por el candado.

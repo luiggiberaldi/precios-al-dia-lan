@@ -2,6 +2,7 @@
 // por storageService → familia por mes en la nube).
 import { useCallback, useEffect, useState } from 'react';
 import { storageService } from '../utils/storageService';
+import { withLock } from '../utils/withLock';
 import { MERCHANDISE_PURCHASES_KEY, removePurchase, upsertPurchase } from '../utils/merchandisePurchases';
 import { logEvent } from '../services/auditService';
 import { useAuthStore } from './store/useAuthStore';
@@ -36,9 +37,11 @@ export function useMerchandisePurchases({ enabled = true } = {}) {
     // Siempre sobre lo guardado (no sobre el estado de React): otra pestaña o
     // el sync pudo escribir entre medio.
     const savePurchase = useCallback(async (purchase, { isEdit = false } = {}) => {
-        const next = upsertPurchase(await readList(), purchase);
-        await storageService.setItem(MERCHANDISE_PURCHASES_KEY, next);
-        setPurchases(next);
+        await withLock('pos_write_lock', async () => {
+            const next = upsertPurchase(await readList(), purchase);
+            await storageService.setItem(MERCHANDISE_PURCHASES_KEY, next);
+            setPurchases(next);
+        });
         logEvent(
             'PROVEEDOR',
             isEdit ? 'COMPRA_EDITADA' : 'COMPRA_REGISTRADA',
@@ -48,9 +51,11 @@ export function useMerchandisePurchases({ enabled = true } = {}) {
     }, []);
 
     const deletePurchase = useCallback(async (purchase) => {
-        const next = removePurchase(await readList(), purchase.id);
-        await storageService.setItem(MERCHANDISE_PURCHASES_KEY, next);
-        setPurchases(next);
+        await withLock('pos_write_lock', async () => {
+            const next = removePurchase(await readList(), purchase.id);
+            await storageService.setItem(MERCHANDISE_PURCHASES_KEY, next);
+            setPurchases(next);
+        });
         logEvent(
             'PROVEEDOR',
             'COMPRA_ELIMINADA',

@@ -7,6 +7,7 @@ const { createAutoUpdaterController } = require('./updater');
 
 let mainWindow = null;
 let lanServerHandle = null;
+let startingServerPromise = null;
 let backupTimer = null;
 let updaterCtrl = null;
 
@@ -63,27 +64,35 @@ function resolveStaticDistDir() {
 
 async function startMasterServer(port = 47800) {
   if (lanServerHandle) return lanServerHandle;
-  const { createLanServer } = await loadLanServerModule();
-  const userData = app.getPath('userData');
-  const dataDir = path.join(userData, 'pdn-lan-db');
-  const imagesDir = path.join(userData, 'pdn-lan-images');
-  const backupsDir = path.join(userData, 'pdn-lan-backups');
-  const staticDir = resolveStaticDistDir();
-  lanServerHandle = await createLanServer({
-    port,
-    dataDir,
-    imagesDir,
-    backupsDir,
-    staticDir,
-    cloudUrl: process.env.PDN_CLOUD_BRIDGE_URL || process.env.VITE_LAN_CLOUD_URL || '',
-    cloudAnonKey: process.env.PDN_CLOUD_BRIDGE_KEY || process.env.VITE_LAN_CLOUD_KEY || '',
-  });
-  // Respaldo automático cada 12 horas mientras la Caja Principal está abierta.
-  backupTimer = setInterval(() => {
-    lanServerHandle?.saveDiskBackupNow?.().catch(() => {});
-  }, 12 * 3600_000);
-  backupTimer.unref?.();
-  return lanServerHandle;
+  if (startingServerPromise) return startingServerPromise;
+  startingServerPromise = (async () => {
+    try {
+      const { createLanServer } = await loadLanServerModule();
+      const userData = app.getPath('userData');
+      const dataDir = path.join(userData, 'pdn-lan-db');
+      const imagesDir = path.join(userData, 'pdn-lan-images');
+      const backupsDir = path.join(userData, 'pdn-lan-backups');
+      const staticDir = resolveStaticDistDir();
+      lanServerHandle = await createLanServer({
+        port,
+        dataDir,
+        imagesDir,
+        backupsDir,
+        staticDir,
+        cloudUrl: process.env.PDN_CLOUD_BRIDGE_URL || process.env.VITE_LAN_CLOUD_URL || '',
+        cloudAnonKey: process.env.PDN_CLOUD_BRIDGE_KEY || process.env.VITE_LAN_CLOUD_KEY || '',
+      });
+      // T14 (C20): Respaldo atómico cada 30 minutos solo si hubo mutaciones locales.
+      backupTimer = setInterval(() => {
+        lanServerHandle?.saveDiskBackupNow?.({ onlyIfDirty: true }).catch(() => {});
+      }, 30 * 60_000);
+      backupTimer.unref?.();
+      return lanServerHandle;
+    } finally {
+      startingServerPromise = null;
+    }
+  })();
+  return startingServerPromise;
 }
 
 function registerLanIpc() {
@@ -91,7 +100,7 @@ function registerLanIpc() {
     const cfg = readDesktopConfig();
     if (cfg.role === 'master') {
       const srv = await startMasterServer(cfg.port || 47800);
-      return { ...cfg, serverUrl: srv.baseUrl, urls: srv.urls, running: true };
+      return { ...cfg, serverUrl: srv.baseUrl, urls: srv.urls, localAdminSecret: srv.localAdminSecret, running: true };
     }
     return { ...cfg, running: false };
   });
@@ -100,7 +109,7 @@ function registerLanIpc() {
     try {
       const srv = await startMasterServer(port);
       const cfg = writeDesktopConfig({ role: 'master', serverUrl: srv.baseUrl, port: srv.port });
-      return { ok: true, ...cfg, urls: srv.urls };
+      return { ok: true, ...cfg, urls: srv.urls, localAdminSecret: srv.localAdminSecret };
     } catch (err) {
       return { ok: false, error: err?.message || String(err) };
     }
@@ -128,12 +137,15 @@ function registerLanIpc() {
     return { running: true, baseUrl: lanServerHandle.baseUrl, urls: lanServerHandle.urls, port: lanServerHandle.port };
   });
 
-function buildFirewallScript(exePath) {
+function buildFirewallScript(exePath, tcpPort = 47800) {
   const safeExe = String(exePath || '').replace(/'/g, "''");
+  const safePort = Number.isInteger(Number(tcpPort)) && Number(tcpPort) > 0 && Number(tcpPort) <= 65535
+    ? Number(tcpPort)
+    : 47800;
   const lines = [
     "$ErrorActionPreference = 'Stop'",
     "Remove-NetFirewallRule -DisplayName 'PreciosAlDiaLAN-HTTP-TCP' -ErrorAction SilentlyContinue",
-    "New-NetFirewallRule -DisplayName 'PreciosAlDiaLAN-HTTP-TCP' -Description 'Precios al Dia LAN HTTP y SSE (solo red local)' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 47800 -RemoteAddress LocalSubnet -Profile Any | Out-Null",
+    `New-NetFirewallRule -DisplayName 'PreciosAlDiaLAN-HTTP-TCP' -Description 'Precios al Dia LAN HTTP y SSE (solo red local)' -Direction Inbound -Action Allow -Protocol TCP -LocalPort ${safePort} -RemoteAddress LocalSubnet -Profile Any | Out-Null`,
     "Remove-NetFirewallRule -DisplayName 'PreciosAlDiaLAN-Discovery-UDP' -ErrorAction SilentlyContinue",
     "New-NetFirewallRule -DisplayName 'PreciosAlDiaLAN-Discovery-UDP' -Description 'Precios al Dia LAN descubrimiento UDP (solo red local)' -Direction Inbound -Action Allow -Protocol UDP -LocalPort 47801 -RemoteAddress LocalSubnet -Profile Any | Out-Null",
   ];
@@ -154,7 +166,8 @@ function repairWindowsFirewallRules() {
       error: 'El permiso automático de Firewall solo aplica en Windows.',
     });
   }
-  const innerEncoded = buildFirewallScript(process.execPath);
+  const activePort = lanServerHandle?.port || readDesktopConfig()?.port || 47800;
+  const innerEncoded = buildFirewallScript(process.execPath, activePort);
   const outerScript = [
     "$ErrorActionPreference = 'Stop'",
     'try {',

@@ -76,6 +76,37 @@ function isLocalhostRequest(req) {
     return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
 }
 
+function isAllowedLanOrigin(origin) {
+    if (!origin || typeof origin !== 'string') return false;
+    if (origin === 'null' || origin.startsWith('file://') || origin.startsWith('app://') || origin.startsWith('capacitor://')) {
+        return true;
+    }
+    try {
+        const u = new URL(origin);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+        const h = u.hostname.toLowerCase();
+        if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]' || h.endsWith('.local')) return true;
+        if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+        if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+        const m172 = h.match(/^172\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+        if (m172) {
+            const oct = Number(m172[1]);
+            if (oct >= 16 && oct <= 31) return true;
+        }
+        return false;
+    } catch {
+        return false;
+    }
+}
+
+function safeSecretMatch(provided, expected) {
+    if (!provided || !expected || typeof provided !== 'string' || typeof expected !== 'string') return false;
+    const a = Buffer.from(provided, 'utf8');
+    const b = Buffer.from(expected, 'utf8');
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+}
+
 function bearerToken(req, urlObj) {
     const auth = req.headers.authorization || '';
     if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
@@ -96,8 +127,11 @@ export async function createLanServer({
     cloudAnonKey = process.env.PDN_CLOUD_BRIDGE_KEY || '',
     cloudPollMs = 4000,
     cloudRpcCaller = null,
+    localAdminSecret = crypto.randomBytes(24).toString('hex'),
 } = {}) {
     const lanDb = await createLanDb({ dataDir, migrationsDir });
+    const hasValidLocalSecret = (req) => isLocalhostRequest(req) && safeSecretMatch(req.headers['x-pdn-local-secret'], localAdminSecret);
+    const isAdminAuthorized = (req, session) => Boolean((session && !session.user?.anonymous) || hasValidLocalSecret(req));
     const resolvedImagesDir = imagesDir || (dataDir ? path.join(path.dirname(dataDir), 'pdn-lan-images') : null);
     const resolvedBackupsDir = backupsDir || (dataDir ? path.join(path.dirname(dataDir), 'pdn-lan-backups') : null);
     if (resolvedImagesDir) fs.mkdirSync(resolvedImagesDir, { recursive: true });
@@ -105,7 +139,75 @@ export async function createLanServer({
 
     const memoryImages = new Map();
     const sseClients = new Set();
+    const MAX_SSE_BUFFER_BYTES = 512 * 1024;
+    const MAX_SNAPSHOT_IMAGES_BYTES = 20 * 1024 * 1024;
     let cloudBridge = null;
+
+    function collectLanImagesSnapshot() {
+        const images = {};
+        let totalBytes = 0;
+        if (resolvedImagesDir && fs.existsSync(resolvedImagesDir)) {
+            for (const name of fs.readdirSync(resolvedImagesDir).sort()) {
+                const safeName = path.basename(name);
+                if (!/\.(png|jpg|jpeg|webp)$/i.test(safeName)) continue;
+                const full = path.join(resolvedImagesDir, safeName);
+                try {
+                    const stat = fs.statSync(full);
+                    if (!stat.isFile() || totalBytes + stat.size > MAX_SNAPSHOT_IMAGES_BYTES) continue;
+                    const buf = fs.readFileSync(full);
+                    totalBytes += buf.length;
+                    images[safeName] = buf.toString('base64');
+                } catch { /* ignorar archivo ilegible */ }
+            }
+        } else {
+            for (const [name, entry] of memoryImages.entries()) {
+                const safeName = path.basename(name);
+                if (!entry?.buf || totalBytes + entry.buf.length > MAX_SNAPSHOT_IMAGES_BYTES) continue;
+                totalBytes += entry.buf.length;
+                images[safeName] = entry.buf.toString('base64');
+            }
+        }
+        return images;
+    }
+
+    function restoreLanImagesSnapshot(images) {
+        if (!images || typeof images !== 'object') return;
+        for (const [rawName, b64] of Object.entries(images)) {
+            if (typeof b64 !== 'string' || !b64) continue;
+            const safeName = path.basename(rawName);
+            if (!/^[a-zA-Z0-9_-]+\.(png|jpg|jpeg|webp)$/i.test(safeName)) continue;
+            const buf = Buffer.from(b64, 'base64');
+            if (!buf.length || buf.length > MAX_IMAGE_BYTES) continue;
+            if (resolvedImagesDir) {
+                fs.writeFileSync(path.join(resolvedImagesDir, safeName), buf);
+            } else {
+                const ext = path.extname(safeName).toLowerCase();
+                const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+                memoryImages.set(safeName, { mime, buf });
+            }
+        }
+    }
+
+    function dropSseClient(client) {
+        sseClients.delete(client);
+        try {
+            if (!client.res.writableEnded && !client.res.destroyed) client.res.end();
+        } catch {
+            /* ignorar cierre */
+        }
+    }
+
+    function writeSseChunk(client, chunk) {
+        if (client.res.writableEnded || client.res.destroyed || (client.res.writableLength || 0) > MAX_SSE_BUFFER_BYTES) {
+            dropSseClient(client);
+            return;
+        }
+        try {
+            client.res.write(chunk);
+        } catch {
+            dropSseClient(client);
+        }
+    }
 
     function broadcastEvents(events) {
         if (Array.isArray(events) && events.length) {
@@ -114,12 +216,10 @@ export async function createLanServer({
         if (!Array.isArray(events) || !events.length || !sseClients.size) return;
         for (const ev of events) {
             const payload = `event: db_change\ndata: ${JSON.stringify(ev)}\n\n`;
-            for (const client of sseClients) {
-                try {
-                    client.res.write(payload);
-                } catch {
-                    sseClients.delete(client);
-                }
+            const evAccountId = ev?.new?.account_id || ev?.account_id || null;
+            for (const client of [...sseClients]) {
+                if (evAccountId && client.accountId && String(evAccountId) !== String(client.accountId)) continue;
+                writeSseChunk(client, payload);
             }
         }
     }
@@ -135,13 +235,16 @@ export async function createLanServer({
     await cloudBridge.initFromDb();
 
     const server = http.createServer(async (req, res) => {
-        res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        const reqOrigin = req.headers.origin;
+        if (reqOrigin && isAllowedLanOrigin(reqOrigin)) {
+            res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-PDN-Local-Secret');
+        }
         res.setHeader('Vary', 'Origin');
 
         if (req.method === 'OPTIONS') {
-            res.writeHead(204);
+            res.writeHead(reqOrigin && !isAllowedLanOrigin(reqOrigin) ? 403 : 204);
             res.end();
             return;
         }
@@ -230,13 +333,16 @@ export async function createLanServer({
             }
 
             if (req.method === 'POST' && pathname === '/lan/auth/local-reset-pin') {
-                if (!isLocalhostRequest(req)) {
-                    sendJson(res, 403, { error: 'Solo disponible desde la Caja Principal.' });
+                const token = bearerToken(req, urlObj);
+                const session = await lanDb.getSessionByToken(token);
+                if (!isLocalhostRequest(req) || !isAdminAuthorized(req, session)) {
+                    sendJson(res, 403, { error: 'Autorización de Caja Principal requerida para restablecer el PIN.' });
                     return;
                 }
                 const { pin } = await readJsonBody(req);
-                const session = await lanDb.resetLocalOwnerPin(pin);
-                sendJson(res, 200, session);
+                const sessionOut = await lanDb.resetLocalOwnerPin(pin);
+                cloudBridge?.syncOwnerPin?.(pin).catch(() => {});
+                sendJson(res, 200, sessionOut);
                 return;
             }
 
@@ -251,8 +357,8 @@ export async function createLanServer({
             if (req.method === 'POST' && pathname === '/lan/pairing/code') {
                 const token = bearerToken(req, urlObj);
                 const session = await lanDb.getSessionByToken(token);
-                if (!isLocalhostRequest(req) && (!session || session.user.anonymous)) {
-                    sendJson(res, 401, { error: 'Solo la Caja Principal o el dueño pueden generar códigos.' });
+                if (!isAdminAuthorized(req, session)) {
+                    sendJson(res, 401, { error: 'Solo la Caja Principal autenticada o el dueño pueden generar códigos.' });
                     return;
                 }
                 const { accountId } = await readJsonBody(req);
@@ -289,6 +395,12 @@ export async function createLanServer({
             if (req.method === 'POST' && pathname === '/lan/query') {
                 const token = bearerToken(req, urlObj);
                 const session = await lanDb.getSessionByToken(token);
+                // MED-10: si el cliente envió un token explícito que ya expiró o fue revocado,
+                // responder 401 en lugar de degradarlo silenciosamente a `anon`.
+                if (token && !session) {
+                    sendJson(res, 401, { error: 'Sesión LAN expirada o revocada.' });
+                    return;
+                }
                 const spec = await readJsonBody(req);
                 const result = await lanDb.runSelectQuery(session?.user || null, spec);
                 sendJson(res, 200, result);
@@ -304,6 +416,14 @@ export async function createLanServer({
                 if (!error && events?.length) {
                     broadcastEvents(events);
                 }
+                if (!error && (fn === 'owner_set_own_pin' || fn === 'member_change_own_pin')) {
+                    const newOwnerPin = args?.p_pin || args?.p_new_pin;
+                    const ownerChanged = fn === 'owner_set_own_pin'
+                        || (Array.isArray(events) && events.some((e) => e.table === 'account_members' && e.new?.role === 'dueno'));
+                    if (ownerChanged && newOwnerPin) {
+                        cloudBridge?.syncOwnerPin?.(newOwnerPin).catch(() => {});
+                    }
+                }
                 sendJson(res, 200, { data, error });
                 return;
             }
@@ -316,17 +436,19 @@ export async function createLanServer({
                     sendJson(res, 401, { error: 'Token requerido para escuchar eventos' });
                     return;
                 }
+                req.socket?.setKeepAlive?.(true, 15_000);
                 res.writeHead(200, {
                     'Content-Type': 'text/event-stream; charset=utf-8',
                     'Cache-Control': 'no-cache, no-transform',
                     Connection: 'keep-alive',
                 });
                 res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, userId: session.user.id })}\n\n`);
-                const entry = { res, userId: session.user.id };
+                const entry = { res, userId: session.user.id, accountId: session.accountId || null };
                 sseClients.add(entry);
-                req.on('close', () => {
-                    sseClients.delete(entry);
-                });
+                const cleanup = () => { sseClients.delete(entry); };
+                req.on('close', cleanup);
+                res.on('close', cleanup);
+                res.on('error', cleanup);
                 return;
             }
 
@@ -353,12 +475,18 @@ export async function createLanServer({
                 const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
                 const safeId = String(id || crypto.randomUUID()).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
                 const fileName = `${safeId}.${ext}`;
+                const staleExts = ['png', 'jpg', 'webp'].filter((e) => e !== ext);
                 if (resolvedImagesDir) {
+                    for (const oldExt of staleExts) {
+                        const oldFile = path.join(resolvedImagesDir, `${safeId}.${oldExt}`);
+                        try { if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile); } catch { /* noop */ }
+                    }
                     fs.writeFileSync(path.join(resolvedImagesDir, fileName), buf);
                 } else {
+                    for (const oldExt of staleExts) memoryImages.delete(`${safeId}.${oldExt}`);
                     memoryImages.set(fileName, { mime, buf });
                 }
-                sendJson(res, 200, { ok: true, path: `/lan/images/${fileName}` });
+                sendJson(res, 200, { ok: true, path: `/lan/images/${fileName}?v=${Date.now()}` });
                 return;
             }
 
@@ -416,11 +544,12 @@ export async function createLanServer({
             if (req.method === 'GET' && pathname === '/lan/backup/snapshot') {
                 const token = bearerToken(req, urlObj);
                 const session = await lanDb.getSessionByToken(token);
-                if (!isLocalhostRequest(req) && (!session || session.user.anonymous)) {
-                    sendJson(res, 401, { error: 'Solo el dueño o la Caja Principal pueden exportar respaldos.' });
+                if (!isAdminAuthorized(req, session)) {
+                    sendJson(res, 401, { error: 'Solo el dueño o la Caja Principal autenticada pueden exportar respaldos.' });
                     return;
                 }
                 const snapshot = await lanDb.exportJsonSnapshot();
+                snapshot.images = collectLanImagesSnapshot();
                 sendJson(res, 200, snapshot);
                 return;
             }
@@ -428,12 +557,26 @@ export async function createLanServer({
             if (req.method === 'POST' && pathname === '/lan/backup/restore') {
                 const token = bearerToken(req, urlObj);
                 const session = await lanDb.getSessionByToken(token);
-                if (!isLocalhostRequest(req) && (!session || session.user.anonymous)) {
-                    sendJson(res, 401, { error: 'Solo el dueño o la Caja Principal pueden restaurar respaldos.' });
+                const srvSummary = await lanDb.getServerSummary();
+                // Si el servidor ya tiene cuenta configurada, exigir dueño o secreto local;
+                // si está vacío (recuperación inicial en PC nueva), permitir desde localhost.
+                const allowedEmptyLocal = !srvSummary.hasAccount && isLocalhostRequest(req);
+                if (!allowedEmptyLocal && !isAdminAuthorized(req, session)) {
+                    sendJson(res, 401, { error: 'Solo el dueño o la Caja Principal autenticada pueden restaurar respaldos.' });
                     return;
                 }
                 const snapshot = await readJsonBody(req);
-                const summary = await lanDb.restoreJsonSnapshot(snapshot);
+                const restored = await lanDb.restoreJsonSnapshot(snapshot);
+                if (snapshot?.images) restoreLanImagesSnapshot(snapshot.images);
+                const { resetEvents = [], ...summary } = restored;
+                if (resetEvents.length) {
+                    broadcastEvents(resetEvents);
+                    await new Promise((r) => setTimeout(r, 80));
+                }
+                for (const client of [...sseClients]) {
+                    dropSseClient(client);
+                }
+                cloudBridge?.scheduleSnapshotPush?.();
                 sendJson(res, 200, { ok: true, summary });
                 return;
             }
@@ -442,8 +585,8 @@ export async function createLanServer({
             if (pathname.startsWith('/lan/bridge/')) {
                 const token = bearerToken(req, urlObj);
                 const session = await lanDb.getSessionByToken(token);
-                if (!isLocalhostRequest(req) && (!session || session.user.anonymous)) {
-                    sendJson(res, 401, { error: 'Solo la Caja Principal o el dueño administran el puente de internet.' });
+                if (!isAdminAuthorized(req, session)) {
+                    sendJson(res, 401, { error: 'Solo la Caja Principal autenticada o el dueño administran el puente de internet.' });
                     return;
                 }
                 if (req.method === 'GET' && pathname === '/lan/bridge/status') {
@@ -470,10 +613,18 @@ export async function createLanServer({
 
             // ── Servir web estática en red local (para Supervisor móvil/PC) ─
             if (req.method === 'GET' && staticDir && !pathname.startsWith('/lan/') && !pathname.startsWith('/api/')) {
+                // MED-09: rechazar cualquier intento de path traversal antes y después de resolver.
+                const rawUrlPath = String(req.url || '/').split('?')[0];
+                let decodedRaw = rawUrlPath;
+                try { decodedRaw = decodeURIComponent(rawUrlPath); } catch { /* mantener crudo */ }
+                if (/(^|[\\/])\.\.([\\/]|$)/.test(rawUrlPath) || /(^|[\\/])\.\.([\\/]|$)/.test(decodedRaw)) {
+                    sendJson(res, 403, { error: 'Ruta prohibida' });
+                    return;
+                }
                 const resolvedRoot = path.resolve(staticDir);
                 const rel = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
                 let target = path.resolve(resolvedRoot, rel);
-                if (!target.startsWith(resolvedRoot)) {
+                if (target !== resolvedRoot && !target.startsWith(resolvedRoot + path.sep)) {
                     sendJson(res, 403, { error: 'Ruta prohibida' });
                     return;
                 }
@@ -529,12 +680,8 @@ export async function createLanServer({
     const boundPort = typeof address === 'object' && address ? address.port : port;
 
     const keepaliveTimer = setInterval(() => {
-        for (const client of sseClients) {
-            try {
-                client.res.write(': keepalive\n\n');
-            } catch {
-                sseClients.delete(client);
-            }
+        for (const client of [...sseClients]) {
+            writeSseChunk(client, ': keepalive\n\n');
         }
     }, 20_000);
     keepaliveTimer.unref?.();
@@ -565,12 +712,17 @@ export async function createLanServer({
         }
     }
 
-    async function saveDiskBackupNow() {
+    async function saveDiskBackupNow({ onlyIfDirty = false } = {}) {
         if (!resolvedBackupsDir) return null;
+        if (onlyIfDirty && !lanDb.hasPendingBackupChanges?.()) return null;
         const snapshot = await lanDb.exportJsonSnapshot();
+        snapshot.images = collectLanImagesSnapshot();
         const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const filePath = path.join(resolvedBackupsDir, `respaldo-lan-${stamp}.json`);
-        fs.writeFileSync(filePath, JSON.stringify(snapshot, null, 2), 'utf8');
+        const tmpPath = `${filePath}.tmp`;
+        fs.writeFileSync(tmpPath, JSON.stringify(snapshot, null, 2), 'utf8');
+        fs.renameSync(tmpPath, filePath);
+        lanDb.markBackupSaved?.();
         const files = fs
             .readdirSync(resolvedBackupsDir)
             .filter((f) => f.startsWith('respaldo-lan-') && f.endsWith('.json'))
@@ -611,6 +763,7 @@ export async function createLanServer({
         port: boundPort,
         baseUrl: `http://127.0.0.1:${boundPort}`,
         urls: getLanIpv4Addresses().map((ip) => `http://${ip}:${boundPort}`),
+        localAdminSecret,
         lanDb,
         cloudBridge,
         saveDiskBackupNow,

@@ -64,19 +64,31 @@ export function toHistorySale(row, cajaByDevice = {}, memberNames = {}) {
 }
 
 /**
- * Junta y ordena (más reciente primero). Una misma venta puede estar con y sin equipo
- * (importación del dueño + caja que la sube): se queda la que dice de qué caja es.
+ * Junta y ordena (más reciente primero).
+ * - T23 (A1): usa clave compuesta `${deviceId}:${sale.id}` para que dos cajas distintas
+ *   con el mismo id local (p. ej. `Date.now()`) NUNCA se pisen entre sí.
+ * - Una misma venta con y sin caja (importación del dueño + caja que la sube) se
+ *   deduplica conservando la que dice de qué caja es.
  */
 export function mergeCajasSales(rows, cajaByDevice = {}, memberNames = {}) {
-    const byId = new Map();
+    const byKey = new Map();
+    const deviceKeysBySaleId = new Set();
+
+    // Primera pasada: registrar qué sale.id ya tienen copia asociada a un equipo concreto.
+    const parsed = [];
     for (const row of rows) {
         if (!row || row.deleted_at) continue;
         const sale = toHistorySale(row, cajaByDevice, memberNames);
-        const key = String(sale.id);
-        const prev = byId.get(key);
-        if (!prev || (!prev._deviceId && sale._deviceId)) byId.set(key, sale);
+        parsed.push(sale);
+        if (sale._deviceId) deviceKeysBySaleId.add(String(sale.id));
     }
-    return [...byId.values()].sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));
+
+    for (const sale of parsed) {
+        if (!sale._deviceId && deviceKeysBySaleId.has(String(sale.id))) continue;
+        const key = sale._deviceId ? `${sale._deviceId}:${sale.id}` : `sin-caja:${sale.id}`;
+        if (!byKey.has(key)) byKey.set(key, sale);
+    }
+    return [...byKey.values()].sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));
 }
 
 async function readCajaLetters(client) {
@@ -90,6 +102,51 @@ async function readMemberNames(client) {
     const { data, error } = await client.from('account_members').select('id, display_name');
     if (error) return {};
     return Object.fromEntries((data || []).filter((m) => m.display_name).map((m) => [m.id, m.display_name]));
+}
+
+function toRangeIso(dateStr, endOfDay = false) {
+    if (!dateStr) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr))) {
+        const [y, m, d] = String(dateStr).split('-').map(Number);
+        const dt = endOfDay ? new Date(y, m - 1, d, 23, 59, 59, 999) : new Date(y, m - 1, d, 0, 0, 0, 0);
+        return dt.toISOString();
+    }
+    const ms = Date.parse(dateStr);
+    return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+/**
+ * T23 (A1): consulta el historial de todas las cajas en un rango de fechas usando la
+ * RPC indexada `cash_records_range` (migración 019), evitando el tope de 20,000 filas
+ * ordenadas por UUID. Si el servidor aún no tiene la RPC, cae al barrido paginado.
+ */
+export async function loadAllCajasSalesRange(client, { from = null, to = null, deviceId = null } = {}) {
+    const fromIso = toRangeIso(from, false);
+    const toIso = toRangeIso(to, true);
+    if (typeof client?.rpc === 'function') {
+        const { data, error } = await client.rpc('cash_records_range', {
+            p_from: fromIso,
+            p_to: toIso,
+            p_device_id: deviceId || null,
+        });
+        if (!error && Array.isArray(data)) {
+            const [letters, members] = await Promise.all([readCajaLetters(client), readMemberNames(client)]);
+            return mergeCajasSales(data, letters, members);
+        }
+        if (error && error.code !== 'PGRST202' && error.code !== '42883') {
+            throw new Error(error.message || 'No se pudo leer el historial de las cajas');
+        }
+    }
+    const all = await loadAllCajasSales(client);
+    const fromMs = fromIso ? Date.parse(fromIso) : null;
+    const toMs = toIso ? Date.parse(toIso) : null;
+    return all.filter((s) => {
+        if (deviceId && s._deviceId !== deviceId) return false;
+        const ts = Date.parse(s.timestamp);
+        if (fromMs !== null && Number.isFinite(ts) && ts < fromMs) return false;
+        if (toMs !== null && Number.isFinite(ts) && ts > toMs) return false;
+        return true;
+    });
 }
 
 /** Baja el historial de todas las cajas (RLS: solo la cuenta propia). */

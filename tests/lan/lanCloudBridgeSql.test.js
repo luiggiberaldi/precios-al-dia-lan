@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SQL_PATH = path.resolve(__dirname, '../../supabase/lan/001_puente_supervisor.sql');
+const SQL_PATH_002 = path.resolve(__dirname, '../../supabase/lan/002_puente_supervisor_hardening.sql');
 
 async function setupCloudDb() {
     const db = new PGlite({ extensions: { pgcrypto } });
@@ -26,6 +27,7 @@ async function setupCloudDb() {
         grant usage on schema public to anon, authenticated;
     `);
     await db.exec(fs.readFileSync(SQL_PATH, 'utf8'));
+    await db.exec(fs.readFileSync(SQL_PATH_002, 'utf8'));
     return db;
 }
 
@@ -105,6 +107,26 @@ describe('Puente de Supervisor en Supabase (SQL real en PGlite)', () => {
         await asAnon(db, 'select public.lan_bridge_ack_command($1, $2, $3, $4, $5)', [accountId, masterSecret, cmdId, 'applied', null]);
         const snap2 = await asAnon(db, 'select * from public.lan_supervisor_get_snapshot($1)', [sessionToken]);
         expect(snap2[0].recent_commands[0].status).toBe('applied');
+
+        // T17 (002): 1) Sin oráculo de código inexistente (devuelve vacío igual que PIN erróneo)
+        const unknownCode = await asAnon(db, 'select * from public.lan_supervisor_login($1, $2)', ['SUP-000000', '753951']);
+        expect(unknownCode).toHaveLength(0);
+
+        // T17 (002): 2) Reclamación de comando atascado en 'processing' > 60s
+        const stuckId = '33333333-3333-4333-8333-333333333333';
+        await asAnon(db, 'select * from public.lan_supervisor_enqueue($1, $2, $3, $4::jsonb)', [sessionToken, stuckId, 'refresh_snapshot', '{}']);
+        const firstClaim = await asAnon(db, 'select * from public.lan_bridge_claim_commands($1, $2, $3)', [accountId, masterSecret, 10]);
+        expect(firstClaim).toHaveLength(1);
+        await db.query("update public.lan_supervisor_commands set updated_at = now() - interval '90 seconds' where id = $1", [stuckId]);
+        const reclaimed = await asAnon(db, 'select * from public.lan_bridge_claim_commands($1, $2, $3)', [accountId, masterSecret, 10]);
+        expect(reclaimed).toHaveLength(1);
+        expect(reclaimed[0].id).toBe(stuckId);
+
+        // T17 (002): 3) Cambiar el PIN en lan_bridge_register revoca sesiones activas inmediatamente
+        await asAnon(db, 'select * from public.lan_bridge_register($1, $2, $3, $4, $5)', [accountId, 'Bodega Puente', masterSecret, 'SUP-482910', '888999']);
+        await expect(
+            asAnon(db, 'select * from public.lan_supervisor_get_snapshot($1)', [sessionToken]),
+        ).rejects.toThrow(/vencida/i);
 
         await db.close();
     }, 60_000);

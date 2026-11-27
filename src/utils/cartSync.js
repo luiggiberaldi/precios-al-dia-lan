@@ -85,6 +85,8 @@ export function deriveCartFields(product, mode, unitsPerPackage, ctx = {}) {
         unitPriceUsd: product.unitPriceUsd,
         unitPriceCop: product.unitPriceCop,
         unitsPerPackage: product.unitsPerPackage,
+        ...(product.unitsPerPackage !== undefined ? { _unitsPerPackage: Number(product.unitsPerPackage) || 1 } : {}),
+        ...(product.packagingType !== undefined ? { packagingType: product.packagingType } : {}),
     };
 }
 

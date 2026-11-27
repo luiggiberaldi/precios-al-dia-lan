@@ -89,6 +89,11 @@ export function movementDirection(type, explicitDirection) {
     throw new Error(`Tipo de movimiento de cartera desconocido: ${type}`);
 }
 
+/** ID determinista para SALDO_INICIAL_MIGRADO: impide duplicar saldos entre cajas (C8). */
+export function deterministicInitialMovementId(customerId) {
+    return `mig_init:${String(customerId).slice(0, 100)}`;
+}
+
 export function createCustomerLedgerMovement({
     id,
     customerId,
@@ -113,10 +118,14 @@ export function createCustomerLedgerMovement({
     if (!type) throw new Error('El movimiento de cartera requiere type.');
     if (!Number.isFinite(amount) || amount < 0) throw new Error('El monto del movimiento de cartera es inválido.');
 
-    return {
-        id: id || (typeof crypto !== 'undefined' && crypto.randomUUID
+    const resolvedId = id || (type === CUSTOMER_MOVEMENT_TYPES.INITIAL
+        ? deterministicInitialMovementId(customerId)
+        : (typeof crypto !== 'undefined' && crypto.randomUUID
             ? crypto.randomUUID()
-            : `ledger_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`),
+            : `ledger_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`));
+
+    return {
+        id: resolvedId,
         customerId,
         type,
         direction: movementDirection(type, direction),
@@ -174,7 +183,17 @@ export function mergeLedgerEntries(localLedger, remoteLedger) {
         }
         merged.set(entry.id, entry);
     }
+    // C7: Ordenar confirmados por `nubeSeq` ascendente (el orden autoritativo del servidor)
+    // y colocar movimientos pendientes locales (sin `nubeSeq`) después, ordenados por fecha.
     const ledger = [...merged.values()].sort((left, right) => {
+        const lHasSeq = Number.isFinite(Number(left.nubeSeq)) && left.nubeSeq !== null && left.nubeSeq !== '';
+        const rHasSeq = Number.isFinite(Number(right.nubeSeq)) && right.nubeSeq !== null && right.nubeSeq !== '';
+        if (lHasSeq && rHasSeq) {
+            const bySeq = Number(left.nubeSeq) - Number(right.nubeSeq);
+            if (bySeq !== 0) return bySeq;
+        } else if (lHasSeq !== rHasSeq) {
+            return lHasSeq ? -1 : 1;
+        }
         const byDate = String(left.timestamp || '').localeCompare(String(right.timestamp || ''));
         return byDate || String(left.id).localeCompare(String(right.id));
     });

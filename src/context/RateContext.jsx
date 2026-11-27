@@ -102,7 +102,7 @@ export function RateProvider({ children, rates = {}, rateDiscrepancyWarning = nu
             }
             if (key === 'bodega_custom_rate') {
                 const val = localStorage.getItem('bodega_custom_rate');
-                if (val && parseFloat(val) > 0) setCustomRate(val);
+                setCustomRate(val && parseFloat(val) > 0 ? val : '');
             }
             if (key === 'cop_enabled') setCopEnabled(localStorage.getItem('cop_enabled') === 'true');
             if (key === 'auto_cop_enabled') setAutoCopEnabled(localStorage.getItem('auto_cop_enabled') === 'true');

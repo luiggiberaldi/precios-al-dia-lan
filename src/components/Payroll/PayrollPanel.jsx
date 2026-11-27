@@ -8,6 +8,7 @@ import EmployeeFormModal from './EmployeeFormModal';
 import PayrollEntryModal from './PayrollEntryModal';
 import PayrollGoodsModal from './PayrollGoodsModal';
 import { useAuthStore } from '../../hooks/store/useAuthStore';
+import { verifyNubeAdminPin } from '../../nube/nubeAdminPin';
 import { useAudit } from '../../hooks/useAudit';
 import { getActivePaymentMethods } from '../../config/paymentMethods';
 import { formatBs, formatUsd } from '../../utils/calculatorUtils';
@@ -32,7 +33,8 @@ const ESTADO = {
  * Toda escritura pasa por services/payrollService (candado, PIN, idempotencia).
  */
 export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic }) {
-    const authorize = useAuthStore(s => s.verifyAdminPin);
+    const legacyAuthorize = useAuthStore(s => s.verifyAdminPin);
+    const authorize = useCallback((pinValue) => verifyNubeAdminPin(pinValue, { fallbackAuthorize: legacyAuthorize }), [legacyAuthorize]);
     const { log } = useAudit();
     const [employees, setEmployees] = useState([]);
     const [entries, setEntries] = useState([]);
@@ -75,7 +77,17 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
         getActivePaymentMethods().then(ms => alive && setPaymentMethods(
             ms.filter(m => (m.currency === 'USD' || m.currency === 'BS') && !m.isVirtual && m.id !== 'cashea'),
         ));
-        return () => { alive = false; };
+        const onStorageUpdate = (e) => {
+            const key = e?.detail?.key;
+            if (!key || key === 'bodega_employees_v1' || key === 'bodega_payroll_entries_v1') {
+                if (alive) reload();
+            }
+        };
+        window.addEventListener('app_storage_update', onStorageUpdate);
+        return () => {
+            alive = false;
+            window.removeEventListener('app_storage_update', onStorageUpdate);
+        };
     }, [isActive, reload, log]);
 
     const now = new Date();

@@ -9,6 +9,7 @@ import { SALES_KEY } from './useSalesData';
 import { buildAporteCajaRecord } from '../utils/cajaAporte';
 import { useAuthStore } from './store/useAuthStore';
 import { findOpenCashShift } from '../utils/cashShift';
+import { appendCustomerLocked } from '../utils/customerHistory';
 
 export function useCheckoutFlow({
     cart, cartTotalUsd, cartTotalBs, cartSubtotalUsd, cartBaseUsd, cartIvaUsd,
@@ -75,22 +76,18 @@ export function useCheckoutFlow({
     };
 
     const handleCreateCustomer = async (name, documentId, phone) => {
-        const nextCodeNum = customers.reduce((mx, c) => {
-            const numPart = parseInt(c.code?.replace('CLI-', ''), 10);
-            return isNaN(numPart) ? mx : Math.max(mx, numPart);
-        }, 0) + 1;
-        const code = `CLI-${String(nextCodeNum).padStart(5, '0')}`;
-        const newCustomer = { id: crypto.randomUUID(), code, name, documentId: documentId || '', phone: phone || '', deuda: 0, favor: 0, createdAt: new Date().toISOString() };
-        const updated = [...customers, newCustomer];
         try {
-            await storageService.setItem('bodega_customers_v1', updated);
+            const { customer: newCustomer, customers: updated } = await appendCustomerLocked(
+                { name, documentId: documentId || '', phone: phone || '' },
+                { baseCustomers: customers, storage: storageService },
+            );
             setCustomers(updated);
+            return newCustomer;
         } catch (err) {
             console.error('[checkout] Error al guardar cliente:', err);
             showToast('Error al guardar el cliente', 'error');
             return null;
         }
-        return newCustomer;
     };
 
     // FIN-026: handleSaveApertura envuelto en withLock + validación de montos >= 0.

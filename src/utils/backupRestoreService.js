@@ -223,6 +223,14 @@ export async function clearAppKeysForRestore() {
         localStorage.removeItem(key);
         removedLs.push(key);
     }
+    // A9 (T14): limpiar colas y cursores del sincronizador Nube/LAN para no re-subir
+    // cambios obsoletos ni mantener versiones desfasadas tras restaurar un respaldo.
+    try {
+        if (typeof localforage.createInstance === 'function') {
+            const syncStore = localforage.createInstance({ name: 'PreciosAlDiaNube', storeName: 'pdn_sync' });
+            await syncStore.clear();
+        }
+    } catch { /* noop */ }
     return { removedIdb, removedLs };
 }
 

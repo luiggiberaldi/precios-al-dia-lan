@@ -23,6 +23,7 @@ export function keepChannel(client, name, setup, { onUp, onDown, minDelayMs = 20
     let channel = null;
     let up = false;
     let everUp = false;
+    let hadFailure = false;
     let disposed = false;
     let retry = null;
     let delay = minDelayMs;
@@ -45,12 +46,16 @@ export function keepChannel(client, name, setup, { onUp, onDown, minDelayMs = 20
         ch.subscribe((status) => {
             if (disposed || ch !== channel) return; // aviso de un canal viejo
             if (status === 'SUBSCRIBED') {
-                const reconnected = everUp;
+                // MED-01: si el primer intento falló y luego conecta por primera vez,
+                // se perdió el lapso inicial → también debe re-sincronizar (`reconnected: true`).
+                const reconnected = everUp || hadFailure;
                 up = true;
                 everUp = true;
+                hadFailure = false;
                 delay = minDelayMs;
                 onUp?.({ reconnected });
             } else if (DOWN.has(status)) {
+                hadFailure = true;
                 if (up) onDown?.();
                 up = false;
                 scheduleReopen();

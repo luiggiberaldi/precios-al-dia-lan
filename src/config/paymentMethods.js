@@ -1,4 +1,5 @@
 import { storageService } from '../utils/storageService';
+import { withLock } from '../utils/withLock';
 import { Banknote, Smartphone, CreditCard, DollarSign, Store, ShoppingCart, Package, Coins, Key, Fingerprint, Wallet } from 'lucide-react';
 
 const PM_KEY = 'bodega_payment_methods_v1';
@@ -128,60 +129,76 @@ export async function getActivePaymentMethods() {
     return all.filter(m => m.isEnabled !== false);
 }
 
-/** Guardar métodos (reemplaza todo el array) */
+/** Guardar métodos (reemplaza todo el array bajo pos_write_lock) */
 export async function savePaymentMethods(methods) {
-    // Serializar: quitar campos no-clonables (Icon, componentes React)
-    const serializable = methods.map(m => {
-        const { Icon, ...rest } = m;
-        return rest;
+    return withLock('pos_write_lock', async () => {
+        const serializable = methods.map(m => {
+            const { Icon, ...rest } = m;
+            return rest;
+        });
+        await storageService.setItem(PM_KEY, serializable);
+        _customMethodsCache = serializable;
     });
-    await storageService.setItem(PM_KEY, serializable);
-    // Refresh in-memory cache immediately
-    _customMethodsCache = serializable;
 }
 
 /** Agregar un método custom */
 export async function addPaymentMethod({ label, currency, icon }) {
-    const methods = await getAllPaymentMethods();
-    const newMethod = {
-        id: 'custom_' + Date.now(),
-        label,
-        icon: icon || (currency === 'USD' ? '💲' : '💵'),
-        currency,
-        isFactory: false,
-    };
-    methods.push(newMethod);
-    await savePaymentMethods(methods);
-    return methods;
+    return withLock('pos_write_lock', async () => {
+        const methods = await getAllPaymentMethods();
+        const newMethod = {
+            id: 'custom_' + Date.now(),
+            label,
+            icon: icon || (currency === 'USD' ? '💲' : '💵'),
+            currency,
+            isFactory: false,
+        };
+        methods.push(newMethod);
+        const serializable = methods.map(({ Icon, ...rest }) => rest);
+        await storageService.setItem(PM_KEY, serializable);
+        _customMethodsCache = serializable;
+        return methods;
+    });
 }
 
 /** Eliminar un método (solo custom, no fábrica) */
 export async function removePaymentMethod(id) {
-    const methods = await getAllPaymentMethods();
-    const filtered = methods.filter(m => m.id !== id || m.isFactory);
-    await savePaymentMethods(filtered);
-    return filtered;
+    return withLock('pos_write_lock', async () => {
+        const methods = await getAllPaymentMethods();
+        const filtered = methods.filter(m => m.id !== id || m.isFactory);
+        const serializable = filtered.map(({ Icon, ...rest }) => rest);
+        await storageService.setItem(PM_KEY, serializable);
+        _customMethodsCache = serializable;
+        return filtered;
+    });
 }
 
 /** Habilitar/deshabilitar un método */
 export async function togglePaymentMethodEnabled(id) {
-    const methods = await getAllPaymentMethods();
-    const updated = methods.map(m => {
-        if (m.id === id) {
-            return { ...m, isEnabled: m.isEnabled === false ? true : false };
-        }
-        return m;
+    return withLock('pos_write_lock', async () => {
+        const methods = await getAllPaymentMethods();
+        const updated = methods.map(m => {
+            if (m.id === id) {
+                return { ...m, isEnabled: m.isEnabled === false ? true : false };
+            }
+            return m;
+        });
+        const serializable = updated.map(({ Icon, ...rest }) => rest);
+        await storageService.setItem(PM_KEY, serializable);
+        _customMethodsCache = serializable;
+        return await getAllPaymentMethods();
     });
-    await savePaymentMethods(updated);
-    return await getAllPaymentMethods(); // Return correctly hydrated array
 }
 
 /** Cambiar si un método pide referencia: 'none' | 'optional' | 'required' */
 export async function setPaymentMethodRefMode(id, mode) {
-    const methods = await getAllPaymentMethods();
-    const updated = methods.map(m => (m.id === id ? { ...m, refMode: normalizeRefMode(mode) } : m));
-    await savePaymentMethods(updated);
-    return await getAllPaymentMethods();
+    return withLock('pos_write_lock', async () => {
+        const methods = await getAllPaymentMethods();
+        const updated = methods.map(m => (m.id === id ? { ...m, refMode: normalizeRefMode(mode) } : m));
+        const serializable = updated.map(({ Icon, ...rest }) => rest);
+        await storageService.setItem(PM_KEY, serializable);
+        _customMethodsCache = serializable;
+        return await getAllPaymentMethods();
+    });
 }
 
 // ── HELPERS ──
@@ -204,6 +221,11 @@ async function _initCache() {
     }
 }
 
+export function refreshPaymentMethodsCache() {
+    _cacheInitPromise = _initCache();
+    return _cacheInitPromise;
+}
+
 // Call this early in the app lifecycle to warm up the cache
 export function initPaymentMethodsCache() {
     if (!_cacheInitPromise) {
@@ -212,8 +234,16 @@ export function initPaymentMethodsCache() {
     return _cacheInitPromise;
 }
 
-// Auto-init on module load
+// Auto-init on module load + invalidar caché cuando llegan métodos remotos por sync (T19)
 initPaymentMethodsCache();
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('app_storage_update', (e) => {
+        const key = e?.detail?.key;
+        if (!key || key === PM_KEY) {
+            refreshPaymentMethodsCache().catch(() => {});
+        }
+    });
+}
 
 function _findCustom(id) {
     if (!_customMethodsCache) return null;

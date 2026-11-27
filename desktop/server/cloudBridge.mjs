@@ -17,17 +17,30 @@ export function generateBridgeCredentials() {
     };
 }
 
-export async function callSupabaseRpc(cloudUrl, cloudAnonKey, fn, args = {}, fetchImpl = globalThis.fetch) {
+export async function callSupabaseRpc(cloudUrl, cloudAnonKey, fn, args = {}, fetchImpl = globalThis.fetch, { timeoutMs = 15_000 } = {}) {
     const base = String(cloudUrl || '').replace(/\/+$/, '');
-    const res = await fetchImpl(`${base}/rest/v1/rpc/${fn}`, {
-        method: 'POST',
-        headers: {
-            apikey: cloudAnonKey,
-            Authorization: `Bearer ${cloudAnonKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(args),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let res;
+    try {
+        res = await fetchImpl(`${base}/rest/v1/rpc/${fn}`, {
+            method: 'POST',
+            headers: {
+                apikey: cloudAnonKey,
+                Authorization: `Bearer ${cloudAnonKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(args),
+            signal: controller.signal,
+        });
+    } catch (err) {
+        if (err?.name === 'AbortError' || controller.signal.aborted) {
+            throw new Error(`Tiempo de espera agotado en puente nube (${fn})`);
+        }
+        throw err;
+    } finally {
+        clearTimeout(timer);
+    }
     const text = await res.text();
     let data = null;
     try {
@@ -46,6 +59,8 @@ export function createCloudBridge({
     cloudUrl = '',
     cloudAnonKey = '',
     pollIntervalMs = 4000,
+    heartbeatMs = 60_000,
+    requestTimeoutMs = 15_000,
     fetchImpl = globalThis.fetch,
     rpcCaller = null,
     onBroadcastEvents = null,
@@ -65,11 +80,23 @@ export function createCloudBridge({
     let pushDebounce = null;
     let runningCycle = null;
     let stopped = false;
+    let snapshotDirty = true;
+    let lastSnapshotPushAt = 0;
+    const pendingAcks = new Map(); // cmdId -> { status, error }
+    const appliedCommandIds = new Set();
 
     const invokeRpc = (fn, args) => {
         if (typeof rpcCaller === 'function') return rpcCaller(fn, args, config);
-        return callSupabaseRpc(config.cloudUrl, config.cloudAnonKey, fn, args, fetchImpl);
+        return callSupabaseRpc(config.cloudUrl, config.cloudAnonKey, fn, args, fetchImpl, { timeoutMs: requestTimeoutMs });
     };
+
+    function rememberApplied(cmdId) {
+        appliedCommandIds.add(cmdId);
+        if (appliedCommandIds.size > 200) {
+            const first = appliedCommandIds.values().next().value;
+            if (first !== undefined) appliedCommandIds.delete(first);
+        }
+    }
 
     async function initFromDb() {
         const saved = await lanDb.getMeta?.('cloud_bridge');
@@ -119,7 +146,8 @@ export function createCloudBridge({
         const finalCode = String(supervisorCode || config.supervisorCode || creds.supervisorCode).trim().toUpperCase();
         const finalSecret = config.masterSecret || creds.masterSecret;
 
-        config = {
+        // T17: NO activar `config.enabled` ni persistir hasta que `lan_bridge_register` responda OK.
+        const candidateConfig = {
             ...config,
             enabled: true,
             cloudUrl: cleanUrl,
@@ -130,13 +158,26 @@ export function createCloudBridge({
             lastError: null,
         };
 
-        await invokeRpc('lan_bridge_register', {
-            p_account_id: snap.accountId,
-            p_account_name: snap.accountName,
-            p_master_secret: finalSecret,
-            p_supervisor_code: finalCode,
-            p_pin: ownerPin || null,
-        });
+        if (typeof rpcCaller === 'function') {
+            await rpcCaller('lan_bridge_register', {
+                p_account_id: snap.accountId,
+                p_account_name: snap.accountName,
+                p_master_secret: finalSecret,
+                p_supervisor_code: finalCode,
+                p_pin: ownerPin || null,
+            }, candidateConfig);
+        } else {
+            await callSupabaseRpc(cleanUrl, cleanKey, 'lan_bridge_register', {
+                p_account_id: snap.accountId,
+                p_account_name: snap.accountName,
+                p_master_secret: finalSecret,
+                p_supervisor_code: finalCode,
+                p_pin: ownerPin || null,
+            }, fetchImpl, { timeoutMs: requestTimeoutMs });
+        }
+
+        config = candidateConfig;
+        snapshotDirty = true;
 
         await lanDb.setMeta('cloud_bridge', {
             enabled: true,
@@ -152,6 +193,21 @@ export function createCloudBridge({
         await pushSnapshotNow();
         startPolling();
         return getPublicStatus();
+    }
+
+    async function syncOwnerPin(newPin) {
+        if (!config.enabled || !config.cloudUrl || !config.accountId || !config.masterSecret) return false;
+        const cleanPin = String(newPin || '').trim();
+        if (!/^[0-9]{6,32}$/.test(cleanPin)) return false;
+        const snap = await lanDb.buildSupervisorSnapshot().catch(() => null);
+        await invokeRpc('lan_bridge_register', {
+            p_account_id: config.accountId,
+            p_account_name: snap?.accountName || '',
+            p_master_secret: config.masterSecret,
+            p_supervisor_code: config.supervisorCode,
+            p_pin: cleanPin,
+        });
+        return true;
     }
 
     async function disableBridge() {
@@ -173,17 +229,39 @@ export function createCloudBridge({
             p_master_secret: config.masterSecret,
             p_snapshot: snapshot,
         });
+        snapshotDirty = false;
+        lastSnapshotPushAt = Date.now();
         config.lastSyncAt = new Date().toISOString();
         config.lastError = null;
         return config.lastSyncAt;
     }
 
-    async function syncOnce() {
+    async function flushPendingAcks() {
+        for (const [cmdId, ack] of [...pendingAcks.entries()]) {
+            try {
+                await invokeRpc('lan_bridge_ack_command', {
+                    p_account_id: config.accountId,
+                    p_master_secret: config.masterSecret,
+                    p_command_id: cmdId,
+                    p_status: ack.status,
+                    p_error: ack.error,
+                });
+                pendingAcks.delete(cmdId);
+            } catch {
+                // Reintentará en el próximo ciclo sin perder el estado aplicado
+                break;
+            }
+        }
+    }
+
+    async function syncOnce({ forceSnapshot = false } = {}) {
         if (runningCycle) return runningCycle;
         if (!config.enabled || !config.cloudUrl || !config.accountId || !config.masterSecret) return { processed: 0 };
 
         runningCycle = (async () => {
             try {
+                await flushPendingAcks();
+
                 const commands = await invokeRpc('lan_bridge_claim_commands', {
                     p_account_id: config.accountId,
                     p_master_secret: config.masterSecret,
@@ -193,31 +271,44 @@ export function createCloudBridge({
                 let processed = 0;
 
                 for (const cmd of list) {
-                    try {
-                        const result = await lanDb.executeSupervisorCommand(cmd.action, cmd.payload || {});
-                        if (result?.events?.length && typeof onBroadcastEvents === 'function') {
-                            onBroadcastEvents(result.events);
+                    let ackStatus = 'applied';
+                    let ackError = null;
+
+                    if (!appliedCommandIds.has(cmd.id)) {
+                        try {
+                            const result = await lanDb.executeSupervisorCommand(cmd.action, cmd.payload || {});
+                            rememberApplied(cmd.id);
+                            if (result?.events?.length && typeof onBroadcastEvents === 'function') {
+                                onBroadcastEvents(result.events);
+                            }
+                            processed += 1;
+                            snapshotDirty = true;
+                        } catch (cmdErr) {
+                            ackStatus = 'failed';
+                            ackError = cmdErr?.message || 'Error ejecutando comando en Caja Principal';
                         }
+                    }
+
+                    // Separar el ACK de la ejecución: si falla el ACK por red, encolarlo
+                    // en `pendingAcks` y NUNCA sobreescribir un comando ya aplicado como `failed`.
+                    try {
                         await invokeRpc('lan_bridge_ack_command', {
                             p_account_id: config.accountId,
                             p_master_secret: config.masterSecret,
                             p_command_id: cmd.id,
-                            p_status: 'applied',
-                            p_error: null,
+                            p_status: ackStatus,
+                            p_error: ackError,
                         });
-                        processed += 1;
-                    } catch (cmdErr) {
-                        await invokeRpc('lan_bridge_ack_command', {
-                            p_account_id: config.accountId,
-                            p_master_secret: config.masterSecret,
-                            p_command_id: cmd.id,
-                            p_status: 'failed',
-                            p_error: cmdErr?.message || 'Error ejecutando comando en Caja Principal',
-                        }).catch(() => {});
+                        pendingAcks.delete(cmd.id);
+                    } catch {
+                        pendingAcks.set(cmd.id, { status: ackStatus, error: ackError });
                     }
                 }
 
-                await pushSnapshotNow();
+                const heartbeatDue = (Date.now() - lastSnapshotPushAt) >= heartbeatMs;
+                if (forceSnapshot || processed > 0 || snapshotDirty || heartbeatDue) {
+                    await pushSnapshotNow();
+                }
                 return { processed };
             } catch (err) {
                 config.lastError = err?.message || 'Error sincronizando puente con la nube';
@@ -231,14 +322,17 @@ export function createCloudBridge({
     }
 
     function scheduleSnapshotPush(delayMs = 1200) {
+        snapshotDirty = true;
         if (stopped || !config.enabled) return;
         if (pushDebounce) clearTimeout(pushDebounce);
         pushDebounce = setTimeout(() => {
             pushDebounce = null;
+            if (runningCycle) return; // El ciclo activo o el siguiente verá snapshotDirty
             pushSnapshotNow().catch((err) => {
                 config.lastError = err?.message || 'No se pudo subir el resumen';
             });
         }, delayMs);
+        pushDebounce.unref?.();
     }
 
     function startPolling() {
@@ -269,6 +363,7 @@ export function createCloudBridge({
         initFromDb,
         getPublicStatus,
         setupBridge,
+        syncOwnerPin,
         disableBridge,
         pushSnapshotNow,
         syncOnce,

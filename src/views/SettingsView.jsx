@@ -21,6 +21,7 @@ import SettingsTabSistema from '../components/Settings/tabs/SettingsTabSistema';
 import SettingsTabLicencia from '../components/Settings/tabs/SettingsTabLicencia';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 import { pushLocalSync } from '../hooks/useCloudSync';
+import { notifyBusinessConfigChanged } from '../nube/businessConfigSync';
 import { useDataImportExport } from '../hooks/useDataImportExport';
 import { useAuthStore } from '../hooks/store/useAuthStore';
 import WalletView from './WalletView';
@@ -221,6 +222,7 @@ export default function SettingsView({ onClose, theme, toggleTheme, triggerHapti
         localStorage.setItem('business_rif', businessRif);
         localStorage.setItem('business_phone', normalizeVzlaPhone(businessPhone) || '');
         localStorage.setItem('printer_paper_width', paperWidth);
+        notifyBusinessConfigChanged();
         forceHeartbeat();
         showToast('Datos del negocio guardados', 'success');
         auditLog('CONFIG', 'NEGOCIO_ACTUALIZADO', `Datos negocio: ${businessName || 'sin nombre'}`);

@@ -9,18 +9,33 @@
 import { useEffect, useRef, useState } from 'react';
 import localforage from 'localforage';
 import { storageService } from '../utils/storageService';
-import { runWithoutEco } from '../utils/syncFlags';
+import { withLock } from '../utils/withLock';
 import { createRecordSync, SYNCED_KEYS } from './recordSync';
-import { setNubeLocalWriteHandler, setNubeBackupRestorer, setNubeStockFlusher } from './localWriteHook';
+import {
+    setNubeLocalWriteHandler,
+    setNubeBackupRestorer,
+    setNubeStockFlusher,
+    setNubeStockBaselineAdjuster,
+    setNubeStockCountSubmitter,
+} from './localWriteHook';
 import { createBackupRestorer } from './backupRestore';
 import { readMemberSession } from './memberSession';
 import { createSaleSubmitter, voidSale, isNetworkError } from './stockService';
 import { createStockMirror } from './stockMirror';
 import { setNubeSaleSubmitter, setNubeVoider } from './checkoutBridge';
 import { createStockWatcher } from './stockWatcher';
+import { seedMissingStock } from './stockSeed';
 import { createCustomerLedgerSync, LEDGER_KEY } from './customerLedgerSync';
+import { createSupplierLedgerSync, SUPPLIER_LEDGER_KEY } from './supplierLedgerSync';
 import { RATE_KEY, applyRateSnapshot, setNubeRateLink, markNubeRateReady } from './rateSync';
+import {
+    BUSINESS_CONFIG_KEY,
+    applyBusinessConfigSnapshot,
+    setNubeBusinessConfigLink,
+    markNubeBusinessConfigReady,
+} from './businessConfigSync';
 import { keepChannel } from './realtimeChannel';
+import { CASHEA_LEDGER_KEY, applyCasheaBalances } from '../utils/casheaLedger';
 
 const POLL_MS = 60_000;
 // Con los tres canales en vivo arriba, lo que cambia llega por aviso: releer de la nube
@@ -44,18 +59,53 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
     useEffect(() => {
         if (!enabled || !client || !accountId) return undefined;
         let disposed = false;
+        const withPosLock = (fn) => withLock('pos_write_lock', fn, { fallbackWarning: false });
+        let rateReady = false;
+        let stock = null;
+        let ledger = null;
+        let supplierLedger = null;
+        const ensureRateReady = async () => {
+            if (disposed || rateReady) return;
+            if (engine.getLastError()) return;
+            rateReady = true;
+            await markNubeRateReady();
+            await markNubeBusinessConfigReady();
+        };
+
         const engine = createRecordSync({
             client,
             getSession: () => readMemberSession()?.token ?? null,
             store: getSyncStore(),
             cashIdSuffix: deviceId || null,
-            // Misma regla que push_records: un cajero solo sube clientes y su caja.
-            canPush: (collection) => collection === 'customers' || collection === 'cash'
+            withLocalLock: withPosLock,
+            // Misma regla que push_records: un cajero solo sube clientes, su caja y movimientos Cashea.
+            canPush: (collection) => collection === 'customers' || collection === 'cash' || collection === 'cashea'
                 || ['dueno', 'administrador'].includes(readMemberSession()?.role),
             readLocal: (key) => storageService.getItem(key, null),
             writeLocal: async (key, value) => {
-                await runWithoutEco(() => storageService.setItem(key, value));
+                await storageService.setItem(key, value, { skipSyncPush: true, fromCloud: true });
                 if (key === RATE_KEY) applyRateSnapshot(value); // la tasa de la cuenta llega a esta caja
+                if (key === BUSINESS_CONFIG_KEY) applyBusinessConfigSnapshot(value); // IVA, políticas y datos del negocio
+            },
+            onPulled: async (collection) => {
+                // A4: al llegar productos o clientes nuevos desde otra caja, aplicar inmediatamente
+                // stock/saldos ya conocidos en memoria sin esperar 5 minutos.
+                if (collection === 'products' && stock) await stock.applyKnown();
+                if (collection === 'customers' && ledger) await ledger.applyKnownBalances();
+                if (collection === 'suppliers' && supplierLedger) await supplierLedger.applyKnownBalances();
+                if (collection === 'cashea' || collection === 'customers') {
+                    await withPosLock(async () => {
+                        const [curCustomers, curCashea] = await Promise.all([
+                            storageService.getItem('bodega_customers_v1', []),
+                            storageService.getItem(CASHEA_LEDGER_KEY, []),
+                        ]);
+                        const { customers: nextCustomers, changed } = applyCasheaBalances(curCustomers, curCashea);
+                        if (changed) {
+                            await storageService.setItem('bodega_customers_v1', nextCustomers, { skipSyncPush: true, fromCloud: true });
+                        }
+                    });
+                }
+                if (collection === 'settings') await ensureRateReady();
             },
             onStatus: async (s) => {
                 if (disposed) return;
@@ -71,6 +121,11 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             writeCloud: (snap) => storageService.setItem(RATE_KEY, snap),
             canEdit: () => ['dueno', 'administrador'].includes(readMemberSession()?.role),
         });
+        setNubeBusinessConfigLink({
+            readCloud: () => storageService.getItem(BUSINESS_CONFIG_KEY, null),
+            writeCloud: (snap) => storageService.setItem(BUSINESS_CONFIG_KEY, snap),
+            canEdit: () => ['dueno', 'administrador'].includes(readMemberSession()?.role),
+        });
         // F3 «vías olvidadas»: cambios de stock fuera del cobro → ajustes en el servidor.
         const watcher = createStockWatcher({
             client,
@@ -79,18 +134,30 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             onStatus: (w) => { if (!disposed) setStatus((st) => ({ ...st, stockPending: w.pending, stockError: w.lastError })); },
         });
         // F4: fiados, abonos y billetera con saldo oficial del servidor.
-        const ledger = createCustomerLedgerSync({
+        ledger = createCustomerLedgerSync({
             client,
             getSession: () => readMemberSession()?.token ?? null,
             store: getSyncStore(),
             readLocal: (key) => storageService.getItem(key, null),
-            writeLocal: (key, value) => runWithoutEco(() => storageService.setItem(key, value, { skipSyncPush: true })),
+            writeLocal: (key, value) => storageService.setItem(key, value, { skipSyncPush: true, fromCloud: true }),
+            withLocalLock: withPosLock,
             onStatus: (l) => { if (!disposed) setStatus((st) => ({ ...st, ledgerPending: l.pending, ledgerError: l.lastError })); },
+        });
+        // T20: libro append-only de cuentas por pagar a proveedores.
+        supplierLedger = createSupplierLedgerSync({
+            client,
+            getSession: () => readMemberSession()?.token ?? null,
+            store: getSyncStore(),
+            readLocal: (key) => storageService.getItem(key, null),
+            writeLocal: (key, value) => storageService.setItem(key, value, { skipSyncPush: true, fromCloud: true }),
+            withLocalLock: withPosLock,
+            canPush: () => ['dueno', 'administrador'].includes(readMemberSession()?.role),
         });
         setNubeLocalWriteHandler(async (key, value) => {
             await engine.onLocalWrite(key, value);
             if (key === 'bodega_products_v1') await watcher.onProductsWrite(value);
             if (key === LEDGER_KEY) await ledger.onLedgerWrite(value);
+            if (key === SUPPLIER_LEDGER_KEY) await supplierLedger.onLedgerWrite(value);
         });
         // Inventario → «Confirmar» del − / +: el ajuste sube al momento; si el servidor
         // lo rechaza se avisa y se trae el stock real.
@@ -99,6 +166,8 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             if (!res.ok && !res.queued) refreshLevels();
             return res;
         });
+        setNubeStockBaselineAdjuster((deltas) => watcher.adjustBaseline(deltas));
+        setNubeStockCountSubmitter((productId, targetQty, note) => watcher.submitStockCount(productId, targetQty, note));
         // Ajustes → Importar respaldo: con la nube activa sube también stock y saldos.
         setNubeBackupRestorer(createBackupRestorer({ client, accountId, sedeId, getSession: () => readMemberSession() }));
         setNubeVoider(async (saleId, reason) => {
@@ -108,7 +177,11 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
                 await voidSale(client, session, saleId, reason);
                 return { ok: true };
             } catch (e) {
-                return { ok: false, message: isNetworkError(e) ? 'Anular necesita internet. Intenta de nuevo con conexión.' : (e?.message || 'No se pudo anular') };
+                return {
+                    ok: false,
+                    code: e?.code,
+                    message: isNetworkError(e) ? 'Anular necesita internet. Intenta de nuevo con conexión.' : (e?.message || 'No se pudo anular'),
+                };
             }
         });
 
@@ -120,6 +193,23 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             allowNegative: () => localStorage.getItem('allow_negative_stock') === 'true',
             onQueueChange: (n) => { if (!disposed) setStatus((s) => ({ ...s, salesPending: n })); },
             onRejectedChange: () => { refreshRejected(); },
+            onSaleConfirmed: async (saleId, number) => {
+                // A2: limpiar `sale.nube.pending` y grabar el número asignado por el servidor.
+                await withPosLock(async () => {
+                    const localSales = await storageService.getItem('bodega_sales_v1', []);
+                    if (!Array.isArray(localSales) || !localSales.length) return;
+                    let changed = false;
+                    const updated = localSales.map((s) => {
+                        if (String(s?.nube?.saleId) !== String(saleId)) return s;
+                        if (!s.nube.pending && s.nube.number === number) return s;
+                        changed = true;
+                        return { ...s, nube: { ...s.nube, pending: false, ...(number ? { number } : {}) } };
+                    });
+                    if (changed) {
+                        await storageService.setItem('bodega_sales_v1', updated);
+                    }
+                });
+            },
         });
         // Ventas que el servidor rechazó para siempre (S3): se avisan y se pueden reintentar.
         const refreshRejected = async () => {
@@ -131,16 +221,21 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
         setNubeSaleSubmitter(sales);
         sales.pending().then((n) => { if (!disposed) setStatus((s) => ({ ...s, salesPending: n })); });
         refreshRejected();
-        setStatus((s) => ({ ...s, retryRejectedSales: () => sales.retryRejected() }));
+        setStatus((s) => ({
+            ...s,
+            retryRejectedSales: () => sales.retryRejected(),
+            discardRejectedSale: (saleId) => sales.discardRejected(saleId),
+        }));
 
         // F3: el stock que se ve en la caja es el del servidor (sede de este equipo).
         // S5: solo lo cambiado, y el aviso en vivo se aplica sin releer (stockMirror.js).
-        const stock = createStockMirror({
+        stock = createStockMirror({
             client,
             sedeId,
             watcher,
             readProducts: () => storageService.getItem('bodega_products_v1', []),
-            writeProducts: (products) => runWithoutEco(() => storageService.setItem('bodega_products_v1', products, { skipSyncPush: true })),
+            writeProducts: (products) => storageService.setItem('bodega_products_v1', products, { skipSyncPush: true, fromCloud: true }),
+            withLocalLock: withPosLock,
             onServerContact: () => sales.markOnline(), // D8: hablar con el servidor renueva el permiso sin internet
         });
         const refreshLevels = async () => {
@@ -152,9 +247,49 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             }
         };
 
+        // C4: sincroniza anulaciones ejecutadas desde Supervisor hacia bodega_sales_v1 local.
+        const syncRemoteCashVoids = async () => {
+            if (disposed || !deviceId) return;
+            try {
+                const { data, error } = await client.from('sales')
+                    .select('id, payload, voided_at, void_reason')
+                    .eq('device_id', deviceId)
+                    .eq('status', 'anulada')
+                    .order('voided_at', { ascending: false })
+                    .limit(100);
+                if (error || !Array.isArray(data) || !data.length) return;
+                const voidBySaleId = new Map();
+                const voidByLocalId = new Map();
+                for (const row of data) {
+                    const info = { voidedAt: row.voided_at, voidReason: row.void_reason || '' };
+                    if (row.id) voidBySaleId.set(String(row.id), info);
+                    if (row.payload?.localId) voidByLocalId.set(String(row.payload.localId), info);
+                }
+                await withPosLock(async () => {
+                    const localSales = await storageService.getItem('bodega_sales_v1', []);
+                    if (!Array.isArray(localSales) || !localSales.length) return;
+                    let changed = false;
+                    const updated = localSales.map((s) => {
+                        if (!s || s.status === 'ANULADA') return s;
+                        const match = (s.nube?.saleId && voidBySaleId.get(String(s.nube.saleId)))
+                            || (s.id && voidByLocalId.get(String(s.id)));
+                        if (!match) return s;
+                        changed = true;
+                        return { ...s, status: 'ANULADA', voidedAt: match.voidedAt, voidReason: match.voidReason };
+                    });
+                    if (changed) {
+                        await storageService.setItem('bodega_sales_v1', updated, { skipSyncPush: true, fromCloud: true });
+                    }
+                });
+            } catch (e) {
+                console.warn('[nube] no se pudo sincronizar anulaciones remotas de caja', e?.message || e);
+            }
+        };
+
         (async () => {
             await engine.pull();
-            if (!disposed) await markNubeRateReady();
+            // C14: solo habilitar publicación de tasas si el pull inicial no falló por red.
+            await ensureRateReady();
             // Lo que se guardó mientras el enganche no estaba instalado.
             for (const key of Object.keys(SYNCED_KEYS)) {
                 if (disposed) return;
@@ -163,11 +298,44 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             }
             await engine.flush();
             await sales.replay();
+            // T22 (ALT-18): si un admin restauró/trajo catálogo local sin niveles en servidor,
+            // sembrar stock inicial de forma determinista e idempotente antes de aplicar espejo.
+            try {
+                const mem = readMemberSession();
+                if (mem?.token && ['dueno', 'administrador'].includes(mem.role)) {
+                    const [localProds, srvLevelsRes] = await Promise.all([
+                        storageService.getItem('bodega_products_v1', []),
+                        sedeId
+                            ? client.from('stock_levels').select('product_id, qty').eq('sede_id', sedeId)
+                            : client.from('stock_levels').select('product_id, qty'),
+                    ]);
+                    if (!srvLevelsRes?.error && Array.isArray(localProds) && localProds.length) {
+                        const levelsMap = Object.fromEntries(
+                            (srvLevelsRes.data || []).map((r) => [String(r.product_id), Number(r.qty) || 0]),
+                        );
+                        await seedMissingStock(client, {
+                            session: mem.token,
+                            role: mem.role,
+                            accountId,
+                            sedeId,
+                            products: localProds,
+                            levels: levelsMap,
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('[nube] seedMissingStock omitido:', e?.message || e);
+            }
             await refreshLevels();
+            await syncRemoteCashVoids();
             const localLedger = await storageService.getItem(LEDGER_KEY, null);
             if (localLedger) await ledger.onLedgerWrite(localLedger);
             await ledger.flush();
             await ledger.pull();
+            const localSupplierLedger = await storageService.getItem(SUPPLIER_LEDGER_KEY, null);
+            if (localSupplierLedger) await supplierLedger.onLedgerWrite(localSupplierLedger);
+            await supplierLedger.flush();
+            await supplierLedger.pull();
         })();
 
         // Canales en vivo que se reabren solos si Supabase los corta; al volver se baja
@@ -177,9 +345,10 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
                 (payload) => {
                     const c = payload?.new?.collection;
                     if (c === 'reset') { onResetRef.current?.(); return; }
+                    if (c === 'cash_voids') { syncRemoteCashVoids(); ledger.pull(); refreshLevels(); return; }
                     engine.pull(c ? [c] : undefined);
                 }),
-            { onUp: ({ reconnected }) => { if (reconnected) engine.pull(); } });
+            { onUp: ({ reconnected }) => { if (reconnected) { engine.pull().then(ensureRateReady); syncRemoteCashVoids(); } } });
         const levelsChannel = keepChannel(client, `pdn-stock-${accountId}-${sedeId || 'todas'}`,
             (ch) => ch.on('postgres_changes', { event: '*', schema: 'public', table: 'stock_levels', ...(sedeId ? { filter: `sede_id=eq.${sedeId}` } : {}) },
                 (payload) => { if (!disposed && !stock.applyRealtime(payload?.new)) refreshLevels(); }),
@@ -188,6 +357,10 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             (ch) => ch.on('postgres_changes', { event: '*', schema: 'public', table: 'customer_balances', filter: `account_id=eq.${accountId}` },
                 () => ledger.pull()),
             { onUp: ({ reconnected }) => { if (reconnected) ledger.pull(); } });
+        const supplierBalancesChannel = keepChannel(client, `pdn-proveedores-${accountId}`,
+            (ch) => ch.on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_balances', filter: `account_id=eq.${accountId}` },
+                () => supplierLedger.pull()),
+            { onUp: ({ reconnected }) => { if (reconnected) supplierLedger.pull(); } });
 
         // La tasa tiene que verse al momento en todas las cajas: si el canal en vivo está
         // caído, se revisa `settings` cada 10 s (un registro; sin cambios no baja nada).
@@ -207,12 +380,14 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             if (!force && live && Date.now() - lastPull < SLOW_POLL_MS) {
                 sales.replay();
                 ledger.flush();
+                supplierLedger.flush();
                 return;
             }
             lastPull = Date.now();
             engine.pull();
             sales.replay().then(refreshLevels);
             ledger.flush().then(() => ledger.pull());
+            supplierLedger.flush().then(() => supplierLedger.pull());
         };
         const timer = setInterval(tick, POLL_MS);
         const forceTick = () => tick({ force: true });
@@ -223,10 +398,13 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             disposed = true;
             setNubeLocalWriteHandler(null);
             setNubeStockFlusher(null);
+            setNubeStockBaselineAdjuster(null);
+            setNubeStockCountSubmitter(null);
             setNubeSaleSubmitter(null);
             setNubeVoider(null);
             setNubeBackupRestorer(null);
             setNubeRateLink(null);
+            setNubeBusinessConfigLink(null);
             clearInterval(timer);
             clearInterval(rateTimer);
             document.removeEventListener('visibilitychange', forceTick);
@@ -234,6 +412,7 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             channel.dispose();
             levelsChannel.dispose();
             balancesChannel.dispose();
+            supplierBalancesChannel.dispose();
             engineRef.current = null;
         };
     }, [client, accountId, sedeId, deviceId, enabled]);

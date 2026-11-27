@@ -11,7 +11,10 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+
+const scryptAsync = promisify(crypto.scrypt);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -119,6 +122,8 @@ const ALLOWED_TABLES = new Set([
     'stock_discrepancies',
     'customer_movements',
     'customer_balances',
+    'supplier_movements',
+    'supplier_balances',
     'cash_shifts',
 ]);
 
@@ -129,6 +134,7 @@ const MUTATING_RPCS = new Set([
     'push_records',
     'push_records_v2',
     'push_customer_movements',
+    'push_supplier_movements',
     'reset_account',
     'register_device',
     'assign_device',
@@ -137,6 +143,10 @@ const MUTATING_RPCS = new Set([
     'team_revoke_device',
     'upsert_member',
     'team_upsert_member',
+    'member_change_own_pin',
+    'owner_set_own_pin',
+    'resolve_discrepancy',
+    'create_sede',
     'create_account',
 ]);
 
@@ -178,18 +188,18 @@ function parseSelectList(selectStr) {
         .join(', ');
 }
 
-function hashPassword(password) {
+async function hashPassword(password) {
     const salt = crypto.randomBytes(16).toString('hex');
-    const derived = crypto.scryptSync(String(password), salt, 64).toString('hex');
+    const derived = (await scryptAsync(String(password), salt, 64)).toString('hex');
     return `scrypt$${salt}$${derived}`;
 }
 
-function verifyPassword(password, stored) {
+async function verifyPassword(password, stored) {
     const parts = String(stored || '').split('$');
     if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
     const [, salt, hex] = parts;
     const expected = Buffer.from(hex, 'hex');
-    const actual = crypto.scryptSync(String(password), salt, 64);
+    const actual = await scryptAsync(String(password), salt, 64);
     if (expected.length !== actual.length) return false;
     return crypto.timingSafeEqual(expected, actual);
 }
@@ -257,6 +267,40 @@ export async function createLanDb({
         return next;
     };
 
+    // C20 (T14): durabilidad PGlite — ejecutar CHECKPOINT tras cada 10 mutaciones o 30 s en idle
+    // para minimizar pérdida ante corte eléctrico (PGlite corre con fsync=off).
+    let dirtyMutations = 0;
+    let hasBackupChanges = false;
+    let checkpointTimer = null;
+
+    async function flushCheckpointNow() {
+        clearTimeout(checkpointTimer);
+        checkpointTimer = null;
+        if (dirtyMutations === 0) return;
+        dirtyMutations = 0;
+        try {
+            await db.exec('CHECKPOINT;');
+        } catch {
+            /* ignorar si está cerrando */
+        }
+    }
+
+    async function markDirtyMutation() {
+        dirtyMutations += 1;
+        hasBackupChanges = true;
+        if (dirtyMutations >= 10) {
+            await flushCheckpointNow();
+            return;
+        }
+        if (!checkpointTimer) {
+            checkpointTimer = setTimeout(() => {
+                checkpointTimer = null;
+                enqueue(flushCheckpointNow).catch(() => {});
+            }, 30_000);
+            checkpointTimer.unref?.();
+        }
+    }
+
     async function asUser(user, fn) {
         return db.transaction(async (tx) => {
             if (user === 'service') {
@@ -294,6 +338,7 @@ export async function createLanDb({
         if (String(password || '').length < 8) {
             throw Object.assign(new Error('La contraseña debe tener al menos 8 caracteres.'), { code: 'weak_password', status: 400 });
         }
+        const pwHash = await hashPassword(password);
         return enqueue(async () => {
             const exists = (await db.query('select user_id from lan_auth.owner_credentials where lower(email) = $1', [cleanEmail])).rows;
             if (exists.length) {
@@ -301,7 +346,6 @@ export async function createLanDb({
             }
             const userId = crypto.randomUUID();
             const token = crypto.randomBytes(32).toString('hex');
-            const pwHash = hashPassword(password);
             await db.transaction(async (tx) => {
                 await tx.query('insert into auth.users (id, email, is_anonymous) values ($1, $2, false)', [userId, cleanEmail]);
                 await tx.query('insert into lan_auth.owner_credentials (user_id, email, password_hash) values ($1, $2, $3)', [userId, cleanEmail, pwHash]);
@@ -313,14 +357,16 @@ export async function createLanDb({
 
     async function signInOwner(email, password) {
         const cleanEmail = String(email || '').trim().toLowerCase();
-        return enqueue(async () => {
+        const row = await enqueue(async () => {
             const rows = (
                 await db.query('select user_id, email, password_hash from lan_auth.owner_credentials where lower(email) = $1', [cleanEmail])
             ).rows;
-            const row = rows[0];
-            if (!row || !verifyPassword(password, row.password_hash)) {
-                throw Object.assign(new Error('Invalid login credentials'), { code: 'invalid_credentials', status: 401 });
-            }
+            return rows[0] || null;
+        });
+        if (!row || !(await verifyPassword(password, row.password_hash))) {
+            throw Object.assign(new Error('Invalid login credentials'), { code: 'invalid_credentials', status: 401 });
+        }
+        return enqueue(async () => {
             const token = crypto.randomBytes(32).toString('hex');
             await db.query('insert into lan_auth.sessions (token, user_id, is_anonymous) values ($1, $2, false)', [token, row.user_id]);
             return { token, user: { id: row.user_id, email: row.email, anonymous: false } };
@@ -362,8 +408,8 @@ export async function createLanDb({
         if (String(newPassword || '').length < 8) {
             throw Object.assign(new Error('La contraseña debe tener al menos 8 caracteres.'), { code: 'weak_password', status: 400 });
         }
+        const pwHash = await hashPassword(newPassword);
         return enqueue(async () => {
-            const pwHash = hashPassword(newPassword);
             await db.query('update lan_auth.owner_credentials set password_hash = $1 where user_id = $2', [pwHash, user.id]);
             const rows = (await db.query('select email from auth.users where id = $1', [user.id])).rows;
             return { email: rows[0]?.email ?? null };
@@ -528,7 +574,7 @@ export async function createLanDb({
         });
     }
 
-    async function collectChangedEvents(sinceTs) {
+    async function collectChangedEvents(sinceTs, safeFn = null, args = null, data = null) {
         const events = [];
         const syncRows = (
             await db.query(
@@ -573,6 +619,120 @@ export async function createLanDb({
                 table: 'customer_balances',
                 account_id: r.account_id,
                 new: { ...r, balance_usd: Number(r.balance_usd) },
+            });
+        }
+
+        try {
+            const supBalRows = (
+                await db.query(
+                    'select account_id, supplier_id, debt_usd, updated_at from public.supplier_balances where updated_at >= $1',
+                    [sinceTs],
+                    { parsers: TIMESTAMP_AS_TEXT },
+                )
+            ).rows;
+            for (const r of supBalRows) {
+                events.push({
+                    table: 'supplier_balances',
+                    account_id: r.account_id,
+                    new: { ...r, debt_usd: Number(r.debt_usd) },
+                });
+            }
+        } catch {
+            /* tabla opcional en bases sin migración 020 */
+        }
+
+        // T16 (ALT-09): emitir eventos SSE para account_devices, account_members y stock_discrepancies.
+        const devSeen = new Set();
+        const devRows = (
+            await db.query(
+                `select id, account_id, sede_id, role, caja_letter, label, revoked_at, created_at
+                 from public.account_devices
+                 where created_at >= $1 or revoked_at >= $1`,
+                [sinceTs],
+                { parsers: TIMESTAMP_AS_TEXT },
+            )
+        ).rows;
+        for (const r of devRows) {
+            devSeen.add(r.id);
+            events.push({ table: 'account_devices', account_id: r.account_id, new: r });
+        }
+        const touchedDeviceId = args?.p_device_id || args?.p_id;
+        if (
+            touchedDeviceId
+            && !devSeen.has(touchedDeviceId)
+            && ['revoke_device', 'team_revoke_device', 'assign_device', 'team_rename_device'].includes(safeFn)
+        ) {
+            const extra = (
+                await db.query(
+                    `select id, account_id, sede_id, role, caja_letter, label, revoked_at, created_at
+                     from public.account_devices where id = $1 limit 1`,
+                    [touchedDeviceId],
+                    { parsers: TIMESTAMP_AS_TEXT },
+                )
+            ).rows[0];
+            if (extra) events.push({ table: 'account_devices', account_id: extra.account_id, new: extra });
+        }
+
+        const memSeen = new Set();
+        const memRows = (
+            await db.query(
+                `select id, account_id, display_name, role, active, pin_length, created_at
+                 from public.account_members
+                 where created_at >= $1`,
+                [sinceTs],
+                { parsers: TIMESTAMP_AS_TEXT },
+            )
+        ).rows;
+        for (const r of memRows) {
+            memSeen.add(r.id);
+            events.push({ table: 'account_members', account_id: r.account_id, new: r });
+        }
+        if (['upsert_member', 'team_upsert_member', 'member_change_own_pin', 'owner_set_own_pin'].includes(safeFn)) {
+            let targetMemberId = typeof data === 'string' ? data : (args?.p_member_id || null);
+            if (!targetMemberId && safeFn === 'member_change_own_pin' && args?.p_session) {
+                const sRow = (await db.query('select member_id from public.member_sessions where token = $1 limit 1', [args.p_session])).rows[0];
+                targetMemberId = sRow?.member_id || null;
+            }
+            if (targetMemberId && !memSeen.has(targetMemberId)) {
+                const extra = (
+                    await db.query(
+                        `select id, account_id, display_name, role, active, pin_length, created_at
+                         from public.account_members where id = $1 limit 1`,
+                        [targetMemberId],
+                        { parsers: TIMESTAMP_AS_TEXT },
+                    )
+                ).rows[0];
+                if (extra) events.push({ table: 'account_members', account_id: extra.account_id, new: extra });
+            } else if (safeFn === 'owner_set_own_pin') {
+                const owners = (
+                    await db.query(
+                        `select id, account_id, display_name, role, active, pin_length, created_at
+                         from public.account_members where role = 'dueno'`,
+                        [],
+                        { parsers: TIMESTAMP_AS_TEXT },
+                    )
+                ).rows;
+                for (const o of owners) {
+                    if (!memSeen.has(o.id)) events.push({ table: 'account_members', account_id: o.account_id, new: o });
+                }
+            }
+        }
+
+        const discRows = (
+            await db.query(
+                `select id, account_id, sede_id, product_id, sale_id, expected_qty, sold_qty, created_at, resolved_at, resolution_note
+                 from public.stock_discrepancies
+                 where created_at >= $1 or resolved_at >= $1`,
+                [sinceTs],
+                { parsers: TIMESTAMP_AS_TEXT },
+            )
+        ).rows;
+        for (const r of discRows) {
+            events.push({
+                table: 'stock_discrepancies',
+                account_id: r.account_id,
+                sede_id: r.sede_id,
+                new: { ...r, expected_qty: Number(r.expected_qty), sold_qty: Number(r.sold_qty) },
             });
         }
 
@@ -667,7 +827,8 @@ export async function createLanDb({
                     data = rows;
                 }
                 await syncOfflinePinFromRpc(safeFn, user, args, data);
-                const events = sinceTs ? await collectChangedEvents(sinceTs) : [];
+                if (sinceTs) await markDirtyMutation();
+                const events = sinceTs ? await collectChangedEvents(sinceTs, safeFn, args, data) : [];
                 return { data, error: null, events };
             } catch (error) {
                 return { data: null, error: { message: error.message, code: error.code ?? null }, events: [] };
@@ -697,7 +858,10 @@ export async function createLanDb({
                 db.query('select id, name, archived_at from public.sedes where account_id = $1 and archived_at is null order by created_at', [device.account_id]),
                 db.query(
                     `select id, display_name, role, active, created_at,
-                            case when pin_hash = '' then null when role = 'cajero' then 4 else 6 end as pin_length
+                            case
+                                when pin_hash is null or pin_hash = '' then null
+                                else coalesce(pin_length, case when role = 'cajero' then 4 else 6 end)
+                            end as pin_length
                      from public.account_members
                      where account_id = $1 and active = true
                      order by created_at`,
@@ -821,6 +985,8 @@ export async function createLanDb({
                 'stock_discrepancies',
                 'customer_movements',
                 'customer_balances',
+                'supplier_movements',
+                'supplier_balances',
                 'nube_settings',
             ];
             const data = {};
@@ -905,6 +1071,8 @@ export async function createLanDb({
                     'stock_discrepancies',
                     'customer_movements',
                     'customer_balances',
+                    'supplier_movements',
+                    'supplier_balances',
                     'nube_settings',
                 ];
                 for (const table of insertOrder) {
@@ -922,6 +1090,12 @@ export async function createLanDb({
                                 (select max(seq) from public.customer_movements), true)`,
                     );
                 }
+                if (Array.isArray(t.supplier_movements) && t.supplier_movements.length) {
+                    await tx.exec(
+                        `select setval(pg_get_serial_sequence('public.supplier_movements', 'seq'),
+                                (select max(seq) from public.supplier_movements), true)`,
+                    );
+                }
 
                 for (const v of snapshot.offlineVerifiers || []) {
                     await tx.query(
@@ -932,12 +1106,41 @@ export async function createLanDb({
                     );
                 }
 
-                const invariants = (await tx.query('select * from nube_private.verify_invariants()')).rows;
-                if (invariants.length) {
-                    throw new Error(`El respaldo tiene descuadres internos: ${invariants[0].issue || 'invariante fallida'}`);
+                const rawInvariants = (await tx.query('select * from nube_private.verify_invariants()')).rows;
+                // C19 (T14): `diferencias_abiertas` es un aviso informativo de sobreventa offline,
+                // NO un descuadre de integridad; nunca debe abortar la restauración de un respaldo.
+                const blockingInvariants = rawInvariants.filter((r) => r.check_name !== 'diferencias_abiertas');
+                if (blockingInvariants.length) {
+                    const first = blockingInvariants[0];
+                    throw new Error(`El respaldo tiene descuadres internos: ${first.check_name || first.issue || 'invariante fallida'}`);
+                }
+
+                // C19 (T14): subir reset_epoch en todas las cuentas restauradas y emitir aviso
+                // `reset` en account_sync_state para que las cajas limpien cursores y re-bajen todo.
+                const restoredAccounts = (await tx.query('update public.accounts set reset_epoch = coalesce(reset_epoch, 0) + 1 returning id')).rows;
+                for (const acc of restoredAccounts) {
+                    await tx.query(
+                        `insert into public.account_sync_state (account_id, collection, changed_at)
+                         values ($1, 'reset', now())
+                         on conflict (account_id, collection) do update set changed_at = excluded.changed_at`,
+                        [acc.id],
+                    );
                 }
             });
-            return await readServerSummaryUnsafe();
+            await markDirtyMutation();
+            await flushCheckpointNow();
+            const resetSyncRows = (
+                await db.query(
+                    "select account_id, collection, changed_at from public.account_sync_state where collection = 'reset'",
+                    [],
+                    { parsers: TIMESTAMP_AS_TEXT },
+                )
+            ).rows;
+            const summary = await readServerSummaryUnsafe();
+            return {
+                ...summary,
+                resetEvents: resetSyncRows.map((r) => ({ table: 'account_sync_state', account_id: r.account_id, new: r })),
+            };
         });
     }
 
@@ -1096,12 +1299,14 @@ export async function createLanDb({
         }
 
         if (action === 'update_rate') {
+            const rawData = payload.data || {};
+            const wrappedData = (rawData.value && typeof rawData.value === 'object') ? rawData : { value: rawData };
             const res = await runRpc(ownerUser, 'push_records_v2', {
                 p_session: null,
                 p_collection: 'settings',
                 p_records: [{
                     id: 'pdn_rate_v1',
-                    data: payload.data || {},
+                    data: wrappedData,
                     ...(payload.base_version != null ? { base_version: payload.base_version } : {}),
                 }],
             });
@@ -1142,6 +1347,7 @@ export async function createLanDb({
     }
 
     async function bootstrapLocalOwner() {
+        const pwHash = await hashPassword(crypto.randomBytes(24).toString('hex'));
         return enqueue(async () => {
             const existing = (await db.query('select id, owner_user_id from public.accounts order by created_at limit 1')).rows;
             if (existing.length) {
@@ -1150,7 +1356,6 @@ export async function createLanDb({
             const userId = crypto.randomUUID();
             const token = crypto.randomBytes(32).toString('hex');
             const email = `dueno-${userId.slice(0, 8)}@local.lan`;
-            const pwHash = hashPassword(crypto.randomBytes(24).toString('hex'));
             await db.transaction(async (tx) => {
                 await tx.query('insert into auth.users (id, email, is_anonymous) values ($1, $2, false)', [userId, email]);
                 await tx.query('insert into lan_auth.owner_credentials (user_id, email, password_hash) values ($1, $2, $3)', [userId, email, pwHash]);
@@ -1244,7 +1449,7 @@ export async function createLanDb({
                 await tx.query(
                     `update public.account_members
                         set pin_hash = extensions.crypt($2, extensions.gen_salt('bf')),
-                            pin_length = 6,
+                            pin_length = length($2),
                             active = true,
                             failed_attempts = 0,
                             lockouts = 0,
@@ -1317,7 +1522,10 @@ export async function createLanDb({
     }
 
     async function close() {
+        clearTimeout(checkpointTimer);
+        checkpointTimer = null;
         await enqueue(async () => {
+            try { await db.exec('CHECKPOINT;'); } catch { /* ignorar */ }
             await db.close();
         });
     }
@@ -1325,6 +1533,8 @@ export async function createLanDb({
     return {
         db,
         lanId,
+        hasPendingBackupChanges: () => hasBackupChanges,
+        markBackupSaved: () => { hasBackupChanges = false; },
         createDeviceSession,
         signUpOwner,
         signInOwner,

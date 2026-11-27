@@ -1,9 +1,13 @@
 import crypto from 'node:crypto';
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createLanServer } from '../../desktop/server/lanServer.mjs';
 import { createLanClient } from '../../src/lan/lanClient';
 import * as svc from '../../src/nube/accountService';
+import { IDB_KEYS, LS_KEYS } from '../../src/config/backupKeys';
 
 const cleanups = [];
 
@@ -135,4 +139,90 @@ describe('F-21 Restauración de respaldo y F-22 Licencia RSA Offline', () => {
         const devices = await svc.listOwnerDevices(owner);
         expect(devices).toHaveLength(3);
     }, 60_000);
+
+    it('T14 · C19: restoreJsonSnapshot funciona con discrepancias abiertas, incrementa reset_epoch, notifica SSE reset y preserva imágenes', async () => {
+        const tmp1 = fs.mkdtempSync(path.join(os.tmpdir(), 'pdn-t14-1-'));
+        const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), 'pdn-t14-2-'));
+        cleanups.push(async () => {
+            fs.rmSync(tmp1, { recursive: true, force: true });
+            fs.rmSync(tmp2, { recursive: true, force: true });
+        });
+
+        const srv1 = await createLanServer({
+            port: 0,
+            host: '127.0.0.1',
+            imagesDir: path.join(tmp1, 'imgs'),
+            backupsDir: path.join(tmp1, 'baks'),
+            enableDiscovery: false,
+        });
+        cleanups.push(() => srv1.close());
+
+        const owner1 = createLanClient({ baseUrl: srv1.baseUrl, persistSession: false });
+        await svc.ownerSignUp(owner1, 'disc@bodega.local', 'ClaveSegura123');
+        await svc.createAccount(owner1, {
+            businessName: 'Abasto Discrepancia',
+            sedeName: 'Principal',
+            ownerName: 'Ana',
+            ownerPin: '142536',
+        });
+
+        const caja1 = createLanClient({ baseUrl: srv1.baseUrl, persistSession: false });
+        const uid1 = await svc.ensureDeviceSession(caja1);
+        await svc.registerDevice(owner1, { deviceUserId: uid1, label: 'Caja 1', role: 'caja' });
+        const members1 = await svc.listMembers(caja1);
+        const sess1 = await svc.loginWithPin(caja1, members1[0].id, '142536');
+
+        // Subir imagen de prueba (1x1 PNG)
+        const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+        const imgUrl = await caja1.lan.uploadImage(tinyPng, 'p-img');
+        expect(imgUrl).toContain('/lan/images/p-img.png');
+
+        // Generar una discrepancia abierta (venta offline con stock 0 -> fila en stock_discrepancies)
+        const checkoutRes = await caja1.rpc('process_checkout', {
+            p_session: sess1.token,
+            p_sale: { id: randomUUID(), items: [{ product_id: 'p-img', qty: 2 }], total_usd: 10 },
+            p_offline: true,
+            p_allow_negative: false,
+        });
+        expect(checkoutRes.error).toBeNull();
+
+        const snapshot = await owner1.lan.exportSnapshot();
+        expect(snapshot.tables.stock_discrepancies).toHaveLength(1);
+        expect(snapshot.images?.['p-img.png']).toBeTruthy();
+
+        // Servidor 2 recibe el restore -> NO debe abortar por diferencias_abiertas
+        const srv2 = await createLanServer({
+            port: 0,
+            host: '127.0.0.1',
+            imagesDir: path.join(tmp2, 'imgs'),
+            backupsDir: path.join(tmp2, 'baks'),
+            enableDiscovery: false,
+        });
+        cleanups.push(() => srv2.close());
+
+        const restoreRes = await fetch(`${srv2.baseUrl}/lan/backup/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(snapshot),
+        });
+        const restoreJson = await restoreRes.json();
+        expect(restoreRes.status).toBe(200);
+        expect(restoreJson.ok).toBe(true);
+
+        // Verificar que reset_epoch subió a >= 1 y la imagen fue restaurada en disco
+        const owner2 = createLanClient({ baseUrl: srv2.baseUrl, persistSession: false });
+        await svc.ownerSignIn(owner2, 'disc@bodega.local', 'ClaveSegura123');
+        const { data: accs } = await owner2.from('accounts').select('reset_epoch');
+        expect(Number(accs[0].reset_epoch)).toBeGreaterThanOrEqual(1);
+
+        const imgFetch = await fetch(`${srv2.baseUrl}/lan/images/p-img.png`);
+        expect(imgFetch.status).toBe(200);
+    }, 60_000);
+
+    it('T14 · A9: backupKeys incluye pdn_rate_v1, bodega_cashea_ledger_v1, bodega_rate_mode y tax_config_v1', () => {
+        expect(IDB_KEYS).toContain('pdn_rate_v1');
+        expect(IDB_KEYS).toContain('bodega_cashea_ledger_v1');
+        expect(LS_KEYS).toContain('bodega_rate_mode');
+        expect(LS_KEYS).toContain('tax_config_v1');
+    });
 });

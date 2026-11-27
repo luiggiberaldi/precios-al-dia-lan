@@ -13,14 +13,23 @@
  * G12 (nunca documentos gigantes; avisos baratos por account_sync_state).
  */
 
+import { withLock } from '../utils/withLock';
+
 export const SYNCED_KEYS = Object.freeze({
     bodega_products_v1: { collection: 'products', kind: 'list', keep: ['stock', 'stockInLotes', 'stockAsOf', 'stockBefore', 'stockAfter'] },
-    bodega_customers_v1: { collection: 'customers', kind: 'list', keep: ['deuda', 'favor', 'saldo', 'balance', 'creditBalance'] },
-    bodega_suppliers_v1: { collection: 'suppliers', kind: 'list', keep: [] },
+    bodega_customers_v1: { collection: 'customers', kind: 'list', keep: ['deuda', 'favor', 'saldo', 'balance', 'creditBalance', 'casheaDeuda'] },
+    bodega_cashea_ledger_v1: { collection: 'cashea', kind: 'list', keep: [] },
+    bodega_suppliers_v1: { collection: 'suppliers', kind: 'list', keep: ['deuda'] },
+    bodega_supplier_invoices_v1: { collection: 'supplier_invoices', kind: 'list', keep: [] },
+    bodega_employees_v1: { collection: 'employees', kind: 'list', keep: [] },
+    bodega_payroll_entries_v1: { collection: 'payroll_entries', kind: 'list', keep: [] },
+    bodega_merchandise_purchases_v1: { collection: 'purchases', kind: 'list', keep: [] },
     bodega_payment_methods_v1: { collection: 'payment_methods', kind: 'list', keep: [] },
     my_categories_v1: { collection: 'settings', kind: 'value', keep: [] },
     // Tasa única de la cuenta (rateSync.js): la cambian el dueño o un administrador.
     pdn_rate_v1: { collection: 'settings', kind: 'value', keep: [] },
+    // T19: configuración del negocio (IVA, stock negativo, datos comercio, políticas) como objeto plano 3-way.
+    pdn_business_config_v1: { collection: 'settings', kind: 'object', keep: [] },
     // F5: el turno de caja (ventas, apertura, gastos, aportes, cobros…). Cada caja SUBE lo
     // suyo y no baja lo de otras (pushOnly): el cierre de una caja no toca a otra.
     bodega_sales_v1: { collection: 'cash', kind: 'list', keep: [], pushOnly: true, cash: true },
@@ -29,27 +38,52 @@ export const SYNCED_KEYS = Object.freeze({
 /** Registros de caja más viejos que esto no se suben (quedan en el respaldo, G12). */
 export const CASH_MAX_AGE_DAYS = 120;
 
-/** Registro de caja aligerado: sin el detalle pesado de cada producto. */
+const SLIM_ITEM_FIELDS = [
+    'id', '_originalId', 'name', 'qty', 'priceUsd', 'costUsd', 'costBs',
+    'isWeight', 'unit', 'granelUnit', 'packagingType', '_mode', '_unitsPerPackage',
+    'isCashAdvance', 'montoEfectivo', 'montoComision', 'comisionPct', 'currency',
+];
+
+/** Registro de caja aligerado: sin el detalle pesado del producto pero conservando campos financieros. */
 export function slimCashRecord(rec) {
     const out = { ...rec };
     delete out.stockEffects;
     if (Array.isArray(out.items)) {
-        out.items = out.items.map((i) => ({ id: i?._originalId || i?.id, name: i?.name, qty: i?.qty, priceUsd: i?.priceUsd }));
+        out.items = out.items.map((item) => {
+            if (!item || typeof item !== 'object') return item;
+            const slim = {};
+            for (const field of SLIM_ITEM_FIELDS) {
+                if (item[field] !== undefined) slim[field] = item[field];
+            }
+            return slim;
+        });
     }
     return out;
 }
 
 const KEY_BY_COLLECTION = Object.fromEntries(
-    Object.entries(SYNCED_KEYS).map(([key, cfg]) => [`${cfg.collection}:${cfg.kind === 'value' ? key : '*'}`, key]),
+    Object.entries(SYNCED_KEYS).map(([key, cfg]) => [`${cfg.collection}:${cfg.kind === 'value' || cfg.kind === 'object' ? key : '*'}`, key]),
 );
 
 /** Tamaño máximo que se intenta subir por registro (el servidor corta en 100 KB). */
 export const MAX_RECORD_BYTES = 90_000;
+export const RECORD_REJECTED_KEY = 'pdn_record_rejected_v1';
 const PUSH_BATCH = 200;
 const PULL_PAGE = 500;
 // updated_at es la hora en que EMPEZÓ la transacción: una subida lenta confirma filas «del
 // pasado». Se vuelve a mirar este margen (lo repetido se descarta por versión).
 const PULL_OVERLAP_MS = 60_000;
+
+const _utf8Encoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
+export function utf8ByteLength(value) {
+    const str = typeof value === 'string' ? value : JSON.stringify(value);
+    if (!str) return 0;
+    return _utf8Encoder ? _utf8Encoder.encode(str).length : str.length * 2;
+}
+
+function isPermanentDataError(error) {
+    return /^2[23]/.test(String(error?.code || ''));
+}
 
 // ─── Utilidades puras ────────────────────────────────────────────────────────
 
@@ -98,7 +132,7 @@ export function toCloudData(cfg, item) {
             /* conservar valor original */
         }
     }
-    if (JSON.stringify(data).length > MAX_RECORD_BYTES && typeof data.image === 'string' && data.image.startsWith('data:')) {
+    if (utf8ByteLength(data) > MAX_RECORD_BYTES && typeof data.image === 'string' && data.image.startsWith('data:')) {
         data = omit(data, ['image']);
     }
     return data;
@@ -126,6 +160,10 @@ export function toRecords(key, value, { cashIdSuffix = null, now = Date.now() } 
     const cfg = SYNCED_KEYS[key];
     if (!cfg) return [];
     if (cfg.kind === 'value') return [{ id: key, data: { value: value ?? null } }];
+    if (cfg.kind === 'object') {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+        return [{ id: key, data: value }];
+    }
     if (!Array.isArray(value)) return [];
     const oldest = now - CASH_MAX_AGE_DAYS * 86_400_000;
     return value
@@ -144,6 +182,11 @@ export function mergeIntoLocal(key, localValue, rows) {
         if (!last) return localValue;
         return last.deleted_at ? localValue : (last.data?.value ?? localValue);
     }
+    if (cfg.kind === 'object') {
+        const last = rows[rows.length - 1];
+        if (!last) return localValue;
+        return last.deleted_at ? localValue : (last.data && typeof last.data === 'object' ? last.data : localValue);
+    }
     const list = Array.isArray(localValue) ? [...localValue] : [];
     const index = new Map(list.map((item, i) => [String(item?.id), i]));
     const removed = new Set();
@@ -154,8 +197,10 @@ export function mergeIntoLocal(key, localValue, rows) {
             continue;
         }
         const merged = { ...row.data, ...pick(at !== undefined ? list[at] : null, cfg.keep) };
-        if (at !== undefined) list[at] = merged;
-        else { index.set(row.id, list.length); list.push(merged); }
+        if (at !== undefined) {
+            removed.delete(at);
+            list[at] = merged;
+        } else { index.set(row.id, list.length); list.push(merged); }
     }
     return list.filter((_, i) => !removed.has(i));
 }
@@ -178,22 +223,30 @@ function isMissingRpc(error) {
  *   (un cajero no sube catálogo ni ajustes). Solo los cambios que SÍ se pueden subir se
  *   protegen al bajar; los demás los corrige lo que manda la nube.
  */
-export function createRecordSync({ client, getSession, store, readLocal, writeLocal, onStatus = () => {}, cashIdSuffix = null, canPush = () => true }) {
+export function createRecordSync({
+    client,
+    getSession,
+    store,
+    readLocal,
+    writeLocal,
+    withLocalLock = (fn) => fn(),
+    onStatus = () => {},
+    onPulled = () => {},
+    cashIdSuffix = null,
+    canPush = () => true,
+}) {
     let flushing = null;
     let pulling = null;
     const pullAgain = new Set();
     let lastError = null;
+    let lastSizeError = null;
 
     // El estado de cada colección (versiones, cola, cursor) lo tocan onLocalWrite, flush y
-    // pull a la vez. Cada leer-modificar-guardar va en turno por colección: si no, el que
-    // guarda último borra lo que otro agregó entretanto (p. ej. un cambio encolado
-    // mientras se bajaba). La red queda FUERA del turno.
-    const turns = new Map();
+    // pull a la vez —incluso entre pestañas del mismo navegador—. Cada leer-modificar-guardar
+    // va en turno por colección con `withLock` (navigator.locks con fallback en memoria).
+    // La red queda FUERA del turno.
     function inTurn(collection, fn) {
-        const prev = turns.get(collection) || Promise.resolve();
-        const run = prev.then(fn, fn);
-        turns.set(collection, run.catch(() => {}));
-        return run;
+        return withLock(`pdn_sync_turn_${collection}`, fn, { fallbackWarning: false });
     }
 
     const stateKey = (collection) => `pdn_sync_${collection}_v1`;
@@ -218,6 +271,9 @@ export function createRecordSync({ client, getSession, store, readLocal, writeLo
     }
 
     async function queueLocalWrite(key, cfg, value) {
+        // C14: un cajero no encola cambios de colecciones restringidas para evitar
+        // escalamiento diferido cuando un administrador inicie turno después.
+        if (!canPush(cfg.collection)) return;
         const state = await loadState(cfg.collection);
         const records = toRecords(key, value, { cashIdSuffix });
         // Ids que SIGUEN en la copia local (también los de caja demasiado viejos para
@@ -231,16 +287,19 @@ export function createRecordSync({ client, getSession, store, readLocal, writeLo
         // en cada intento y deja todo lo de atrás sin subir. Los que quedaron en la cola de
         // una versión anterior se sacan aquí (los de caja vuelven a entrar con id corto).
         const queued = new Map(state.queue.filter((r) => validId(r.id)).map((r) => [r.id, r]));
+        let localSizeErr = null;
         for (const rec of records) {
             seen.add(rec.id);
             if (!validId(rec.id)) {
-                lastError = `El registro ${rec.id.slice(0, 40)}… tiene un id demasiado largo para la nube; no se subió.`;
+                localSizeErr = `El registro ${rec.id.slice(0, 40)}… tiene un id demasiado largo para la nube; no se subió.`;
+                lastError = localSizeErr;
                 continue;
             }
             const h = hashOf(rec.data);
             if (state.versions[rec.id]?.h === h && !queued.has(rec.id)) continue;
-            if (JSON.stringify(rec.data).length > MAX_RECORD_BYTES) {
-                lastError = `El registro ${rec.id} es demasiado grande para la nube; no se subió.`;
+            if (utf8ByteLength(rec.data) > MAX_RECORD_BYTES) {
+                localSizeErr = `El registro ${rec.id} es demasiado grande para la nube; no se subió.`;
+                lastError = localSizeErr;
                 continue;
             }
             // `b`: versión de la nube de la que partió el cambio local (S2). Si ya estaba en
@@ -248,6 +307,7 @@ export function createRecordSync({ client, getSession, store, readLocal, writeLo
             const b = queued.get(rec.id)?.b ?? state.versions[rec.id]?.v;
             queued.set(rec.id, { id: rec.id, data: rec.data, h, ...(b !== undefined ? { b } : {}) });
         }
+        if (localSizeErr) lastSizeError = localSizeErr;
         if (cfg.kind === 'list') {
             for (const id of Object.keys(state.versions)) {
                 if (!seen.has(id) && !present.has(id) && !state.versions[id].deleted) queued.set(id, { id, data: { id }, deleted: true, h: 'deleted' });
@@ -265,11 +325,37 @@ export function createRecordSync({ client, getSession, store, readLocal, writeLo
             if (!byKey.has(key)) byKey.set(key, []);
             byKey.get(key).push(r);
         }
-        for (const [key, list] of byKey) await writeLocal(key, mergeIntoLocal(key, await readLocal(key), list));
+        for (const [key, list] of byKey) {
+            await withLocalLock(async () => {
+                await writeLocal(key, mergeIntoLocal(key, await readLocal(key), list));
+            });
+        }
     }
 
     let rejectedCount = 0;
     let hasV2 = true;
+
+    async function quarantineRecords(items) {
+        if (!items.length) return;
+        const prev = (await store.getItem(RECORD_REJECTED_KEY)) || [];
+        await store.setItem(RECORD_REJECTED_KEY, [...prev, ...items].slice(-200));
+    }
+
+    async function rpcPushBatch(session, collection, records) {
+        const args = {
+            p_session: session,
+            p_collection: collection,
+            p_records: records.map(({ id, data: d, deleted, b }) => ({
+                id, data: d, deleted: Boolean(deleted), ...(b !== undefined ? { base_version: b } : {}),
+            })),
+        };
+        let { data, error } = await client.rpc(hasV2 ? 'push_records_v2' : 'push_records', args);
+        if (error && hasV2 && isMissingRpc(error)) {
+            hasV2 = false;
+            ({ data, error } = await client.rpc('push_records', args));
+        }
+        return { data, error };
+    }
 
     async function flushCollection(collection) {
         const session = getSession();
@@ -277,52 +363,75 @@ export function createRecordSync({ client, getSession, store, readLocal, writeLo
         let state = await loadState(collection);
         while (state.queue.length) {
             const batch = state.queue.slice(0, PUSH_BATCH);
-            const args = {
-                p_session: session,
-                p_collection: collection,
-                p_records: batch.map(({ id, data: d, deleted, b }) => ({
-                    id, data: d, deleted: Boolean(deleted), ...(b !== undefined ? { base_version: b } : {}),
-                })),
-            };
-            // push_records_v2 (migración 016) funde por campo; si la nube aún no la tiene,
-            // la forma de siempre (gana la última entera).
-            let { data, error } = await client.rpc(hasV2 ? 'push_records_v2' : 'push_records', args);
-            if (error && hasV2 && isMissingRpc(error)) {
-                hasV2 = false;
-                ({ data, error } = await client.rpc('push_records', args));
+            let { data, error } = await rpcPushBatch(session, collection, batch);
+            const quarantined = [];
+            let confirmedRows = Array.isArray(data) ? data : [];
+
+            if (error && isPermanentDataError(error)) {
+                // A11: Aislar poison-pills de clase 22/23 uno a uno sin trabar el resto del lote.
+                confirmedRows = [];
+                let transientErr = null;
+                if (batch.length === 1) {
+                    quarantined.push({ collection, id: batch[0].id, h: batch[0].h, error: error.message, code: error.code, at: new Date().toISOString() });
+                } else {
+                    for (const item of batch) {
+                        const single = await rpcPushBatch(session, collection, [item]);
+                        if (!single.error) {
+                            if (Array.isArray(single.data)) confirmedRows.push(...single.data);
+                        } else if (isPermanentDataError(single.error)) {
+                            quarantined.push({ collection, id: item.id, h: item.h, error: single.error.message, code: single.error.code, at: new Date().toISOString() });
+                        } else {
+                            transientErr = single.error;
+                            break;
+                        }
+                    }
+                }
+                if (quarantined.length) await quarantineRecords(quarantined);
+                if (transientErr && !confirmedRows.length && !quarantined.length) {
+                    throw new Error(transientErr.message || 'No se pudo subir a la nube');
+                }
+                error = null;
             }
+
             if (error) throw new Error(error.message || 'No se pudo subir a la nube');
-            const confirmed = new Map((Array.isArray(data) ? data : []).map((r) => [r.id, r]));
+            const confirmed = new Map(confirmedRows.map((r) => [r.id, r]));
+            const quarantinedSet = new Set(quarantined.map((r) => `${r.id}|${r.h}`));
             state = await inTurn(collection, async () => {
                 const s = await loadState(collection); // pudo crecer mientras subía
                 const sent = new Set(batch.filter((r) => confirmed.has(r.id)).map((r) => `${r.id}|${r.h}`));
-                s.queue = s.queue.filter((r) => !sent.has(`${r.id}|${r.h}`));
+                s.queue = s.queue.filter((r) => !sent.has(`${r.id}|${r.h}`) && !quarantinedSet.has(`${r.id}|${r.h}`));
                 const stillQueued = new Set(s.queue.map((r) => r.id));
                 const mergedRows = [];
                 for (const rec of batch) {
                     const ok = confirmed.get(rec.id);
                     if (!ok) continue;
                     if (ok.rejected) {
-                        // S4: la nube no aceptó el borrado (un cajero no borra clientes) y
+                        // S4 / C9: la nube no aceptó el borrado (cajero o cliente con saldo) y
                         // republicó el registro: olvidar la versión para que lo próximo que
                         // baje lo devuelva a la copia local.
                         delete s.versions[rec.id];
                         rejectedCount += 1;
                     } else if (ok.merged && ok.data) {
                         // S2: la nube fundió este cambio con el de otra caja. La copia local
-                        // pasa a mostrar lo fundido, salvo que ya haya otro cambio local en cola
-                        // (ese sube después con su versión base y se vuelve a fundir).
+                        // pasa a mostrar lo fundido, salvo que ya haya otro cambio local en cola.
                         s.versions[rec.id] = { v: ok.version, h: hashOf(ok.data) };
                         if (!stillQueued.has(rec.id)) mergedRows.push({ id: rec.id, data: ok.data, version: ok.version, deleted_at: null });
                     } else {
                         s.versions[rec.id] = { v: ok.version, h: rec.h, ...(rec.deleted ? { deleted: true } : {}) };
+                    }
+                    // MED-03: si el usuario editó este mismo registro mientras el lote viajaba,
+                    // actualizar la base `b` de la segunda edición a la versión recién confirmada.
+                    if (stillQueued.has(rec.id) && !ok.rejected && ok.version != null) {
+                        for (const q of s.queue) {
+                            if (q.id === rec.id) q.b = ok.version;
+                        }
                     }
                 }
                 if (mergedRows.length) await writeMerged(collection, mergedRows);
                 await saveState(collection, s);
                 return s;
             });
-            if (!confirmed.size) break;
+            if (!confirmed.size && !quarantined.length) break;
         }
     }
 
@@ -347,8 +456,8 @@ export function createRecordSync({ client, getSession, store, readLocal, writeLo
                 // Lo rechazado vuelve ya mismo (la nube lo republicó con versión nueva).
                 if (restore.size) await pull([...restore]).catch(() => {});
                 lastError = firstError || (rejectedCount
-                    ? `Solo el dueño o un administrador pueden borrar clientes: se restauraron ${rejectedCount}.`
-                    : null);
+                    ? `Solo el dueño o un administrador pueden borrar clientes (o el cliente tiene saldo pendiente): se restauraron ${rejectedCount}.`
+                    : lastSizeError);
             } finally {
                 flushing = null;
                 report();
@@ -398,7 +507,7 @@ export function createRecordSync({ client, getSession, store, readLocal, writeLo
         // subiendo lo viejo, y la caja quedaba distinta de la nube para siempre (S1).
         const pendingLocal = canPush(collection) ? new Set(state.queue.map((q) => q.id)) : new Set();
         const toApply = fresh.filter((r) => !pendingLocal.has(r.id));
-        if (fresh.length) {
+        if (toApply.length) {
             const byKey = new Map();
             for (const r of toApply) {
                 const key = KEY_BY_COLLECTION[`${collection}:${r.id}`] || KEY_BY_COLLECTION[`${collection}:*`];
@@ -407,20 +516,29 @@ export function createRecordSync({ client, getSession, store, readLocal, writeLo
                 byKey.get(key).push(r);
             }
             for (const [key, list] of byKey) {
-                const merged = mergeIntoLocal(key, await readLocal(key), list);
-                await writeLocal(key, merged);
+                await withLocalLock(async () => {
+                    const merged = mergeIntoLocal(key, await readLocal(key), list);
+                    await writeLocal(key, merged);
+                });
             }
-            for (const r of fresh) {
+            // C14: SOLO avanzar state.versions para las filas efectivamente aplicadas.
+            // Si una fila se saltó por pendingLocal, NO adelantar su versión: si luego
+            // cambia el turno a un cajero, el siguiente pull() volverá a bajarla y aplicarla.
+            for (const r of toApply) {
                 state.versions[r.id] = { v: r.version, h: r.deleted_at ? 'deleted' : hashOf(r.data), ...(r.deleted_at ? { deleted: true } : {}) };
             }
         }
+        const skippedAny = toApply.length < fresh.length;
         const newest = rows.reduce((max, r) => (r.updated_at > max ? r.updated_at : max), state.lastPulled || '');
-        if (newest) state.lastPulled = newest;
+        if (newest && !skippedAny) state.lastPulled = newest;
         // Lo bajado no debe quedar en la cola como si fuera un cambio local.
-        const freshIds = new Set(fresh.map((r) => r.id));
-        state.queue = state.queue.filter((q) => !freshIds.has(q.id) || q.h !== state.versions[q.id]?.h);
+        const appliedIds = new Set(toApply.map((r) => r.id));
+        state.queue = state.queue.filter((q) => !appliedIds.has(q.id) || q.h !== state.versions[q.id]?.h);
         await saveState(collection, state);
-        return fresh.length;
+        if (toApply.length) {
+            try { await onPulled(collection, toApply); } catch { /* nunca romper pull por un listener */ }
+        }
+        return toApply.length;
     }
 
     /**
@@ -436,16 +554,22 @@ export function createRecordSync({ client, getSession, store, readLocal, writeLo
         pulling = (async () => {
             let total = 0;
             let todo = wanted;
+            let firstError = null;
             try {
                 while (todo.length) {
-                    for (const c of todo) total += await pullCollection(c);
+                    // C13: aislar cada colección en su propio try/catch para que un fallo en una
+                    // no bloquee la sincronización de las demás (clientes, tasas, etc.).
+                    for (const c of todo) {
+                        try {
+                            total += await pullCollection(c);
+                        } catch (e) {
+                            firstError = firstError || (e?.message || String(e));
+                        }
+                    }
                     todo = [...pullAgain];
                     pullAgain.clear();
                 }
-                lastError = null;
-            } catch (e) {
-                lastError = e?.message || String(e);
-                pullAgain.clear(); // el próximo aviso o el sondeo lo reintenta
+                lastError = firstError || lastSizeError;
             } finally {
                 pulling = null;
             }

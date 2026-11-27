@@ -22,9 +22,11 @@
  * @module utils/syncFlags
  */
 
-// Flag global: cuando es `true`, pushCloudSync debe ignorar los writes
-// (los datos vienen de la nube, no queremos re-enviarlos).
-let _isSyncingFromCloud = false;
+// Contador de profundidad (ref-count): cuando es `> 0`, pushCloudSync debe
+// ignorar los writes (los datos vienen de la nube, no queremos re-enviarlos).
+// Usar contador en lugar de booleano evita que dos llamadas solapadas apaguen
+// el flag antes de que termine la más lenta.
+let _syncingDepth = 0;
 
 // Lista de setters opcionales que el Agente B puede registrar para mantener
 // sincronizado el flag local de useCloudSync con este módulo. Si el Agente B
@@ -35,7 +37,7 @@ const _cloudSyncSetters = new Set();
  * @returns {boolean} Estado actual del flag.
  */
 export function isSyncingFromCloud() {
-  return _isSyncingFromCloud;
+  return _syncingDepth > 0;
 }
 
 /**
@@ -50,11 +52,21 @@ export function registerCloudSyncSetter(setter) {
   return () => { _cloudSyncSetters.delete(setter); };
 }
 
-function _apply(v) {
-  _isSyncingFromCloud = v;
+function _notifySetters(v) {
   for (const setter of _cloudSyncSetters) {
     try { setter(v); } catch (_e) { /* nunca romper la app por un setter externo */ }
   }
+}
+
+function _enterSync() {
+  const wasActive = _syncingDepth > 0;
+  _syncingDepth += 1;
+  if (!wasActive) _notifySetters(true);
+}
+
+function _exitSync() {
+  _syncingDepth = Math.max(0, _syncingDepth - 1);
+  if (_syncingDepth === 0) _notifySetters(false);
 }
 
 /**
@@ -73,12 +85,11 @@ function _apply(v) {
  *   });
  */
 export async function runWithoutEco(fn) {
-  const prev = _isSyncingFromCloud;
-  _apply(true);
+  _enterSync();
   try {
     return await fn();
   } finally {
-    _apply(prev);
+    _exitSync();
   }
 }
 
@@ -89,12 +100,11 @@ export async function runWithoutEco(fn) {
  * @param {() => void} fn
  */
 export function runWithoutEcoSync(fn) {
-  const prev = _isSyncingFromCloud;
-  _apply(true);
+  _enterSync();
   try {
     fn();
   } finally {
-    _apply(prev);
+    _exitSync();
   }
 }
 
@@ -102,7 +112,8 @@ export function runWithoutEcoSync(fn) {
  * Reset explícito del flag (para tests y casos de emergencia).
  */
 export function _resetSyncFlag() {
-  _apply(false);
+  _syncingDepth = 0;
+  _notifySetters(false);
 }
 
 export default {

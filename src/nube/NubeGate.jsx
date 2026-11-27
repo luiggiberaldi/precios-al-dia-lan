@@ -39,6 +39,7 @@ import {
     saveCloudSupervisorSession,
 } from '../lan/cloudSupervisorClient';
 import { isNetworkError } from './stockService';
+import { keepChannel } from './realtimeChannel';
 import LanSetupScreen from '../lan/LanSetupScreen';
 import LanPairingModal from '../lan/LanPairingModal';
 import LanUpdateBanner from '../lan/LanUpdateBanner';
@@ -110,6 +111,9 @@ function NubeGateFlow({ children }) {
         electronLan.getConfig()
             .then((cfg) => {
                 if (cancelled) return;
+                if (typeof window !== 'undefined') {
+                    window.__PDN_LAN_LOCAL_SECRET__ = cfg?.localAdminSecret || null;
+                }
                 if (cfg?.serverUrl) {
                     const clean = setLanServerUrl(cfg.serverUrl, cfg.role || null);
                     setLanUrl(clean);
@@ -221,19 +225,28 @@ function NubeGateFlow({ children }) {
         let active = true;
         const probeAndUpgrade = async () => {
             try {
-                await device.lan?.health?.();
-                if (!active) return;
-                const saved = readMemberSession();
-                if (saved?.offline && offlinePinRef.current?.memberId === saved.memberId) {
-                    const real = await svc.loginWithPin(device, saved.memberId, offlinePinRef.current.pin);
-                    if (!active) return;
-                    offlinePinRef.current = null;
-                    saveMemberSession(real);
-                    setOfflineMode(false);
-                    device.lan?.fetchOfflinePassport?.().then((p) => { if (p) saveOfflinePassport(p); }).catch(() => {});
-                } else if (phase === 'elegir') {
-                    await refresh();
-                }
+                await runOfflineProbeUpgrade({
+                    checkHealth: () => device.lan?.health?.(),
+                    guardReset: async () => {
+                        if (!active) return true;
+                        return guardReset();
+                    },
+                    readSession: readMemberSession,
+                    offlinePin: offlinePinRef.current,
+                    loginWithPin: (memberId, pin) => svc.loginWithPin(device, memberId, pin),
+                    saveSession: (real) => {
+                        if (!active) return;
+                        offlinePinRef.current = null;
+                        saveMemberSession(real);
+                    },
+                    onUpgraded: () => {
+                        if (!active) return;
+                        setOfflineMode(false);
+                        device.lan?.fetchOfflinePassport?.().then((p) => { if (p) saveOfflinePassport(p); }).catch(() => {});
+                    },
+                    onFallbackRefresh: () => (active ? refresh() : undefined),
+                    phase,
+                });
             } catch {
                 /* sigue sin conexión con Caja Principal */
             }
@@ -245,7 +258,7 @@ function NubeGateFlow({ children }) {
             clearInterval(timer);
             window.removeEventListener('online', probeAndUpgrade);
         };
-    }, [lanMode, offlineMode, phase, device, refresh]);
+    }, [lanMode, offlineMode, phase, device, refresh, guardReset]);
 
     // Si la app heredada cierra sesión, se cierra también la sesión de PIN de la nube.
     useEffect(() => {
@@ -298,9 +311,47 @@ function NubeGateFlow({ children }) {
             } catch { /* sin internet: sigue el permiso de 72 h */ }
         };
         const timer = setInterval(check, 5 * 60_000);
+        const passportTimer = lanMode ? setInterval(() => {
+            if (!offlineMode) {
+                device.lan?.fetchOfflinePassport?.().then((p) => { if (p) saveOfflinePassport(p); }).catch(() => {});
+            }
+        }, 30 * 60_000) : null;
         document.addEventListener('visibilitychange', check);
-        return () => { clearInterval(timer); document.removeEventListener('visibilitychange', check); };
-    }, [phase, deviceUserId, device, guardReset]);
+        const accountId = status?.account?.id;
+        const currentDeviceId = status?.device?.id;
+        const channelCtrl = (accountId && typeof device?.channel === 'function')
+            ? keepChannel(
+                device,
+                `gate-guard-${accountId}`,
+                (ch) => ch
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'account_devices', filter: `account_id=eq.${accountId}` },
+                        (payload) => {
+                            if (payload?.new?.id === currentDeviceId && payload?.new?.revoked_at) {
+                                check();
+                            }
+                        },
+                    )
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'account_members', filter: `account_id=eq.${accountId}` },
+                        () => {
+                            if (lanMode) {
+                                device.lan?.fetchOfflinePassport?.().then((p) => { if (p) saveOfflinePassport(p); }).catch(() => {});
+                            }
+                            check();
+                        },
+                    ),
+            )
+            : null;
+        return () => {
+            clearInterval(timer);
+            if (passportTimer) clearInterval(passportTimer);
+            document.removeEventListener('visibilitychange', check);
+            channelCtrl?.dispose?.();
+        };
+    }, [phase, deviceUserId, device, guardReset, lanMode, offlineMode, status?.account?.id, status?.device?.id]);
 
     const closeOwner = async () => {
         if (ownerRef.current) await svc.ownerSignOut(ownerRef.current);
@@ -820,6 +871,38 @@ function NubeGateFlow({ children }) {
                 onSubmit={(pin) => handlePin(pin)} />
         </>
     );
+}
+
+/**
+ * Reconexión segura desde modo pasaporte offline (C15):
+ * SIEMPRE verifica `guardReset()` (`reset_epoch`) ANTES de llamar `loginWithPin`
+ * para que una caja desconectada no resucite datos previos a un `reset_account`.
+ */
+export async function runOfflineProbeUpgrade({
+    checkHealth,
+    guardReset,
+    readSession,
+    offlinePin,
+    loginWithPin,
+    saveSession,
+    onUpgraded,
+    onFallbackRefresh,
+    phase,
+}) {
+    await checkHealth?.();
+    if (await guardReset?.()) return 'reset';
+    const saved = readSession?.();
+    if (saved?.offline && offlinePin?.memberId === saved.memberId) {
+        const real = await loginWithPin(saved.memberId, offlinePin.pin);
+        saveSession?.(real);
+        onUpgraded?.(real);
+        return 'upgraded';
+    }
+    if (phase === 'elegir') {
+        await onFallbackRefresh?.();
+        return 'refreshed';
+    }
+    return 'noop';
 }
 
 export default function NubeGate(props) {

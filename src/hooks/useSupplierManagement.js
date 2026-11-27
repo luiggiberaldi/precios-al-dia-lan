@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { storageService } from '../utils/storageService';
+import { withLock } from '../utils/withLock';
 import { isNubeSyncActive } from '../nube/localWriteHook';
 import { mergeScreenList } from '../nube/staleListGuard';
+import { SUPPLIER_LEDGER_KEY, buildSupplierMovement } from '../nube/supplierLedgerSync';
 import { showToast } from '../components/Toast';
 import { saveInvoicePhoto, deleteInvoicePhoto } from '../utils/invoicePhotos';
 import { allocatePaymentsToInvoices, paidAmountForInvoice } from '../utils/supplierAllocation';
@@ -23,22 +25,61 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
     const [editingInvoice, setEditingInvoice] = useState(null);
     const [deleteInvoiceTarget, setDeleteInvoiceTarget] = useState(null);
 
+    // T20: refresco en vivo al llegar proveedores o facturas desde otra caja.
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const onUpdate = async (e) => {
+            const key = e?.detail?.key;
+            if (!key || key === 'bodega_suppliers_v1') {
+                const fresh = await storageService.getItem('bodega_suppliers_v1', []);
+                if (Array.isArray(fresh)) {
+                    setSuppliers(fresh);
+                    setSelectedSupplier((prev) => (prev ? (fresh.find((s) => s.id === prev.id) || prev) : null));
+                }
+            }
+            if (!key || key === 'bodega_supplier_invoices_v1') {
+                const freshInv = await storageService.getItem('bodega_supplier_invoices_v1', []);
+                if (Array.isArray(freshInv)) setInvoices(freshInv);
+            }
+        };
+        window.addEventListener('app_storage_update', onUpdate);
+        return () => window.removeEventListener('app_storage_update', onUpdate);
+    }, []);
+
+    const recordSupplierMovement = async (movSpec) => {
+        if (!movSpec?.supplierId || !(Number(movSpec?.amountUsd) > 0)) return;
+        await withLock('pos_write_lock', async () => {
+            const cur = await storageService.getItem(SUPPLIER_LEDGER_KEY, []);
+            const list = Array.isArray(cur) ? cur : [];
+            const mov = buildSupplierMovement(movSpec);
+            await storageService.setItem(SUPPLIER_LEDGER_KEY, [...list, mov]);
+        });
+    };
+
     const saveSuppliers = async (updatedSuppliers) => {
-        // Precios al Día Nube: la lista en pantalla puede estar vieja (otra caja creó o
-        // editó proveedores); se funde con la guardada para no borrarlos en la nube.
-        if (isNubeSyncActive()) {
-            const merged = mergeScreenList({ base: suppliers, next: updatedSuppliers, fresh: await storageService.getItem('bodega_suppliers_v1', []) });
-            setSuppliers(merged);
-            await storageService.setItem('bodega_suppliers_v1', merged);
-            return;
-        }
-        setSuppliers(updatedSuppliers);
-        await storageService.setItem('bodega_suppliers_v1', updatedSuppliers);
+        await withLock('pos_write_lock', async () => {
+            if (isNubeSyncActive()) {
+                const merged = mergeScreenList({ base: suppliers, next: updatedSuppliers, fresh: await storageService.getItem('bodega_suppliers_v1', []) });
+                setSuppliers(merged);
+                await storageService.setItem('bodega_suppliers_v1', merged);
+                return;
+            }
+            setSuppliers(updatedSuppliers);
+            await storageService.setItem('bodega_suppliers_v1', updatedSuppliers);
+        });
     };
 
     const saveInvoices = async (updatedInvoices) => {
-        setInvoices(updatedInvoices);
-        await storageService.setItem('bodega_supplier_invoices_v1', updatedInvoices);
+        await withLock('pos_write_lock', async () => {
+            if (isNubeSyncActive()) {
+                const merged = mergeScreenList({ base: invoices, next: updatedInvoices, fresh: await storageService.getItem('bodega_supplier_invoices_v1', []) });
+                setInvoices(merged);
+                await storageService.setItem('bodega_supplier_invoices_v1', merged);
+                return;
+            }
+            setInvoices(updatedInvoices);
+            await storageService.setItem('bodega_supplier_invoices_v1', updatedInvoices);
+        });
     };
 
     const handleSaveSupplier = async (supplierData) => {
@@ -124,10 +165,18 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
             }));
             await storageService.setItem('bodega_sales_v1', allSales);
         } else if (supplier) {
-            // Actualizar deuda del proveedor
-            const updatedSupplier = { ...supplier, deuda: (supplier.deuda || 0) + invoiceData.amountUsd };
+            // Actualizar deuda del proveedor + registrar movimiento append-only (T20)
+            const updatedSupplier = { ...supplier, deuda: round2((supplier.deuda || 0) + invoiceData.amountUsd) };
             const updatedSuppliers = suppliers.map(s => s.id === supplier.id ? updatedSupplier : s);
             await saveSuppliers(updatedSuppliers);
+            await recordSupplierMovement({
+                supplierId: supplier.id,
+                type: 'FACTURA',
+                direction: 'DEBIT',
+                amountUsd: invoiceData.amountUsd,
+                invoiceId: invoiceData.id,
+                reason: `Factura #${invoiceData.invoiceNumber || ''}`.trim(),
+            });
             setSelectedSupplier(updatedSupplier);
         }
         setIsAddInvoiceModalOpen(false);
@@ -165,10 +214,18 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
         }
         triggerHaptic && triggerHaptic();
 
-        // 1. Descontar deuda sin permitir saldo negativo.
+        // 1. Descontar deuda sin permitir saldo negativo + movimiento append-only (T20).
         const updatedSupplier = { ...supplier, deuda: round2(Math.max(0, (supplier.deuda || 0) - safeAmountUsd)) };
         const updatedSuppliers = suppliers.map(s => s.id === supplier.id ? updatedSupplier : s);
         await saveSuppliers(updatedSuppliers);
+        await recordSupplierMovement({
+            supplierId: supplier.id,
+            type: 'PAGO',
+            direction: 'CREDIT',
+            amountUsd: safeAmountUsd,
+            invoiceId,
+            reason: retiraCaja ? 'Pago desde caja' : 'Pago externo',
+        });
         setSelectedSupplier(updatedSupplier);
 
         // 2. Registrar en Caja/Sistema
@@ -238,8 +295,16 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
 
         const supplier = suppliers.find(s => s.id === original.supplierId);
         if (supplier && diff !== 0) {
-            const updatedSupplier = { ...supplier, deuda: Math.max(0, (supplier.deuda || 0) + diff) };
+            const updatedSupplier = { ...supplier, deuda: round2(Math.max(0, (supplier.deuda || 0) + diff)) };
             await saveSuppliers(suppliers.map(s => s.id === supplier.id ? updatedSupplier : s));
+            await recordSupplierMovement({
+                supplierId: supplier.id,
+                type: diff > 0 ? 'AJUSTE_DEBITO' : 'AJUSTE_CREDITO',
+                direction: diff > 0 ? 'DEBIT' : 'CREDIT',
+                amountUsd: Math.abs(diff),
+                invoiceId,
+                reason: `Edición factura #${updatedInvoice.invoiceNumber || ''}`.trim(),
+            });
             setSelectedSupplier(updatedSupplier);
         }
         setEditingInvoice(null);
@@ -267,8 +332,16 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
 
         const supplier = suppliers.find(s => s.id === invoice.supplierId);
         if (supplier) {
-            const updatedSupplier = { ...supplier, deuda: Math.max(0, (supplier.deuda || 0) - (invoice.amountUsd || 0)) };
+            const updatedSupplier = { ...supplier, deuda: round2(Math.max(0, (supplier.deuda || 0) - (invoice.amountUsd || 0))) };
             await saveSuppliers(suppliers.map(s => s.id === supplier.id ? updatedSupplier : s));
+            await recordSupplierMovement({
+                supplierId: supplier.id,
+                type: 'AJUSTE_CREDITO',
+                direction: 'CREDIT',
+                amountUsd: invoice.amountUsd || 0,
+                invoiceId: invoice.id,
+                reason: `Factura #${invoice.invoiceNumber || ''} eliminada`.trim(),
+            });
             setSelectedSupplier(updatedSupplier);
         }
         setDeleteInvoiceTarget(null);
@@ -299,8 +372,16 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
         await storageService.setItem('bodega_sales_v1', updatedSales);
 
         if (supplier) {
-            const updatedSupplier = { ...supplier, deuda: (supplier.deuda || 0) + restored };
+            const updatedSupplier = { ...supplier, deuda: round2((supplier.deuda || 0) + restored) };
             await saveSuppliers(suppliers.map(s => (s.id === supplier.id ? updatedSupplier : s)));
+            await recordSupplierMovement({
+                supplierId: supplier.id,
+                type: 'ANULACION_PAGO',
+                direction: 'DEBIT',
+                amountUsd: restored,
+                sourceId: paymentId,
+                reason: 'Anulación de pago a proveedor',
+            });
             setSelectedSupplier(updatedSupplier);
         }
 

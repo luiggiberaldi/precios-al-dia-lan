@@ -5,7 +5,13 @@
  */
 import { useEffect, useMemo, useRef } from 'react';
 import { useAllCajasSales } from './useAllCajasSales';
-import { buildAllCajasSummary, loadDashboardCajas, salesOfDayAllCajas } from './allCajasToday';
+import {
+    buildAllCajasSummary,
+    computeConsolidatedDashboardCharts,
+    loadDashboardCajas,
+    mergeAllCajasRecords,
+    salesOfDayAllCajas,
+} from './allCajasToday';
 import { getLocalISODate } from '../utils/dateHelpers';
 
 export function useAllCajasDashboard(enabled, { localSales = [], bcvRate = 1, products = [], client = null, load = loadDashboardCajas, isActive = true } = {}) {
@@ -53,9 +59,27 @@ export function useAllCajasDashboard(enabled, { localSales = [], bcvRate = 1, pr
         ? salesOfDayAllCajas({ remoteSales: remote.sales, localSales, localDeviceId: summary?.localDeviceId, labels, today })
         : null), [enabled, remote.sales, localSales, summary, labels, today]);
 
+    const consolidatedSales = useMemo(() => (enabled
+        ? mergeAllCajasRecords({
+            remoteSales: remote.sales,
+            localSales,
+            localDeviceId: summary?.localDeviceId || explicitLocalDeviceId,
+            labels,
+        })
+        : null), [enabled, remote.sales, localSales, summary?.localDeviceId, explicitLocalDeviceId, labels]);
+
+    const charts = useMemo(() => (consolidatedSales
+        ? computeConsolidatedDashboardCharts(consolidatedSales, { today })
+        : null), [consolidatedSales, today]);
+
     return {
         summary,
         daySales,
+        consolidatedSales,
+        weekData: charts?.weekData ?? null,
+        topProducts: charts?.topProducts ?? null,
+        todayTopProducts: charts?.todayTopProducts ?? null,
+        todayCalendarTotalUsd: charts?.todayCalendarTotalUsd ?? null,
         loading: remote.loading,
         error: remote.error,
         loadedAt: remote.loadedAt,

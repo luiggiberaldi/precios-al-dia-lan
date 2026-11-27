@@ -12,6 +12,7 @@ import PrinterHardwareManager from '../PrinterHardwareManager';
 import { useProductContext } from '../../../context/ProductContext';
 import { loadTaxConfig, saveTaxConfig as saveTaxConfigLocal, resetTaxConfig as resetTaxConfigLocal, IVA_FACTORY_RATE, normalizeIvaRate } from '../../../config/taxConfig';
 import { pushLocalSync } from '../../../hooks/useCloudSync';
+import { notifyBusinessConfigChanged } from '../../../nube/businessConfigSync';
 import { useCartCompact, setCartCompactMode } from '../../../config/salesFeatures';
 
 // El IVA viaja al supervisor: las ventas remotas se cobran con el mismo total.
@@ -155,6 +156,7 @@ export default function SettingsTabVentas({
         const parsed = parseFloat(val);
         const safeVal = isNaN(parsed) || parsed < 0 ? 0 : parsed;
         localStorage.setItem('cashea_min_amount', safeVal.toString());
+        notifyBusinessConfigChanged();
         forceHeartbeat();
     };
 
@@ -183,6 +185,7 @@ export default function SettingsTabVentas({
         const parsed = parseFloat(val);
         const safeVal = isNaN(parsed) || parsed < 0 ? 0 : parsed;
         localStorage.setItem('cash_advance_default_pct', safeVal.toString()); pushLocalSync('cash_advance_default_pct', safeVal.toString());
+        notifyBusinessConfigChanged();
         forceHeartbeat();
     };
 
@@ -210,6 +213,7 @@ export default function SettingsTabVentas({
         const safe = isNaN(parsed) || parsed <= 0 ? 1 : parsed;
         setSmallestUsdBill(safe.toString());
         localStorage.setItem('checkout_smallest_usd_bill', safe.toString());
+        notifyBusinessConfigChanged();
         forceHeartbeat();
     };
     const persistRoundStep = (val) => {
@@ -217,11 +221,13 @@ export default function SettingsTabVentas({
         const safe = isNaN(parsed) || parsed < 0 ? 0 : parsed;
         setBsRoundStep(safe.toString());
         localStorage.setItem('checkout_bs_round_step', safe.toString());
+        notifyBusinessConfigChanged();
         forceHeartbeat();
     };
     const persistRoundMode = (mode) => {
         setBsRoundMode(mode);
         localStorage.setItem('checkout_bs_round_mode', mode);
+        notifyBusinessConfigChanged();
         forceHeartbeat();
         showToast(mode === 'ceil' ? 'Redondeo a favor del cliente' : 'Redondeo a favor de la tienda', 'success');
         triggerHaptic?.();
@@ -654,6 +660,7 @@ export default function SettingsTabVentas({
                                             const newVal = !cashAdvanceEnabled;
                                             setCashAdvanceEnabled(newVal);
                                             localStorage.setItem('allow_cash_advance', newVal.toString()); pushLocalSync('allow_cash_advance', newVal.toString());
+                                            notifyBusinessConfigChanged();
                                             forceHeartbeat();
                                             showToast(newVal ? 'Avances activados' : 'Avances desactivados', 'success');
                                             triggerHaptic?.();
@@ -724,6 +731,7 @@ export default function SettingsTabVentas({
                                             const newVal = !allowNegativeStock;
                                             setAllowNegativeStock(newVal);
                                             localStorage.setItem('allow_negative_stock', newVal.toString()); pushLocalSync('allow_negative_stock', newVal.toString());
+                                            notifyBusinessConfigChanged();
                                             forceHeartbeat();
                                             showToast(newVal ? 'Se permite vender sin stock' : 'No se permite vender sin stock', 'success');
                                             triggerHaptic?.();
@@ -763,6 +771,7 @@ export default function SettingsTabVentas({
                                             const newVal = !casheaEnabled;
                                             setCasheaEnabled(newVal);
                                             localStorage.setItem('cashea_enabled', newVal.toString());
+                                            notifyBusinessConfigChanged();
                                             forceHeartbeat();
                                             showToast(newVal ? 'Módulo Cashea activado' : 'Módulo Cashea desactivado', 'success');
                                             triggerHaptic?.();

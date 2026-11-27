@@ -14,6 +14,7 @@ import {
     getElectronLanApi,
     getLanServerUrl,
     normalizeLanUrl,
+    setLanServerId,
     setLanServerUrl,
 } from './lanConfig';
 import { probeLanServer } from './lanClient';
@@ -50,6 +51,9 @@ export default function LanSetupScreen({ onConfigured, onCloudSupervisorLogin, i
             const res = await electronLan.setMasterMode({ port: DEFAULT_LAN_PORT });
             if (!res?.ok || !res?.serverUrl) {
                 throw new Error(res?.error || 'No se pudo iniciar el servidor local.');
+            }
+            if (typeof window !== 'undefined' && res.localAdminSecret) {
+                window.__PDN_LAN_LOCAL_SECRET__ = res.localAdminSecret;
             }
             const clean = setLanServerUrl(res.serverUrl, 'master');
             onConfigured(clean, 'master');
@@ -102,6 +106,7 @@ export default function LanSetupScreen({ onConfigured, onCloudSupervisorLogin, i
                 await electronLan.setClientMode({ serverUrl: probe.baseUrl });
             }
             const clean = setLanServerUrl(probe.baseUrl, 'client');
+            if (probe?.lanId) setLanServerId(probe.lanId);
             onConfigured(clean, 'client', probe);
         } catch (err) {
             setError(err?.message || 'No pudimos conectarnos a esa dirección.');

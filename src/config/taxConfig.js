@@ -6,6 +6,8 @@
 // - `ivaIncluded`: los precios ya traen el IVA. El total no cambia; el IVA se saca del
 //   precio (base = precio / (1 + %)). En false (de fábrica) el IVA se suma encima.
 
+import { notifyBusinessConfigChanged } from '../nube/businessConfigSync';
+
 const TAX_CONFIG_KEY = 'tax_config_v1';
 
 export const IVA_FACTORY_RATE = 16;
@@ -78,6 +80,7 @@ export function getCartIvaOpts(taxConfig = loadTaxConfig()) {
 export function saveTaxConfig(config) {
     const clean = sanitizeTaxConfig(config);
     localStorage.setItem(TAX_CONFIG_KEY, JSON.stringify(clean));
+    notifyBusinessConfigChanged();
     return clean;
 }
 

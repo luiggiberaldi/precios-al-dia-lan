@@ -43,6 +43,7 @@ import AporteCajaModal from '../components/Sales/AporteCajaModal';
 import DashboardPorCaja from '../components/Dashboard/DashboardPorCaja';
 import { isNubeSyncActive } from '../nube/localWriteHook';
 import { readMemberSession } from '../nube/memberSession';
+import { appendCustomerLocked } from '../utils/customerHistory';
 import { isNubeManagerRole } from '../nube/allCajasToday';
 import { useAllCajasDashboard } from '../nube/useAllCajasDashboard';
 
@@ -196,6 +197,9 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     const isNubeManager = !isCajero && isNubeSyncActive() && isNubeManagerRole(readMemberSession()?.role);
     const allCajas = useAllCajasDashboard(isNubeManager, { localSales: sales, bcvRate, products, isActive });
     const cajasTotals = isNubeManager ? allCajas.summary?.totals ?? null : null;
+    const effectiveWeekData = (isNubeManager && allCajas.weekData) ? allCajas.weekData : weekData;
+    const effectiveTopProducts = (isNubeManager && allCajas.topProducts) ? allCajas.topProducts : topProducts;
+    const effectiveTodayTopProducts = (isNubeManager && allCajas.todayTopProducts) ? allCajas.todayTopProducts : todayTopProducts;
     const view = cajasTotals || {
         todaySales, todayTotalUsd, todayTotalBs, todayTotalCop, todayItemsSold,
         todayExpenses, todayExpensesUsd, todayGastosUsd, todayProfit,
@@ -287,7 +291,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
             setRecycleOffer(sale);
         } catch (error) {
             console.error('Error anulando venta:', error);
-            showToast('Hubo un problema anulando la venta', 'error');
+            showToast(error?.message || 'Hubo un problema anulando la venta', 'error');
         }
     };
 
@@ -310,19 +314,17 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     const handleRegisterClientForTicket = async () => {
         if (!ticketClientName.trim() || !ticketPendingSale) return;
 
-        const newCustomer = {
-            id: crypto.randomUUID(),
-            name: ticketClientName.trim(),
-            documentId: ticketClientDocument.trim() || '',
-            phone: ticketClientPhone.trim() || '',
-            deuda: 0,
-            favor: 0,
-            createdAt: new Date().toISOString(),
-        };
-
-        const updatedCustomers = [...customers, newCustomer];
+        // C9 (T12): crear cliente bajo pos_write_lock + mergeScreenList para no borrar
+        // clientes creados en otras cajas.
+        const { customer: newCustomer, customers: updatedCustomers } = await appendCustomerLocked(
+            {
+                name: ticketClientName.trim(),
+                documentId: ticketClientDocument.trim() || '',
+                phone: ticketClientPhone.trim() || '',
+            },
+            { baseCustomers: customers, storage: storageService },
+        );
         setCustomers(updatedCustomers);
-        await storageService.setItem('bodega_customers_v1', updatedCustomers);
 
         const updatedSale = {
             ...ticketPendingSale,
@@ -330,9 +332,13 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
             customerName: newCustomer.name,
             customerPhone: newCustomer.phone,
         };
-        const updatedSales = sales.map(s => s.id === updatedSale.id ? updatedSale : s);
+        const updatedSales = await withLock('pos_write_lock', async () => {
+            const freshSales = await storageService.getItem(SALES_KEY, []);
+            const next = (Array.isArray(freshSales) ? freshSales : []).map(s => s.id === updatedSale.id ? updatedSale : s);
+            await storageService.setItem(SALES_KEY, next);
+            return next;
+        });
         setSales(updatedSales);
-        await storageService.setItem(SALES_KEY, updatedSales);
 
         setTicketPendingSale(null);
         setTicketClientName('');
@@ -384,7 +390,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                 allSales: allTodayForReport,
                 bcvRate,
                 paymentBreakdown,
-                topProducts: todayTopProducts,
+                topProducts: effectiveTodayTopProducts,
                 todayTotalUsd,
                 todayTotalBs,
                 todayProfit,
@@ -449,18 +455,22 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
             };
         }
 
-        const updatedSales = sales.map(s => {
-            if (isManualCloseRecord(s)) {
-                return { ...s, cajaCerrada: true, cierreId: currentCierreId };
+        // A7: serializar el cierre de caja bajo pos_write_lock leyendo bodega_sales_v1 fresco
+        // para no pisar ventas registradas mientras el modal de arqueo estaba abierto.
+        const updatedSales = await withLock('pos_write_lock', async () => {
+            const freshSales = await storageService.getItem(SALES_KEY, []);
+            const next = (Array.isArray(freshSales) ? freshSales : []).map(s => {
+                if (isManualCloseRecord(s)) {
+                    return { ...s, cajaCerrada: true, cierreId: currentCierreId };
+                }
+                return s;
+            });
+            if (registroCierre) {
+                next.push(registroCierre);
             }
-            return s;
+            await storageService.setItem(SALES_KEY, next);
+            return next;
         });
-
-        if (registroCierre) {
-            updatedSales.push(registroCierre);
-        }
-
-        await storageService.setItem(SALES_KEY, updatedSales);
         setSales(updatedSales);
         setIsCashReconOpen(false);
 
@@ -702,7 +712,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                     />
                     <div className={Object.keys(view.paymentBreakdown || {}).length === 0 ? 'col-span-full' : ''}>
                     <SalesChart
-                        weekData={weekData}
+                        weekData={effectiveWeekData}
                         selectedDate={selectedChartDate}
                         copEnabled={copEnabled}
                         copPrimary={copPrimary}
@@ -835,13 +845,13 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
             )}
 
             {/* Top Productos — v1.2.0: reveal + shadow-tone-sm, text-accent para Bs (BCV-derived) */}
-            {topProducts.length > 0 && (
+            {effectiveTopProducts.length > 0 && (
                 <div className="bg-surface dark:bg-surface-100 rounded-2xl p-4 border border-surface-200 dark:border-surface-700 shadow-tone-sm mb-5">
                     <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-1">
                         <TrendingUp size={12} /> Más Vendidos
                     </h3>
                     <div className="space-y-2">
-                        {topProducts.map((p, i) => (
+                        {effectiveTopProducts.map((p, i) => (
                             <div key={p.name} className="flex items-center gap-3">
                                 <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black ${i === 0 ? 'bg-amber-100 text-amber-600' : i === 1 ? 'bg-slate-200 text-slate-500' : 'bg-orange-50 text-orange-400'
                                     }`}>{i + 1}</span>
@@ -905,6 +915,12 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                 onClose={() => { setIsDeleteModalOpen(false); setDeleteConfirmText(''); }}
                 onConfirm={async () => {
                     if (deleteConfirmText.trim().toUpperCase() === 'BORRAR') {
+                        if (isNubeSyncActive()) {
+                            showToast('Con la sincronización multi-caja activa, usa Ajustes → Reiniciar cuenta para borrar el historial en todas las cajas.', 'warning');
+                            setIsDeleteModalOpen(false);
+                            setDeleteConfirmText('');
+                            return;
+                        }
                         await storageService.setItem(SALES_KEY, []);
                         setIsDeleteModalOpen(false);
                         setDeleteConfirmText('');
@@ -947,7 +963,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                 todayItemsSold={todayItemsSold}
                 todayExpensesUsd={todayExpensesUsd}
                 paymentBreakdown={paymentBreakdown}
-                todayTopProducts={todayTopProducts}
+                todayTopProducts={effectiveTodayTopProducts}
                 bcvRate={bcvRate}
                 copEnabled={copEnabled}
                 copPrimary={copPrimary}

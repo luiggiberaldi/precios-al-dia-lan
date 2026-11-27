@@ -119,15 +119,15 @@ describe('F3 · cobro de la caja contra el servidor', () => {
         expect(n).toBe(5);
     });
 
-    it('con ventas en cola, la nueva va detrás aunque haya vuelto internet (orden)', async () => {
+    it('con ventas en cola, al volver internet drena primero en orden FIFO y valida la nueva en línea', async () => {
         const { cajas: [a] } = await setup(db);
         await moveStock(a.client, a.session, 'INICIAL', [{ product_id: 'o', qty: 5 }]);
         a.client.state.offline = true;
         await a.submitter.submit(serverSale([{ product_id: 'o', qty: 1 }]));
         a.client.state.offline = false;
         const r = await a.submitter.submit(serverSale([{ product_id: 'o', qty: 1 }]));
-        expect(r.queued).toBe(true);
-        await a.submitter.replay();
+        expect(r.ok).toBe(true);
+        expect(r.queued).toBeFalsy();
         const sales = await q(db, a.user, 'select number from public.sales order by number');
         expect(sales.map((s) => s.number)).toEqual(['#A-00001', '#A-00002']);
     });

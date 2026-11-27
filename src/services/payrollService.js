@@ -26,6 +26,7 @@ import { findOpenCashShift, isRecordInOpenCashShift } from '../utils/cashShift';
 import { buildGastoInternoRecord, isCashMethodId } from '../utils/gastoInterno';
 import { SALES_KEY, PRODUCTS_KEY, POS_LOCK, appendSalesRecordsUnlocked, confirmSalesRecords } from './gastosInternosService';
 import { isGranelProduct, adjustStockValue } from '../utils/granel';
+import { flushNubeStockNow, isNubeSyncActive } from '../nube/localWriteHook';
 import {
     EMPLOYEES_KEY, PAYROLL_ENTRIES_KEY, PAYROLL_CATEGORY, MONEY_OUT_TYPES, ENTRY_TYPE_LABELS, GOODS_TYPE,
     normalizeEmployeeInput, periodIdFor, nextPeriodId, computePeriodBalance, frozenSalaryUsd,
@@ -36,6 +37,9 @@ const newId = (prefix) => `${prefix}_${globalThis.crypto?.randomUUID?.() ?? `${D
 
 const asList = (v) => (Array.isArray(v) ? v : []);
 const actorName = (u) => u?.nombre || 'Administrador';
+const localDeviceTag = () => {
+    try { return globalThis.localStorage?.getItem('pda_device_id') || null; } catch { return null; }
+};
 
 function defaults(ctx = {}) {
     return {
@@ -285,6 +289,7 @@ export async function registerEntry(input, ctx = {}) {
             status: 'ACTIVO',
             actor: actorName(admin),
             actorId: admin?.id ?? null,
+            createdByDevice: localDeviceTag(),
             timestamp: nowIso,
             idempotencyKey: input.idempotencyKey,
         };
@@ -417,6 +422,7 @@ export async function registerGoods(input, ctx = {}) {
             status: 'ACTIVO',
             actor: actorName(admin),
             actorId: admin?.id ?? null,
+            createdByDevice: localDeviceTag(),
             timestamp: nowIso,
             idempotencyKey: input.idempotencyKey,
         };
@@ -441,6 +447,8 @@ export async function registerGoods(input, ctx = {}) {
         c.audit('NOMINA', GOODS_TYPE,
             `Mercancía a ${employee.nombre} (${periodoId}), a ${ev.valoracion}: $${ev.montoUsd.toFixed(2)} · ${resumen}`
             + (arrastre ? ` · queda debiendo $${arrastre.montoUsd.toFixed(2)}` : ''));
+
+        if (isNubeSyncActive()) flushNubeStockNow().catch(() => {});
 
         return { entry, movement, arrastre, duplicate: false, sales };
     });
@@ -490,6 +498,7 @@ export async function voidEntry(entryId, ctx = {}) {
             return e;
         });
         await writeVerifiedValue(c.storage, PAYROLL_ENTRIES_KEY, next);
+        if (entry?.tipo === GOODS_TYPE && isNubeSyncActive()) flushNubeStockNow().catch(() => {});
         c.audit('NOMINA', 'ANULAR', `${ENTRY_TYPE_LABELS[entry.tipo]} de ${employee?.nombre || '?'} (${entry.periodoId}): $${entry.montoUsd.toFixed(2)}`);
         return { entry: next.find(e => e.id === entryId), sales: updatedSales };
     });
@@ -526,8 +535,17 @@ export async function recoverPayroll(ctx = {}) {
             await confirmSalesRecords(c.storage, fixed.filter(s => ids.has(s.id)));
         }
 
-        const sinMovimiento = entries.filter(e => e.status === 'ACTIVO' && (MONEY_OUT_TYPES.has(e.tipo) || e.tipo === GOODS_TYPE)
-            && e.movimientoCajaId && !salesIds.has(e.movimientoCajaId));
+        const myDevice = localDeviceTag();
+        const nubeActive = isNubeSyncActive();
+        // En multi-caja (`cash` es pushOnly), los renglones creados en OTRA caja no tienen
+        // su movimiento de caja en el `bodega_sales_v1` de esta caja: nunca anularlos aquí.
+        const sinMovimiento = entries.filter(e => {
+            if (e.status !== 'ACTIVO') return false;
+            if (!(MONEY_OUT_TYPES.has(e.tipo) || e.tipo === GOODS_TYPE)) return false;
+            if (!e.movimientoCajaId || salesIds.has(e.movimientoCajaId)) return false;
+            if (nubeActive && (!e.createdByDevice || (myDevice && e.createdByDevice !== myDevice))) return false;
+            return true;
+        });
         if (sinMovimiento.length) {
             const ids = new Set(sinMovimiento.map(e => e.id));
             await writeVerifiedValue(c.storage, PAYROLL_ENTRIES_KEY, entries.map(e => (

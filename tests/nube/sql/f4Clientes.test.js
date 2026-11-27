@@ -12,12 +12,14 @@ async function setup(db) {
     await q(db, 'service', 'update public.account_licenses set max_cajas = 5, max_sedes = 2 where account_id = $1', [accountId]);
     const [{ create_sede: sedeB }] = await q(db, owner, 'select public.create_sede($1)', ['Sede B']);
     const [{ upsert_member: cajeroId }] = await q(db, owner, 'select public.upsert_member(null,$1,$2,$3)', ['Caja', 'cajero', '1357']);
+    const [{ upsert_member: adminId }] = await q(db, owner, 'select public.upsert_member(null,$1,$2,$3)', ['Admin', 'administrador', '246801']);
     const cajas = [];
     for (const [label, sede] of [['A', null], ['B', sedeB]]) {
         const user = await createUser(db, { anonymous: true });
         const [row] = await q(db, owner, 'select * from public.register_device($1, $2, $3, $4)', [user.id, `Caja ${label}`, 'caja', sede]);
         const [s] = await q(db, user, 'select * from public.member_login_pin($1,$2)', [cajeroId, '1357']);
-        cajas.push({ user, row, session: s.session_token });
+        const [sa] = await q(db, user, 'select * from public.member_login_pin($1,$2)', [adminId, '246801']);
+        cajas.push({ user, row, session: s.session_token, adminSession: sa.session_token });
     }
     return { owner, accountId, cajas };
 }
@@ -66,10 +68,11 @@ describe('F4 · libro de clientes', () => {
 
     it('anular = línea inversa con su dirección; el libro no se edita (G6)', async () => {
         const { cajas: [a] } = await setup(db);
+        const aAdmin = { ...a, session: a.adminSession };
         const fiado = randomUUID();
         await push(db, a, [{ id: fiado, customer_id: 'luis', type: 'VENTA_FIADA', amount_usd: 8 }]);
-        expect(await expectError(push(db, a, [{ id: randomUUID(), customer_id: 'luis', type: 'ANULACION', amount_usd: 8 }]))).toMatch(/dirección/);
-        await push(db, a, [{ id: randomUUID(), customer_id: 'luis', type: 'ANULACION', direction: 'CREDIT', amount_usd: 8, reversal_of: fiado }]);
+        expect(await expectError(push(db, aAdmin, [{ id: randomUUID(), customer_id: 'luis', type: 'ANULACION', amount_usd: 8 }]))).toMatch(/dirección/);
+        await push(db, aAdmin, [{ id: randomUUID(), customer_id: 'luis', type: 'ANULACION', direction: 'CREDIT', amount_usd: 8, reversal_of: fiado }]);
         expect(await balance(db, a.user, 'luis')).toBe(0);
         expect(await expectError(q(db, 'service', 'update public.customer_movements set amount_usd = 1 where id = $1', [fiado]))).toMatch(/no se edita/);
         expect(await expectError(q(db, a.user, "insert into public.customer_balances (account_id, customer_id) values (gen_random_uuid(), 'x')"))).toMatch(/permission denied/);

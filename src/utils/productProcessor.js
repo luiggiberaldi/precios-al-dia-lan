@@ -258,3 +258,22 @@ export function buildProductPayload(formData, effectiveRate) {
         ivaRate: formData.ivaMode === 'exento' ? 0 : undefined,
     };
 }
+
+/**
+ * Aplica los cambios del formulario sobre un producto existente sin revertir
+ * ventas concurrentes de otras cajas: si el usuario NO tocó el campo de stock
+ * (`stockTouched === false`), se preservan `stock` y `stockInLotes` del producto
+ * actual para que `mergeProduct3Way` conserve el stock fresco de IndexedDB (C2).
+ */
+export function applyProductFormEdit(existingProduct, productData, { stockTouched = true, finalImage } = {}) {
+    const patch = { ...productData };
+    if (!stockTouched) {
+        delete patch.stock;
+        delete patch.stockInLotes;
+    }
+    return {
+        ...existingProduct,
+        ...patch,
+        image: finalImage !== undefined ? finalImage : existingProduct.image,
+    };
+}

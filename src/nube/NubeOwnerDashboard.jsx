@@ -98,6 +98,7 @@ export default function NubeOwnerDashboard({
     const [data, setData] = useState({});
     const [busy, setBusy] = useState(false);
     const [saving, setSaving] = useState(false);
+    const savingRef = useRef(false);
     const [error, setError] = useState(null);
     const [notice, setNotice] = useState(null);
     const [liveUp, setLiveUp] = useState(false);
@@ -169,7 +170,10 @@ export default function NubeOwnerDashboard({
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_levels' }, () => scheduleReload('stock_levels'))
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_balances' }, () => scheduleReload('customer_balances')),
             {
-                onUp: () => setLiveUp(true),
+                onUp: ({ reconnected } = {}) => {
+                    setLiveUp(true);
+                    if (reconnected) loadRef.current?.(tabRef.current);
+                },
                 onDown: () => setLiveUp(false),
             },
         );
@@ -180,6 +184,8 @@ export default function NubeOwnerDashboard({
     }, [client]);
 
     const runAction = async (fn, successMsg, refreshTabs = [tab]) => {
+        if (savingRef.current) return;
+        savingRef.current = true;
         setSaving(true);
         setError(null);
         setNotice(null);
@@ -193,6 +199,7 @@ export default function NubeOwnerDashboard({
         } catch (e) {
             setError(e?.message || 'No se pudo completar la operación.');
         } finally {
+            savingRef.current = false;
             setSaving(false);
         }
     };

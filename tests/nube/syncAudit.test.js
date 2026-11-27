@@ -183,10 +183,10 @@ describe('Auditoría sync · libro de clientes', () => {
     let db;
     beforeAll(async () => { db = await createDb(); }, 60_000);
 
-    it.fails('un movimiento que confirma con un seq MENOR que el cursor también baja (hoy: se salta para siempre)', async () => {
+    it('un movimiento que confirma con un seq MENOR que el cursor también baja (cursor por server_at con solapamiento)', async () => {
         // bigserial asigna el seq al insertar, no al confirmar: dos cajas abonando a clientes
-        // distintos a la vez pueden confirmar 11 antes que 10. Si una tercera caja lee entre
-        // medio, su cursor queda en 11 y el 10 nunca baja (el saldo sí, el historial no).
+        // distintos a la vez pueden confirmar 11 antes que 10. Con cursor por server_at +
+        // solapamiento de 60s, el 10 también baja y se deduplica por id.
         const acc = await setupAccount(db);
         const c = await makeCaja(db, acc, 'Caja C');
         const ledgerLocal = new Map();
@@ -201,7 +201,7 @@ describe('Auditoría sync · libro de clientes', () => {
             [c.session, JSON.stringify([{ id, customer_id: 'cli', type: 'VENTA_FIADA', amount_usd: 1 }])]);
         await push('m1');
         await push('m3');
-        await ledger.pull(); // cursor = seq de m3
+        await ledger.pull(); // cursor = seq/server_at de m3
         // Simula el que confirmó tarde: mismo cliente, seq anterior al cursor.
         await push('m2');
         await db.exec(`
@@ -211,6 +211,43 @@ describe('Auditoría sync · libro de clientes', () => {
         await ledger.pull();
         expect(ledgerLocal.get('bodega_customer_ledger_v1').map((m) => m.id).sort()).toEqual(['m1', 'm2', 'm3']);
     }, 60_000);
+
+    it('C7 mergeLedgerEntries ordena confirmados por nubeSeq (no por device_at): calculateLedgerBalance coincide con servidor', async () => {
+        const { mergeLedgerEntries, calculateLedgerBalance } = await import('../../src/utils/customerLedger.js');
+        // Caja A offline con reloj 10:00 confirma DESPUÉS (nubeSeq=2, saldo=-30).
+        // Caja B con reloj 10:30 confirmó PRIMERO (nubeSeq=1, saldo=-20).
+        const { ledger } = mergeLedgerEntries(
+            [{ id: 'mA', customerId: 'cli', type: 'VENTA_FIADA', direction: 'DEBIT', amountUsd: 10, balanceAfterUsd: -30, timestamp: '2026-11-26T10:00:00.000Z', nubeSeq: 2, status: 'COMPLETED' }],
+            [{ id: 'mB', customerId: 'cli', type: 'VENTA_FIADA', direction: 'DEBIT', amountUsd: 20, balanceAfterUsd: -20, timestamp: '2026-11-26T10:30:00.000Z', nubeSeq: 1, status: 'COMPLETED' }],
+        );
+        expect(ledger.map((m) => m.id)).toEqual(['mB', 'mA']);
+        expect(calculateLedgerBalance(ledger, 'cli')).toBe(-30);
+    });
+
+    it('C8 SALDO_INICIAL_MIGRADO usa id determinista estable por customerId (sin duplicar entre cajas)', async () => {
+        const { createCustomerLedgerMovement, CUSTOMER_MOVEMENT_TYPES } = await import('../../src/utils/customerLedger.js');
+        const m1 = createCustomerLedgerMovement({
+            customerId: 'cli-42',
+            type: CUSTOMER_MOVEMENT_TYPES.INITIAL,
+            direction: 'DEBIT',
+            amountUsd: 15,
+            balanceBeforeUsd: 0,
+            balanceAfterUsd: -15,
+            sourceType: 'MIGRATION',
+            sourceId: 'customer_ledger_migration_v1:cli-42',
+        });
+        const m2 = createCustomerLedgerMovement({
+            customerId: 'cli-42',
+            type: CUSTOMER_MOVEMENT_TYPES.INITIAL,
+            direction: 'DEBIT',
+            amountUsd: 15,
+            balanceBeforeUsd: 0,
+            balanceAfterUsd: -15,
+            sourceType: 'MIGRATION',
+            sourceId: 'customer_ledger_migration_v1:cli-42',
+        });
+        expect(m1.id).toBe(m2.id);
+    });
 });
 
 
