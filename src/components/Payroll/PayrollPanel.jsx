@@ -74,13 +74,17 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
             }
             if (alive) { await reload(); setLoading(false); }
         })();
-        getActivePaymentMethods().then(ms => alive && setPaymentMethods(
+        const loadPaymentMethods = () => getActivePaymentMethods().then(ms => alive && setPaymentMethods(
             ms.filter(m => (m.currency === 'USD' || m.currency === 'BS') && !m.isVirtual && m.id !== 'cashea'),
         ));
+        loadPaymentMethods();
         const onStorageUpdate = (e) => {
             const key = e?.detail?.key;
             if (!key || key === 'bodega_employees_v1' || key === 'bodega_payroll_entries_v1') {
                 if (alive) reload();
+            }
+            if (!key || key === 'bodega_payment_methods_v1') {
+                if (alive) loadPaymentMethods();
             }
         };
         window.addEventListener('app_storage_update', onStorageUpdate);

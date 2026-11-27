@@ -13,7 +13,7 @@
 import { stableStringify } from './recordSync';
 
 export const BUSINESS_CONFIG_KEY = 'pdn_business_config_v1';
-const MAX_SYNC_LOGO_CHARS = 60_000;
+const MAX_SYNC_LOGO_CHARS = 85_000;
 
 export const SYNCED_BUSINESS_LS_KEYS = Object.freeze([
     'tax_config_v1',
@@ -34,6 +34,8 @@ export const SYNCED_BUSINESS_LS_KEYS = Object.freeze([
     'payroll_goods_valuation',
     'receipt_currency_mode',
     'label_currency_mode',
+    'granel_unit_mode',
+    'admin_auto_lock_minutes',
 ]);
 
 export function readBusinessConfigSnapshot(storage = globalThis.localStorage) {
@@ -68,6 +70,11 @@ function defaultDispatch(key) {
         window.dispatchEvent(new CustomEvent('app_storage_update', { detail: { key, source: 'remote' } }));
         if (key === 'business_logo') {
             window.dispatchEvent(new Event('brand-logo-changed'));
+        }
+        if (key === 'granel_unit_mode') {
+            window.dispatchEvent(new CustomEvent('granel_unit_mode_changed', {
+                detail: globalThis.localStorage?.getItem('granel_unit_mode') || undefined,
+            }));
         }
     }
 }

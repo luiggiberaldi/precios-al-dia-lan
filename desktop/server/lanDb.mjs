@@ -759,6 +759,45 @@ export async function createLanDb({
             });
         }
 
+        const licRows = (
+            await db.query(
+                `select account_id, product, status, max_cajas, max_sedes, expires_at, updated_at
+                 from public.account_licenses
+                 where updated_at >= $1`,
+                [sinceTs],
+                { parsers: TIMESTAMP_AS_TEXT },
+            )
+        ).rows;
+        for (const r of licRows) {
+            events.push({ table: 'account_licenses', account_id: r.account_id, new: r });
+        }
+
+        const sedeSeen = new Set();
+        const sedeRows = (
+            await db.query(
+                `select id, account_id, name, created_at, archived_at
+                 from public.sedes
+                 where created_at >= $1 or archived_at >= $1`,
+                [sinceTs],
+                { parsers: TIMESTAMP_AS_TEXT },
+            )
+        ).rows;
+        for (const r of sedeRows) {
+            sedeSeen.add(r.id);
+            events.push({ table: 'sedes', account_id: r.account_id, new: r });
+        }
+        if (safeFn === 'create_sede' && typeof data === 'string' && !sedeSeen.has(data)) {
+            const extraSede = (
+                await db.query(
+                    `select id, account_id, name, created_at, archived_at
+                     from public.sedes where id = $1 limit 1`,
+                    [data],
+                    { parsers: TIMESTAMP_AS_TEXT },
+                )
+            ).rows[0];
+            if (extraSede) events.push({ table: 'sedes', account_id: extraSede.account_id, new: extraSede });
+        }
+
         return events;
     }
 

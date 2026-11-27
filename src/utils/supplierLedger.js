@@ -85,3 +85,71 @@ export function buildSupplierLedger(suppliers, invoices, sales, { today = new Da
             || String(a.supplier?.name ?? '').localeCompare(String(b.supplier?.name ?? ''))
         ));
 }
+
+/**
+ * Une pagos locales (`bodega_sales_v1` tipo `PAGO_PROVEEDOR`) con pagos remotos
+ * sincronizados en el libro append-only (`bodega_supplier_ledger_v1`), evitando
+ * duplicados locales y excluyendo pagos anulados por `ANULACION_PAGO`.
+ */
+export function mergeSupplierPayments(localSales = [], supplierLedger = [], supplierId = null) {
+    const locals = (Array.isArray(localSales) ? localSales : []).filter((s) => (
+        s && s.tipo === 'PAGO_PROVEEDOR' && (supplierId == null || s.supplierId === supplierId)
+    ));
+    const ledger = (Array.isArray(supplierLedger) ? supplierLedger : []).filter((m) => (
+        m && (supplierId == null || m.supplierId === supplierId)
+    ));
+
+    const voidedIds = new Set();
+    for (const m of ledger) {
+        if (m.type === 'ANULACION_PAGO' && m.sourceId) {
+            voidedIds.add(String(m.sourceId));
+        }
+    }
+
+    const seenIds = new Set();
+    const result = [];
+    for (const sale of locals) {
+        if (sale.id != null) {
+            seenIds.add(String(sale.id));
+            if (voidedIds.has(String(sale.id)) && sale.status !== 'ANULADA') {
+                result.push({ ...sale, status: 'ANULADA' });
+                continue;
+            }
+        }
+        result.push(sale);
+    }
+
+    for (const m of ledger) {
+        if (m.type !== 'PAGO') continue;
+        const refId = m.sourceId ? String(m.sourceId) : String(m.id);
+        if (seenIds.has(refId) || (m.id != null && seenIds.has(String(m.id)))) continue;
+        if (voidedIds.has(refId) || (m.id != null && voidedIds.has(String(m.id)))) continue;
+        const amount = Math.abs(Number(m.amountUsd) || 0);
+        // Compatibilidad con registros anteriores sin sourceId: evitar duplicar el pago local gemelo.
+        if (!m.sourceId) {
+            const mTs = Date.parse(m.timestamp);
+            const hasLocalTwin = locals.some((l) => (
+                l.supplierId === m.supplierId
+                && Math.abs(Math.abs(Number(l.totalUsd) || 0) - amount) < 0.005
+                && Number.isFinite(mTs)
+                && Math.abs((Date.parse(l.timestamp) || 0) - mTs) < 5000
+            ));
+            if (hasLocalTwin) continue;
+        }
+        seenIds.add(refId);
+        result.push({
+            id: refId,
+            tipo: 'PAGO_PROVEEDOR',
+            supplierId: m.supplierId,
+            invoiceId: m.invoiceId ?? null,
+            totalUsd: -amount,
+            amountUsd: amount,
+            timestamp: m.timestamp,
+            date: m.timestamp,
+            description: m.reason || 'Pago (otra caja)',
+            _remoteLedger: true,
+        });
+    }
+
+    return result;
+}

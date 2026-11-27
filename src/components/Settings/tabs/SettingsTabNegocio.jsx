@@ -5,6 +5,7 @@ import { SectionCard, Toggle } from '../../SettingsShared';
 import BrandLogoSettings from '../BrandLogoSettings';
 import PayrollSettingsCard from '../../Payroll/PayrollSettingsCard';
 import { generarPreviewLabel } from '../../../utils/labelGenerator';
+import { notifyBusinessConfigChanged } from '../../../nube/businessConfigSync';
 
 
 const CalibratorSlider = ({ label, value, setValue, baseKey, mode, paperWidth, min, max, step = 0.5, unit = 'mm', triggerHaptic }) => {
@@ -261,6 +262,7 @@ export default function SettingsTabNegocio({
                                     onClick={() => {
                                         setLabelCurrencyMode(opt.val);
                                         localStorage.setItem('label_currency_mode', opt.val);
+                                        notifyBusinessConfigChanged();
                                         triggerHaptic?.();
                                         showToast(`Moneda de etiqueta cambiada a ${opt.label}`, 'success');
                                     }}

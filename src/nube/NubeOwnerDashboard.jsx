@@ -168,7 +168,8 @@ export default function NubeOwnerDashboard({
             (ch) => ch
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'account_sync_state' }, (payload) => scheduleReload('account_sync_state', payload?.new?.collection))
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_levels' }, () => scheduleReload('stock_levels'))
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_balances' }, () => scheduleReload('customer_balances')),
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_balances' }, () => scheduleReload('customer_balances'))
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_discrepancies' }, () => scheduleReload('stock_discrepancies')),
             {
                 onUp: ({ reconnected } = {}) => {
                     setLiveUp(true);

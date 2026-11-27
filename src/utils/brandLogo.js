@@ -21,7 +21,8 @@ export const LOGO_LIMITS = Object.freeze({
     MAX_INPUT_BYTES: 5 * 1024 * 1024, // archivo original
     MAX_WIDTH: 600,                   // px tras reducir
     MAX_HEIGHT: 300,
-    MAX_STORED_CHARS: 400_000,        // ~300 KB de data URL
+    MAX_SYNC_CHARS: 80_000,           // objetivo óptimo para sincronizar entre PCs (< 100 KB SQL)
+    MAX_STORED_CHARS: 400_000,        // ~300 KB de data URL máximo local
 });
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
@@ -175,15 +176,20 @@ export async function processLogoFile(file) {
         let { w, h } = fitInside(crop.sw, crop.sh, LOGO_LIMITS.MAX_WIDTH, LOGO_LIMITS.MAX_HEIGHT);
         // Nunca se agranda un logo pequeño.
         if (crop.sw < w) { w = crop.sw; h = crop.sh; }
-        for (let attempt = 0; attempt < 4; attempt += 1) {
+        let fallbackDataUrl = null;
+        for (let attempt = 0; attempt < 6; attempt += 1) {
             const canvas = document.createElement('canvas');
             canvas.width = Math.max(1, Number.parseInt(String(round2(w)), 10) || 1);
             canvas.height = Math.max(1, Number.parseInt(String(round2(h)), 10) || 1);
             canvas.getContext('2d').drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, canvas.width, canvas.height);
             const dataUrl = canvas.toDataURL('image/png');
-            if (isLogoDataUrl(dataUrl)) return { ok: true, dataUrl };
-            w *= 0.75; h *= 0.75; // sigue pesando mucho: se reduce más
+            if (isLogoDataUrl(dataUrl)) {
+                if (dataUrl.length <= LOGO_LIMITS.MAX_SYNC_CHARS) return { ok: true, dataUrl };
+                if (!fallbackDataUrl) fallbackDataUrl = dataUrl;
+            }
+            w *= 0.72; h *= 0.72; // sigue pesando mucho: se reduce más para poder sincronizarlo
         }
+        if (fallbackDataUrl) return { ok: true, dataUrl: fallbackDataUrl };
         return { ok: false, error: 'La imagen es demasiado compleja. Prueba con un logo más simple.' };
     } catch {
         return { ok: false, error: 'No se pudo leer la imagen. Prueba con otro archivo.' };

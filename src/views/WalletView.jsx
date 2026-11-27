@@ -40,17 +40,33 @@ export default function WalletView({ rates }) {
     // Estado de Cuentas — loaded async from storageService (IndexedDB)
     const [accounts, setAccounts] = useState([]);
     const isLoaded = useRef(false);
+    const skipNextSaveRef = useRef(false);
 
-    // Load accounts from storageService on mount
+    // Load accounts from storageService on mount & listen for remote updates
     useEffect(() => {
         let mounted = true;
         storageService.getItem('bodega_accounts_v2', []).then(saved => {
             if (mounted) {
-                setAccounts(saved || []);
+                skipNextSaveRef.current = true;
+                setAccounts(Array.isArray(saved) ? saved : []);
                 isLoaded.current = true;
             }
         });
-        return () => { mounted = false; };
+        const onStorageUpdate = (e) => {
+            if (e?.detail?.key === 'bodega_accounts_v2' && e?.detail?.source === 'remote') {
+                storageService.getItem('bodega_accounts_v2', []).then(saved => {
+                    if (mounted) {
+                        skipNextSaveRef.current = true;
+                        setAccounts(Array.isArray(saved) ? saved : []);
+                    }
+                });
+            }
+        };
+        window.addEventListener('app_storage_update', onStorageUpdate);
+        return () => {
+            mounted = false;
+            window.removeEventListener('app_storage_update', onStorageUpdate);
+        };
     }, []);
 
     // Estados de Interfaz
@@ -83,9 +99,13 @@ export default function WalletView({ rates }) {
     const [amountBs, setAmountBs] = useState('');
     const [selectedRate, setSelectedRate] = useState('bcv');
 
-    // Save accounts to storageService (IndexedDB) whenever they change
+    // Save accounts to storageService (IndexedDB) whenever they change locally
     useEffect(() => {
         if (isLoaded.current) {
+            if (skipNextSaveRef.current) {
+                skipNextSaveRef.current = false;
+                return;
+            }
             storageService.setItem('bodega_accounts_v2', accounts);
         }
     }, [accounts]);

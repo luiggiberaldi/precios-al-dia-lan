@@ -539,6 +539,9 @@ export async function createLanServer({
                 }
                 const { licenseToken } = await readJsonBody(req);
                 const license = await lanDb.applyOfflineLicenseToken(session.user, licenseToken);
+                if (license?.account_id) {
+                    broadcastEvents([{ table: 'account_licenses', account_id: license.account_id, new: license }]);
+                }
                 sendJson(res, 200, { ok: true, license });
                 return;
             }

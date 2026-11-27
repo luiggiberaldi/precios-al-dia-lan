@@ -25,11 +25,16 @@ export const SYNCED_KEYS = Object.freeze({
     bodega_payroll_entries_v1: { collection: 'payroll_entries', kind: 'list', keep: [] },
     bodega_merchandise_purchases_v1: { collection: 'purchases', kind: 'list', keep: [] },
     bodega_payment_methods_v1: { collection: 'payment_methods', kind: 'list', keep: [] },
+    bodega_accounts_v2: { collection: 'settings', kind: 'value', keep: [] },
     my_categories_v1: { collection: 'settings', kind: 'value', keep: [] },
     // Tasa única de la cuenta (rateSync.js): la cambian el dueño o un administrador.
     pdn_rate_v1: { collection: 'settings', kind: 'value', keep: [] },
     // T19: configuración del negocio (IVA, stock negativo, datos comercio, políticas) como objeto plano 3-way.
     pdn_business_config_v1: { collection: 'settings', kind: 'object', keep: [] },
+    // Ventas en espera compartidas entre cajas (requiere migración 022 en el servidor).
+    bodega_pending_holds_v1: { collection: 'holds', kind: 'list', keep: [], optional: true },
+    // Bitácora de actividad compartida (append-only, últimas entradas recientes; migración 022).
+    abasto_audit_log_v1: { collection: 'audit', kind: 'list', keep: [], appendOnly: true, sortDescBy: 'ts', maxSyncItems: 400, optional: true },
     // F5: el turno de caja (ventas, apertura, gastos, aportes, cobros…). Cada caja SUBE lo
     // suyo y no baja lo de otras (pushOnly): el cierre de una caja no toca a otra.
     bodega_sales_v1: { collection: 'cash', kind: 'list', keep: [], pushOnly: true, cash: true },
@@ -165,8 +170,11 @@ export function toRecords(key, value, { cashIdSuffix = null, now = Date.now() } 
         return [{ id: key, data: value }];
     }
     if (!Array.isArray(value)) return [];
+    const source = cfg.maxSyncItems && value.length > cfg.maxSyncItems
+        ? value.slice(0, cfg.maxSyncItems)
+        : value;
     const oldest = now - CASH_MAX_AGE_DAYS * 86_400_000;
-    return value
+    return source
         .filter((item) => item && typeof item === 'object' && item.id !== undefined && item.id !== null && String(item.id) !== '')
         .filter((item) => !cfg.cash || !(Date.parse(item.timestamp) < oldest))
         .map((item) => (cfg.cash
@@ -202,7 +210,12 @@ export function mergeIntoLocal(key, localValue, rows) {
             list[at] = merged;
         } else { index.set(row.id, list.length); list.push(merged); }
     }
-    return list.filter((_, i) => !removed.has(i));
+    const next = list.filter((_, i) => !removed.has(i));
+    if (cfg.sortDescBy) {
+        const field = cfg.sortDescBy;
+        next.sort((a, b) => (Number(b?.[field]) || 0) - (Number(a?.[field]) || 0));
+    }
+    return next;
 }
 
 /** La función no existe en la base (PostgREST: PGRST202; Postgres: 42883). */
@@ -241,6 +254,15 @@ export function createRecordSync({
     const pullAgain = new Set();
     let lastError = null;
     let lastSizeError = null;
+    const unsupportedCollections = new Set();
+
+    const isOptionalCollection = (collection) => {
+        const cfgs = Object.values(SYNCED_KEYS).filter((c) => c.collection === collection);
+        return cfgs.length > 0 && cfgs.every((c) => c.optional);
+    };
+
+    const isUnsupportedCollectionError = (error, collection) => isOptionalCollection(collection)
+        && (error?.code === '22023' || error?.code === '42501' || /Colección inválida|collection/i.test(String(error?.message || '')));
 
     // El estado de cada colección (versiones, cola, cursor) lo tocan onLocalWrite, flush y
     // pull a la vez —incluso entre pestañas del mismo navegador—. Cada leer-modificar-guardar
@@ -264,6 +286,7 @@ export function createRecordSync({
     async function onLocalWrite(key, value) {
         const cfg = SYNCED_KEYS[key];
         if (!cfg) return false;
+        if (unsupportedCollections.has(cfg.collection)) return true;
         if (cfg.cash && !cashIdSuffix) return true; // sin id de equipo no se suben registros de caja
         await inTurn(cfg.collection, () => queueLocalWrite(key, cfg, value));
         report();
@@ -274,7 +297,7 @@ export function createRecordSync({
     async function queueLocalWrite(key, cfg, value) {
         // C14: un cajero no encola cambios de colecciones restringidas para evitar
         // escalamiento diferido cuando un administrador inicie turno después.
-        if (!canPush(cfg.collection)) return;
+        if (!canPush(cfg.collection) || unsupportedCollections.has(cfg.collection)) return;
         const state = await loadState(cfg.collection);
         const records = toRecords(key, value, { cashIdSuffix });
         // Ids que SIGUEN en la copia local (también los de caja demasiado viejos para
@@ -309,7 +332,7 @@ export function createRecordSync({
             queued.set(rec.id, { id: rec.id, data: rec.data, h, ...(b !== undefined ? { b } : {}) });
         }
         if (localSizeErr) lastSizeError = localSizeErr;
-        if (cfg.kind === 'list') {
+        if (cfg.kind === 'list' && !cfg.appendOnly) {
             for (const id of Object.keys(state.versions)) {
                 if (!seen.has(id) && !present.has(id) && !state.versions[id].deleted) queued.set(id, { id, data: { id }, deleted: true, h: 'deleted' });
             }
@@ -359,12 +382,17 @@ export function createRecordSync({
     }
 
     async function flushCollection(collection) {
+        if (unsupportedCollections.has(collection)) return;
         const session = getSession();
         if (!session) return;
         let state = await loadState(collection);
         while (state.queue.length) {
             const batch = state.queue.slice(0, PUSH_BATCH);
             let { data, error } = await rpcPushBatch(session, collection, batch);
+            if (error && isUnsupportedCollectionError(error, collection)) {
+                unsupportedCollections.add(collection);
+                return;
+            }
             const quarantined = [];
             let confirmedRows = Array.isArray(data) ? data : [];
 
@@ -476,6 +504,7 @@ export function createRecordSync({
     }
 
     async function pullCollection(collection) {
+        if (unsupportedCollections.has(collection)) return 0;
         const before = await loadState(collection);
         const since = before.lastPulled ? new Date(Date.parse(before.lastPulled) - PULL_OVERLAP_MS).toISOString() : null;
         const rows = [];
@@ -492,7 +521,13 @@ export function createRecordSync({
             if (tieId !== null) query = query.eq('updated_at', cursor).gt('id', tieId);
             else if (cursor) query = query.gt('updated_at', cursor);
             const { data, error } = await query.order('updated_at').order('id').limit(PULL_PAGE);
-            if (error) throw new Error(error.message || 'No se pudo bajar de la nube');
+            if (error) {
+                if (isUnsupportedCollectionError(error, collection)) {
+                    unsupportedCollections.add(collection);
+                    return 0;
+                }
+                throw new Error(error.message || 'No se pudo bajar de la nube');
+            }
             const page = data || [];
             rows.push(...page);
             const last = page[page.length - 1];

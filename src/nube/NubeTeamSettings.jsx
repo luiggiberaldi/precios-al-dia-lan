@@ -12,6 +12,7 @@ import * as svc from './accountService';
 import { readMemberSession } from './memberSession';
 import { roleLabel, canManageTeam, canEditMember, assignableRoles } from './teamRules';
 import { MemberFormModal, PinChangeModal, ConfirmModal } from './NubeTeamUI';
+import { notifyBusinessConfigChanged } from './businessConfigSync';
 
 const ROLE_BADGE = {
     dueno: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60',
@@ -37,6 +38,12 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
     }, [client]);
 
     useEffect(() => { load(); }, [load]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        window.addEventListener('pdn_members_updated', load);
+        return () => window.removeEventListener('pdn_members_updated', load);
+    }, [load]);
 
     const toast = (msg) => showToast?.(msg, 'success');
     const close = () => setModal(null);
@@ -148,7 +155,7 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
                     <div className="grid grid-cols-4 gap-2 max-w-sm">
                         {['1', '3', '5', '10'].map((val) => (
                             <button key={val} type="button"
-                                onClick={() => { setAutoLockMinutes?.(val); localStorage.setItem('admin_auto_lock_minutes', val); triggerHaptic?.(); }}
+                                onClick={() => { setAutoLockMinutes?.(val); localStorage.setItem('admin_auto_lock_minutes', val); notifyBusinessConfigChanged(); triggerHaptic?.(); }}
                                 className={`py-2.5 min-h-[44px] text-xs font-bold rounded-xl transition-all border ${autoLockMinutes === val
                                     ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-400 text-rose-700 dark:text-rose-300 shadow-sm'
                                     : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>

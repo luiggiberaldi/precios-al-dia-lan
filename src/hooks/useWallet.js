@@ -7,20 +7,23 @@ export function useWallet() {
   const [accounts, setAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const hasLoaded = useRef(false);
+  const skipNextSaveRef = useRef(false);
 
-  // 1. Cargar datos iniciales asíncronamente
+  const normalizeAccounts = useCallback((saved) => (Array.isArray(saved) ? saved : []).map(acc => ({
+    ...acc,
+    id: acc.id || String(acc.id_gen || crypto.randomUUID()),
+    id_gen: acc.id_gen || acc.id || Date.now(),
+  })), []);
+
+  // 1. Cargar datos iniciales asíncronamente y escuchar actualizaciones remotas en vivo
   useEffect(() => {
     let isMounted = true;
-    const loadData = async () => {
+    const loadData = async ({ fromRemote = false } = {}) => {
       try {
         const saved = await storageService.getItem(STORAGE_KEY, []);
-        // Normalize: WalletView creates accounts with `id_gen`, useWallet expects `id`.
-        const normalized = (saved || []).map(acc => ({
-          ...acc,
-          id: acc.id || String(acc.id_gen || crypto.randomUUID()),
-          id_gen: acc.id_gen || acc.id || Date.now(),
-        }));
+        const normalized = normalizeAccounts(saved);
         if (isMounted) {
+          if (fromRemote) skipNextSaveRef.current = true;
           setAccounts(normalized);
           hasLoaded.current = true;
         }
@@ -34,12 +37,25 @@ export function useWallet() {
     };
 
     loadData();
-    return () => { isMounted = false; };
-  }, []);
+    const onStorageUpdate = (e) => {
+      if (e?.detail?.key === STORAGE_KEY && e?.detail?.source === 'remote') {
+        loadData({ fromRemote: true });
+      }
+    };
+    window.addEventListener('app_storage_update', onStorageUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('app_storage_update', onStorageUpdate);
+    };
+  }, [normalizeAccounts]);
 
-  // 2. Guardar automáticamente cada vez que cambien (sólo si ya cargó)
+  // 2. Guardar automáticamente cada vez que cambien (sólo si ya cargó y no viene de sync remoto)
   useEffect(() => {
     if (!isLoading && hasLoaded.current) {
+      if (skipNextSaveRef.current) {
+        skipNextSaveRef.current = false;
+        return;
+      }
       storageService.setItem(STORAGE_KEY, accounts);
     }
   }, [accounts, isLoading]);

@@ -8,6 +8,7 @@ import { useAuthStore } from '../../../hooks/store/useAuthStore';
 import { adminsWithoutPin, validateNewAdminPin } from '../../../utils/adminPinPolicy';
 import { isNubeSession } from '../../../nube/memberSession';
 import NubeTeamSettings from '../../../nube/NubeTeamSettings';
+import { notifyBusinessConfigChanged } from '../../../nube/businessConfigSync';
 
 const PIN_INPUT = 'w-full px-4 py-3 min-h-[48px] text-center text-lg font-black tracking-[0.4em] bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:border-brand focus:ring-2 focus:ring-brand/30 outline-none text-slate-800 dark:text-white';
 
@@ -151,6 +152,7 @@ function SettingsTabUsuariosLocal({
                                         onClick={() => {
                                             setAutoLockMinutes(opt.val);
                                             localStorage.setItem('admin_auto_lock_minutes', opt.val);
+                                            notifyBusinessConfigChanged();
                                             triggerHaptic?.();
                                         }}
                                         className={`py-2.5 min-h-[44px] text-xs font-bold rounded-xl transition-all border ${autoLockMinutes === opt.val

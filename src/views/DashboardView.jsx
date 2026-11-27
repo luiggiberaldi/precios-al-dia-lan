@@ -45,6 +45,7 @@ import { isNubeSyncActive, useNubeSyncActive } from '../nube/localWriteHook';
 import { readMemberSession } from '../nube/memberSession';
 import { appendCustomerLocked } from '../utils/customerHistory';
 import { isNubeManagerRole } from '../nube/allCajasToday';
+import { onlySalesHistory } from '../nube/allCajasSales';
 import { useAllCajasDashboard } from '../nube/useAllCajasDashboard';
 
 const SALES_KEY = 'bodega_sales_v1';
@@ -257,6 +258,14 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     };
 
     const recentSales = useMemo(() => getRecentSales(selectedChartDate), [getRecentSales, selectedChartDate]);
+    const effectiveRecentSales = useMemo(() => {
+        if (!isNubeManager || !Array.isArray(allCajas.consolidatedSales)) return recentSales;
+        const consolidated = onlySalesHistory(allCajas.consolidatedSales).filter(
+            (s) => s.tipo === 'VENTA' || s.tipo === 'VENTA_FIADA' || s.tipo === 'VENTA_CASHEA',
+        );
+        if (!selectedChartDate) return consolidated;
+        return consolidated.filter((s) => (s.timestamp ? getLocalISODate(new Date(s.timestamp)) : today) === selectedChartDate);
+    }, [isNubeManager, allCajas.consolidatedSales, recentSales, selectedChartDate, today]);
 
     // Notificar cierre de caja pendiente (>7pm con ventas o cobros sin cerrar)
     useEffect(() => {
@@ -558,7 +567,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                 const salesHistoryComponent = (
                     <SalesHistory
                         sales={sales}
-                        recentSales={recentSales}
+                        recentSales={effectiveRecentSales}
                         todaySales={todaySales}
                         bcvRate={bcvRate}
                         totalSalesCount={sales.filter(s => s.tipo === 'VENTA' || s.tipo === 'VENTA_FIADA' || s.tipo === 'VENTA_CASHEA').length}

@@ -47,6 +47,7 @@ import { useSalesData } from '../hooks/useSalesData';
 import { useCheckoutFlow } from '../hooks/useCheckoutFlow';
 import { formatRateStamp } from '../utils/rateStamp';
 import { topHotProducts } from '../utils/hotProducts';
+import { withLock } from '../utils/withLock';
 
 export default function SalesView({ triggerHaptic, isActive }) {
     const { playAdd, playRemove, playCheckout, playError } = useSounds();
@@ -162,11 +163,23 @@ export default function SalesView({ triggerHaptic, isActive }) {
         }
     }, [cart.length]);
 
-    // Cargar ventas en espera desde IndexedDB al iniciar
+    // Cargar ventas en espera desde IndexedDB y escuchar cambios en vivo desde otras cajas
     useEffect(() => {
-        storageService.getItem('bodega_pending_holds_v1', []).then(data => {
-            if (Array.isArray(data)) setPendingCarts(data);
-        });
+        let mounted = true;
+        const reloadHolds = () => {
+            storageService.getItem('bodega_pending_holds_v1', []).then(data => {
+                if (mounted && Array.isArray(data)) setPendingCarts(data);
+            });
+        };
+        reloadHolds();
+        const onUpdate = (e) => {
+            if (!e?.detail?.key || e.detail.key === 'bodega_pending_holds_v1') reloadHolds();
+        };
+        window.addEventListener('app_storage_update', onUpdate);
+        return () => {
+            mounted = false;
+            window.removeEventListener('app_storage_update', onUpdate);
+        };
     }, []);
 
     // Función para guardar el carrito activo como "en espera" (Listo POS: ESPERA)
@@ -174,20 +187,22 @@ export default function SalesView({ triggerHaptic, isActive }) {
         if (cart.length === 0) return;
         triggerHaptic && triggerHaptic();
 
-        // En preciosaldia-bodega, el cliente se selecciona en Checkout, pero podemos
-        // verificar si ya tenemos uno seleccionado
         const clienteActual = selectedCustomerId ? customers.find(c => c.id === selectedCustomerId) : null;
-
-        const newHolds = [...pendingCarts, {
-            id: Date.now(),
+        const newHold = {
+            id: globalThis.crypto?.randomUUID?.() ?? `hold-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             items: cart,
             discount,
             nota: nota.trim(),
             tasaSnapshot: effectiveRate,
             cliente: clienteActual ? { id: clienteActual.id, nombre: clienteActual.nombre } : null
-        }];
+        };
+        const newHolds = await withLock('pos_write_lock', async () => {
+            const current = await storageService.getItem('bodega_pending_holds_v1', []);
+            const next = [...(Array.isArray(current) ? current : []), newHold];
+            await storageService.setItem('bodega_pending_holds_v1', next);
+            return next;
+        });
         setPendingCarts(newHolds);
-        await storageService.setItem('bodega_pending_holds_v1', newHolds);
         setCart([]);
         setDiscount({ type: 'percentage', value: 0 });
         setCartSelectedIndex(-1);
@@ -197,9 +212,13 @@ export default function SalesView({ triggerHaptic, isActive }) {
     // Función para eliminar permanentemente una venta en espera
     const handleDeleteHold = async (holdId) => {
         triggerHaptic && triggerHaptic();
-        const newHolds = pendingCarts.filter(h => h.id !== holdId);
+        const newHolds = await withLock('pos_write_lock', async () => {
+            const current = await storageService.getItem('bodega_pending_holds_v1', []);
+            const next = (Array.isArray(current) ? current : []).filter(h => h.id !== holdId);
+            await storageService.setItem('bodega_pending_holds_v1', next);
+            return next;
+        });
         setPendingCarts(newHolds);
-        await storageService.setItem('bodega_pending_holds_v1', newHolds);
         showToast('Venta en espera eliminada', 'info');
     };
 
@@ -242,17 +261,21 @@ export default function SalesView({ triggerHaptic, isActive }) {
             reportesCambio.push(`📉 Tasa de cambio: Bs ${tasaSnapshot.toFixed(2)} -> Bs ${effectiveRate.toFixed(2)}`);
         }
 
-        const finalizeRestore = () => {
+        const finalizeRestore = async () => {
             setCart(itemsActualizados);
             setDiscount(hold.discount);
             if (hold.cliente && hold.cliente.id) {
                 setSelectedCustomerId(hold.cliente.id);
             }
             
-            // Eliminar de espera
-            const newHolds = pendingCarts.filter(h => h.id !== holdId);
+            // Eliminar de espera bajo lock para no pisar esperas de otras cajas
+            const newHolds = await withLock('pos_write_lock', async () => {
+                const current = await storageService.getItem('bodega_pending_holds_v1', []);
+                const next = (Array.isArray(current) ? current : []).filter(h => h.id !== holdId);
+                await storageService.setItem('bodega_pending_holds_v1', next);
+                return next;
+            });
             setPendingCarts(newHolds);
-            storageService.setItem('bodega_pending_holds_v1', newHolds);
             setShowHoldsModal(false);
             showToast('Venta cargada en cesta', 'success');
         };

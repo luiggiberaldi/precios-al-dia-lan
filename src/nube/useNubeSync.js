@@ -78,8 +78,8 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             store: getSyncStore(),
             cashIdSuffix: deviceId || null,
             withLocalLock: withPosLock,
-            // Misma regla que push_records: un cajero solo sube clientes, su caja y movimientos Cashea.
-            canPush: (collection) => collection === 'customers' || collection === 'cash' || collection === 'cashea'
+            // Misma regla que push_records: un cajero solo sube clientes, su caja, Cashea, esperas y bitácora.
+            canPush: (collection) => ['customers', 'cash', 'cashea', 'holds', 'audit'].includes(collection)
                 || ['dueno', 'administrador'].includes(readMemberSession()?.role),
             readLocal: (key) => storageService.getItem(key, null),
             writeLocal: async (key, value) => {

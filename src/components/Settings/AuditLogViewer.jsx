@@ -202,6 +202,23 @@ export default function AuditLogViewer({ triggerHaptic }) {
 
     useEffect(() => { loadLog(); }, [loadLog]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        let timer = null;
+        const onStorageUpdate = (e) => {
+            const key = e?.detail?.key;
+            if (!key || key === 'abasto_audit_log_v1') {
+                clearTimeout(timer);
+                timer = setTimeout(loadLog, 60);
+            }
+        };
+        window.addEventListener('app_storage_update', onStorageUpdate);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('app_storage_update', onStorageUpdate);
+        };
+    }, [loadLog]);
+
     const handleClear = async () => {
         const usuarioActivo = useAuthStore.getState().usuarioActivo;
         try {

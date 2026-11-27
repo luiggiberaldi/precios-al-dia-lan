@@ -139,11 +139,22 @@ export function useAutoLock() {
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
+        const handleConfigUpdate = (e) => {
+            const key = e?.detail?.key ?? e?.key;
+            if (!key || key === 'admin_auto_lock_minutes') {
+                resetTimer();
+            }
+        };
+        window.addEventListener('app_storage_update', handleConfigUpdate);
+        window.addEventListener('storage', handleConfigUpdate);
+
         resetTimer();
 
         return () => {
             events.forEach(e => window.removeEventListener(e, debouncedResetTimer));
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('app_storage_update', handleConfigUpdate);
+            window.removeEventListener('storage', handleConfigUpdate);
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
             if (debounceTimer) clearTimeout(debounceTimer);
         };

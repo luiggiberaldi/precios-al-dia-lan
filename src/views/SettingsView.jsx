@@ -131,6 +131,7 @@ export default function SettingsView({ onClose, theme, toggleTheme, triggerHapti
             if (!key || key === 'business_phone') setBusinessPhone(localStorage.getItem('business_phone') || '');
             if (!key || key === 'label_currency_mode') setLabelCurrencyMode(localStorage.getItem('label_currency_mode') || 'mixto');
             if (!key || key === 'allow_negative_stock') setAllowNegativeStock(localStorage.getItem('allow_negative_stock') === 'true');
+            if (!key || key === 'admin_auto_lock_minutes') setAutoLockMinutes(localStorage.getItem('admin_auto_lock_minutes') || '3');
         };
         window.addEventListener('app_storage_update', onStorageUpdate);
         return () => window.removeEventListener('app_storage_update', onStorageUpdate);

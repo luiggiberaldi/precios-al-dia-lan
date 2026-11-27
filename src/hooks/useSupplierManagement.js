@@ -9,10 +9,13 @@ import { saveInvoicePhoto, deleteInvoicePhoto } from '../utils/invoicePhotos';
 import { allocatePaymentsToInvoices, paidAmountForInvoice } from '../utils/supplierAllocation';
 import { round2 } from '../utils/dinero';
 import { buildSupplierPaymentRecord } from '../utils/supplierPayment';
+import { mergeSupplierPayments } from '../utils/supplierLedger';
 
 export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHaptic, auditLog }) {
     const [suppliers, setSuppliers] = useState([]);
     const [invoices, setInvoices] = useState([]);
+    const invoicesRef = useRef([]);
+    invoicesRef.current = invoices;
     const [selectedSupplier, setSelectedSupplier] = useState(null);
     const selectedSupplierIdRef = useRef(null);
     selectedSupplierIdRef.current = selectedSupplier?.id || null;
@@ -27,7 +30,7 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
     const [editingInvoice, setEditingInvoice] = useState(null);
     const [deleteInvoiceTarget, setDeleteInvoiceTarget] = useState(null);
 
-    // T20: refresco en vivo al llegar proveedores, facturas o pagos desde otra caja.
+    // T20: refresco en vivo al llegar proveedores, facturas, libro de pagos o ventas desde otra caja.
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
         const onUpdate = async (e) => {
@@ -48,11 +51,14 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
                 }
             }
             const activeSupplierId = selectedSupplierIdRef.current;
-            if (activeSupplierId && (!key || key === 'bodega_supplier_invoices_v1' || key === 'bodega_sales_v1')) {
-                const invList = latestInvoices || await storageService.getItem('bodega_supplier_invoices_v1', []);
-                const allSales = await storageService.getItem('bodega_sales_v1', []);
+            if (activeSupplierId && (!key || key === 'bodega_supplier_invoices_v1' || key === 'bodega_sales_v1' || key === SUPPLIER_LEDGER_KEY)) {
+                const invList = latestInvoices || invoicesRef.current || await storageService.getItem('bodega_supplier_invoices_v1', []);
+                const [allSales, supplierLedger] = await Promise.all([
+                    storageService.getItem('bodega_sales_v1', []),
+                    storageService.getItem(SUPPLIER_LEDGER_KEY, []),
+                ]);
                 const supplierInvoices = (Array.isArray(invList) ? invList : []).filter(i => i.supplierId === activeSupplierId);
-                const supplierPayments = (Array.isArray(allSales) ? allSales : []).filter(s => s.tipo === 'PAGO_PROVEEDOR' && s.supplierId === activeSupplierId);
+                const supplierPayments = mergeSupplierPayments(allSales, supplierLedger, activeSupplierId);
                 const combined = [...supplierInvoices, ...supplierPayments]
                     .sort((a, b) => new Date(b.date || b.timestamp) - new Date(a.date || a.timestamp));
                 setSupplierHistoryData(combined);
@@ -119,9 +125,12 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
     // `invoicesList` debe ser la lista YA actualizada: el estado `invoices` del cierre
     // todavía tiene la versión anterior justo después de guardar.
     const refreshSupplierHistory = async (supplierId, invoicesList = invoices) => {
-        const allSales = await storageService.getItem('bodega_sales_v1', []);
+        const [allSales, supplierLedger] = await Promise.all([
+            storageService.getItem('bodega_sales_v1', []),
+            storageService.getItem(SUPPLIER_LEDGER_KEY, []),
+        ]);
         const supplierInvoices = invoicesList.filter(i => i.supplierId === supplierId);
-        const supplierPayments = allSales.filter(s => s.tipo === 'PAGO_PROVEEDOR' && s.supplierId === supplierId);
+        const supplierPayments = mergeSupplierPayments(allSales, supplierLedger, supplierId);
 
         const combined = [...supplierInvoices, ...supplierPayments]
             .sort((a, b) => new Date(b.date || b.timestamp) - new Date(a.date || a.timestamp));
@@ -210,9 +219,12 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
             showToast('El monto del pago debe ser mayor que cero', 'error');
             return;
         }
-        const allSales = await storageService.getItem('bodega_sales_v1', []);
+        const [allSales, supplierLedger] = await Promise.all([
+            storageService.getItem('bodega_sales_v1', []),
+            storageService.getItem(SUPPLIER_LEDGER_KEY, []),
+        ]);
         const supplierInvoices = invoices.filter(invoice => invoice.supplierId === supplier.id);
-        const supplierPayments = allSales.filter(sale => sale.tipo === 'PAGO_PROVEEDOR' && sale.supplierId === supplier.id);
+        const supplierPayments = mergeSupplierPayments(allSales, supplierLedger, supplier.id);
         const { byInvoice } = allocatePaymentsToInvoices(supplierInvoices, supplierPayments);
         const selectedInvoice = invoiceId ? supplierInvoices.find(invoice => invoice.id === invoiceId) : null;
         const selectedBalance = invoiceId ? byInvoice.get(invoiceId)?.remainingUsd : null;
@@ -231,6 +243,7 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
         triggerHaptic && triggerHaptic();
 
         // 1. Descontar deuda sin permitir saldo negativo + movimiento append-only (T20).
+        const pagoId = crypto.randomUUID();
         const updatedSupplier = { ...supplier, deuda: round2(Math.max(0, (supplier.deuda || 0) - safeAmountUsd)) };
         const updatedSuppliers = suppliers.map(s => s.id === supplier.id ? updatedSupplier : s);
         await saveSuppliers(updatedSuppliers);
@@ -240,6 +253,7 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
             direction: 'CREDIT',
             amountUsd: safeAmountUsd,
             invoiceId,
+            sourceId: pagoId,
             reason: retiraCaja ? 'Pago desde caja' : 'Pago externo',
         });
         setSelectedSupplier(updatedSupplier);
@@ -247,6 +261,7 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
         // 2. Registrar en Caja/Sistema
         const sales = allSales;
         const pagoRecord = buildSupplierPaymentRecord({
+            id: pagoId,
             supplier,
             amountUsd: safeAmountUsd,
             amountBs,
@@ -284,9 +299,12 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
         const diff = nextAmount - (original.amountUsd || 0);
         if (diff < 0) {
             // Validar contra lo ya pagado a ESTA factura (asignación FIFO de pagos).
-            const allSales = await storageService.getItem('bodega_sales_v1', []);
+            const [allSales, supplierLedger] = await Promise.all([
+                storageService.getItem('bodega_sales_v1', []),
+                storageService.getItem(SUPPLIER_LEDGER_KEY, []),
+            ]);
             const supplierInvoices = invoices.filter(i => i.supplierId === original.supplierId);
-            const supplierPayments = allSales.filter(s => s.tipo === 'PAGO_PROVEEDOR' && s.supplierId === original.supplierId);
+            const supplierPayments = mergeSupplierPayments(allSales, supplierLedger, original.supplierId);
             const paidUsd = paidAmountForInvoice(supplierInvoices, supplierPayments, invoiceId);
             if (nextAmount < paidUsd) {
                 showToast(`No puedes bajar el monto por debajo de lo ya pagado a esta factura (USD ${paidUsd.toFixed(2)})`, 'error');
@@ -333,9 +351,12 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
     const handleDeleteInvoice = async (invoice) => {
         triggerHaptic && triggerHaptic();
         if (!invoice) return;
-        const allSalesForDelete = await storageService.getItem('bodega_sales_v1', []);
+        const [allSalesForDelete, supplierLedgerForDelete] = await Promise.all([
+            storageService.getItem('bodega_sales_v1', []),
+            storageService.getItem(SUPPLIER_LEDGER_KEY, []),
+        ]);
         const invoicesOfSupplier = invoices.filter(i => i.supplierId === invoice.supplierId);
-        const paymentsOfSupplier = allSalesForDelete.filter(s => s.tipo === 'PAGO_PROVEEDOR' && s.supplierId === invoice.supplierId);
+        const paymentsOfSupplier = mergeSupplierPayments(allSalesForDelete, supplierLedgerForDelete, invoice.supplierId);
         if (paidAmountForInvoice(invoicesOfSupplier, paymentsOfSupplier, invoice.id) > 0) {
             showToast('Esta factura ya tiene pagos aplicados; no se puede eliminar', 'error');
             setDeleteInvoiceTarget(null);

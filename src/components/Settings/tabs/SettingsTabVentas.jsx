@@ -476,6 +476,7 @@ export default function SettingsTabVentas({
                                             onClick={() => {
                                                 setReceiptCurrency(opt.id);
                                                 localStorage.setItem('receipt_currency_mode', opt.id);
+                                                notifyBusinessConfigChanged();
                                                 forceHeartbeat();
                                                 showToast(`Ticket configurado en ${opt.label}`, 'success');
                                                 triggerHaptic?.();

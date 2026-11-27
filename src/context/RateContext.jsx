@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { pushLocalSync } from '../hooks/useCloudSync';
 import { resolveEffectiveRate, resolveTasaCop } from '../utils/effectiveRate';
 import { notifyRateChanged } from '../nube/rateSync';
@@ -57,28 +57,47 @@ export function RateProvider({ children, rates = {}, rateDiscrepancyWarning = nu
         notifyRateChanged(); // Nube: una sola tasa para todas las cajas (sin nube no hace nada)
     }, [rateMode]);
 
+    const didMountCustomRef = useRef(false);
     useEffect(() => {
+        if (!didMountCustomRef.current) {
+            didMountCustomRef.current = true;
+            if (customRate) {
+                localStorage.setItem('bodega_custom_rate', customRate.toString());
+                pushLocalSync('bodega_custom_rate', customRate.toString());
+                notifyRateChanged();
+            }
+            return;
+        }
         if (customRate) {
             localStorage.setItem('bodega_custom_rate', customRate.toString());
             pushLocalSync('bodega_custom_rate', customRate.toString());
-            notifyRateChanged();
+        } else {
+            localStorage.removeItem('bodega_custom_rate');
+            pushLocalSync('bodega_custom_rate', '');
         }
+        notifyRateChanged();
     }, [customRate]);
 
     useEffect(() => {
         if (streetRate > 0) localStorage.setItem('street_rate_bs', streetRate.toString());
     }, [streetRate]);
 
+    const didMountCopRef = useRef(false);
     useEffect(() => {
         localStorage.setItem('cop_enabled', copEnabled.toString());
         localStorage.setItem('auto_cop_enabled', autoCopEnabled.toString());
         localStorage.setItem('cop_primary', copPrimary.toString());
-        if (tasaCopManual) localStorage.setItem('tasa_cop', tasaCopManual.toString());
+        if (tasaCopManual) {
+            localStorage.setItem('tasa_cop', tasaCopManual.toString());
+        } else if (didMountCopRef.current) {
+            localStorage.removeItem('tasa_cop');
+        }
+        didMountCopRef.current = true;
 
         pushLocalSync('cop_enabled', copEnabled.toString());
         pushLocalSync('auto_cop_enabled', autoCopEnabled.toString());
         pushLocalSync('cop_primary', copPrimary.toString());
-        if (tasaCopManual) pushLocalSync('tasa_cop', tasaCopManual.toString());
+        pushLocalSync('tasa_cop', tasaCopManual ? tasaCopManual.toString() : '');
         notifyRateChanged();
     }, [copEnabled, autoCopEnabled, copPrimary, tasaCopManual]);
 

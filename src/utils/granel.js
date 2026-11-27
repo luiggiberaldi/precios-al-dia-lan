@@ -12,6 +12,7 @@
 
 import { round2, round3, round0 } from './dinero.js';
 import { useState, useEffect, useCallback } from 'react';
+import { notifyBusinessConfigChanged } from '../nube/businessConfigSync';
 
 export const GRANEL_STORAGE_KEY = 'granel_unit_mode';
 export const GRANEL_MODE_KG_LT = 'kg_lt';
@@ -55,6 +56,11 @@ export const setGranelUnitMode = (mode) => {
         } catch {
             // Event dispatch fallback
         }
+    }
+    try {
+        notifyBusinessConfigChanged();
+    } catch {
+        // Sin sincronización nube activa
     }
     return safeMode;
 };

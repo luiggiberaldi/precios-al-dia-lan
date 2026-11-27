@@ -272,17 +272,31 @@ function NubeGateFlow({ children }) {
         }
     }, [phase, usuarioActivo, device, offlineMode]);
 
-    // E10: si el dueño expulsa este equipo, con internet deja de vender enseguida.
+    // E10 + tiempo real: si el dueño expulsa este equipo, cambia licencia/sedes o edita
+    // empleados (incluso mientras otra PC espera en el selector de PIN), actualiza al instante.
     useEffect(() => {
-        if (!['listo', 'consulta'].includes(phase) || !deviceUserId) return undefined;
-        const check = async () => {
+        if (!['elegir', 'listo', 'consulta'].includes(phase) || !deviceUserId) return undefined;
+        const refreshMembers = () => {
+            svc.listMembers(device).then(setMembers).catch(() => {});
+            if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('pdn_members_updated'));
+            }
+        };
+        const refreshPassport = () => {
+            if (lanMode && !offlineMode) {
+                device.lan?.fetchOfflinePassport?.().then((p) => { if (p) saveOfflinePassport(p); }).catch(() => {});
+            }
+        };
+        const check = async ({ reloadMembers = false } = {}) => {
             if (document.visibilityState !== 'visible') return;
             try {
                 if (await guardReset()) return;
                 const st = await svc.getDeviceStatus(device, deviceUserId);
                 if (st) {
+                    setStatus(st);
                     // La Estación pudo ampliar, suspender o vencer la licencia de la cuenta.
                     setNubeLicense(st.license ?? null);
+                    if (reloadMembers || phase === 'elegir') refreshMembers();
                     // Desde otra caja desactivaron a este empleado o le cambiaron el PIN: su
                     // sesión ya no vale y todo lo que haga quedaría sin subir. Vuelve al selector.
                     const saved = phase === 'listo' ? readMemberSession() : null;
@@ -311,11 +325,7 @@ function NubeGateFlow({ children }) {
             } catch { /* sin internet: sigue el permiso de 72 h */ }
         };
         const timer = setInterval(check, 5 * 60_000);
-        const passportTimer = lanMode ? setInterval(() => {
-            if (!offlineMode) {
-                device.lan?.fetchOfflinePassport?.().then((p) => { if (p) saveOfflinePassport(p); }).catch(() => {});
-            }
-        }, 30 * 60_000) : null;
+        const passportTimer = lanMode ? setInterval(refreshPassport, 30 * 60_000) : null;
         document.addEventListener('visibilitychange', check);
         const accountId = status?.account?.id;
         const currentDeviceId = status?.device?.id;
@@ -337,9 +347,23 @@ function NubeGateFlow({ children }) {
                         'postgres_changes',
                         { event: '*', schema: 'public', table: 'account_members', filter: `account_id=eq.${accountId}` },
                         () => {
-                            if (lanMode) {
-                                device.lan?.fetchOfflinePassport?.().then((p) => { if (p) saveOfflinePassport(p); }).catch(() => {});
-                            }
+                            refreshPassport();
+                            check({ reloadMembers: true });
+                        },
+                    )
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'account_licenses', filter: `account_id=eq.${accountId}` },
+                        () => {
+                            refreshPassport();
+                            check();
+                        },
+                    )
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'sedes', filter: `account_id=eq.${accountId}` },
+                        () => {
+                            refreshPassport();
                             check();
                         },
                     ),

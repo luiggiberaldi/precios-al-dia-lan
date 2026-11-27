@@ -554,8 +554,8 @@ export default function SalesHistory({
                                         {s.tipo === 'AVANCE_EFECTIVO' ? 'Avance de Efectivo' : (s.customerName || 'Consumidor Final')} 
                                         {s.tipo === 'VENTA_FIADA' && <span className="text-[9px] bg-amber-100 text-amber-600 px-1 rounded uppercase font-black">Fiado</span>}
                                         {hasCashea && <span className="text-[9px] bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded uppercase font-black flex items-center gap-0.5"><CasheaIcon size={10} /> Cashea</span>}
-                                        {isDaySales && s._cajaName && <span data-testid="caja-name-badge" className="text-[9px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-1.5 py-0.5 rounded uppercase font-black truncate max-w-[40%]">{s._cajaName}</span>}
-                                        {!isDaySales && s._caja && <span data-testid="caja-badge" className="text-[9px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-1.5 py-0.5 rounded uppercase font-black">Caja {s._caja}</span>}
+                                        {(isDaySales || historyTab === 'general') && s._cajaName && <span data-testid="caja-name-badge" className="text-[9px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-1.5 py-0.5 rounded uppercase font-black truncate max-w-[40%]">{s._cajaName}</span>}
+                                        {!isDaySales && historyTab !== 'general' && s._caja && <span data-testid="caja-badge" className="text-[9px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-1.5 py-0.5 rounded uppercase font-black">Caja {s._caja}</span>}
                                         {s.remoteSale && <span data-testid="remote-sale-badge" title="Vendida desde el Supervisor" className="text-[9px] bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 px-1.5 py-0.5 rounded uppercase font-black truncate max-w-[45%]">Remota · {s.remoteSale.sellerName}</span>}
                                     </p>
                                     <p className="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-1">
@@ -808,7 +808,7 @@ export default function SalesHistory({
                                             </button>
                                         )}
 
-                                        {isAdmin && !isAllCajas && !(isDaySales && s._deviceId) && !isCanceled && !s.cajaCerrada && (
+                                        {isAdmin && !isAllCajas && !s._deviceId && !isCanceled && !s.cajaCerrada && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onVoidSale(s); }}
                                                 className="py-2 px-3 bg-slate-100 dark:bg-slate-900 text-red-600 dark:text-red-400 hover:bg-red-50 hover:dark:bg-red-900/30 font-bold rounded-lg transition-colors flex justify-center items-center gap-1.5 text-xs border border-slate-200 dark:border-slate-800 shadow-sm active:scale-95">
@@ -820,7 +820,7 @@ export default function SalesHistory({
                                                 <LockIcon size={12} /> Cerrada
                                             </div>
                                         )}
-                                        {!isAllCajas && !(isDaySales && s._deviceId) && <button
+                                        {!isAllCajas && !s._deviceId && <button
                                             onClick={(e) => { e.stopPropagation(); onRecycleSale(s); }}
                                             className="py-2 px-3 bg-brand-light dark:bg-surface-800/30 text-brand-dark dark:text-brand hover:bg-brand-light hover:dark:bg-surface-800/50 font-bold rounded-lg transition-colors flex justify-center items-center gap-1.5 text-xs shadow-sm active:scale-95">
                                             <Recycle size={14} />
