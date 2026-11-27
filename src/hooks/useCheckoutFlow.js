@@ -10,6 +10,8 @@ import { buildAporteCajaRecord } from '../utils/cajaAporte';
 import { useAuthStore } from './store/useAuthStore';
 import { findOpenCashShift } from '../utils/cashShift';
 import { appendCustomerLocked } from '../utils/customerHistory';
+import { isSharedCashDrawerMode } from '../utils/cashDrawerMode';
+import { hasSharedCashShiftBridge, openSharedShiftRemote } from '../nube/sharedCashShiftBridge';
 
 export function useCheckoutFlow({
     cart, cartTotalUsd, cartTotalBs, cartSubtotalUsd, cartBaseUsd, cartIvaUsd,
@@ -105,7 +107,10 @@ export function useCheckoutFlow({
 
         try {
             const today = new Date().toISOString();
-            const aperturaRecord = {
+            const sharedMode = isSharedCashDrawerMode();
+            const activeUser = useAuthStore.getState()?.usuarioActivo || null;
+            const shiftId = sharedMode ? `shift_${Date.now()}` : null;
+            let aperturaRecord = {
                 id: `apertura_${Date.now()}`,
                 tipo: 'APERTURA_CAJA',
                 openingUsd,
@@ -113,8 +118,29 @@ export function useCheckoutFlow({
                 // FIN-026: incluir openingCop siempre (aunque sea 0) para trazabilidad.
                 openingCop,
                 timestamp: today,
-                cajaCerrada: false
+                cajaCerrada: false,
+                ...(shiftId ? {
+                    shiftId,
+                    sharedDrawer: true,
+                    cashier: { nombre: activeUser?.nombre || 'Usuario', rol: activeUser?.rol || 'CAJERO' },
+                } : {}),
             };
+
+            let remoteAlreadyOpen = false;
+            if (sharedMode && hasSharedCashShiftBridge()) {
+                try {
+                    const remoteRes = await openSharedShiftRemote(shiftId, aperturaRecord);
+                    if (remoteRes?.opening_record) {
+                        aperturaRecord = remoteRes.opening_record;
+                    }
+                    if (remoteRes?.already_open) {
+                        remoteAlreadyOpen = true;
+                    }
+                } catch (remoteErr) {
+                    // Si la red LAN está caída temporalmente, permitir apertura local con shiftId
+                    console.warn('[apertura] No se pudo coordinar turno compartido remoto; abriendo en local:', remoteErr?.message || remoteErr);
+                }
+            }
 
             // FIN-026: envolver en withLock para evitar duplicar aperturas en doble-click.
             // CAJA-APERTURA-001: si ya hay una caja abierta (otra pestaña o pantalla
@@ -128,17 +154,23 @@ export function useCheckoutFlow({
                     setTodayAperturaData(alreadyOpen);
                     return;
                 }
-                const updatedSales = [...existingSales, aperturaRecord];
+                const alreadyExistsById = existingSales.some((s) => String(s?.id) === String(aperturaRecord.id));
+                const updatedSales = alreadyExistsById ? existingSales : [...existingSales, aperturaRecord];
                 await storageService.setItem(SALES_KEY, updatedSales);
                 setTodayAperturaData(aperturaRecord);
             });
 
             setIsAperturaOpen(false);
-            if (alreadyOpen) {
-                showToast('La caja ya estaba abierta. Se usa la apertura existente.', 'info');
+            if (alreadyOpen || remoteAlreadyOpen) {
+                showToast(
+                    remoteAlreadyOpen
+                        ? 'La caja compartida ya estaba abierta desde otro equipo.'
+                        : 'La caja ya estaba abierta. Se usa la apertura existente.',
+                    'info',
+                );
                 return;
             }
-            showToast('Caja abierta exitosamente', 'success');
+            showToast(sharedMode ? 'Caja compartida abierta para todos los equipos' : 'Caja abierta exitosamente', 'success');
             if (triggerHaptic) triggerHaptic();
 
         } catch (error) {
@@ -171,8 +203,10 @@ export function useCheckoutFlow({
         try {
             await withLock('pos_write_lock', async () => {
                 const existingSales = await storageService.getItem(SALES_KEY, []);
-                await storageService.setItem(SALES_KEY, [...existingSales, record]);
-                setSalesData(prev => [record, ...prev]);
+                const openShift = findOpenCashShift(existingSales);
+                const stamped = openShift?.shiftId ? { ...record, shiftId: openShift.shiftId } : record;
+                await storageService.setItem(SALES_KEY, [...existingSales, stamped]);
+                setSalesData(prev => [stamped, ...prev]);
             });
             showToast('Aporte de efectivo registrado', 'success');
             if (triggerHaptic) triggerHaptic();

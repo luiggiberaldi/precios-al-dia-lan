@@ -25,6 +25,8 @@ import { useAudit } from '../hooks/useAudit';
 import { useAuthStore } from '../hooks/store/useAuthStore';
 import { getLocalISODate } from '../utils/dateHelpers';
 import { CASH_SHIFT_TYPES, isRecordInOpenCashShift } from '../utils/cashShift';
+import { isSharedCashDrawerMode } from '../utils/cashDrawerMode';
+import { closeSharedShiftRemote, hasSharedCashShiftBridge } from '../nube/sharedCashShiftBridge';
 import Skeleton from '../components/Skeleton';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
@@ -465,17 +467,46 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
             };
         }
 
+        const sharedMode = isSharedCashDrawerMode();
+        if (registroCierre && sharedMode) {
+            registroCierre = {
+                ...registroCierre,
+                sharedDrawer: true,
+                ...(todayApertura?.shiftId ? { shiftId: todayApertura.shiftId } : {}),
+            };
+        }
+
+        if (sharedMode && hasSharedCashShiftBridge()) {
+            try {
+                const remoteClose = await closeSharedShiftRemote(todayApertura?.shiftId || '', registroCierre);
+                if (remoteClose?.already_closed) {
+                    const refreshed = await storageService.getItem(SALES_KEY, []);
+                    setSales(Array.isArray(refreshed) ? refreshed : []);
+                    setIsCashReconOpen(false);
+                    showToast('La caja compartida ya fue cerrada desde otro equipo.', 'info');
+                    return;
+                }
+            } catch (err) {
+                console.warn('[DashboardView] No se pudo coordinar cierre compartido remoto; cerrando local:', err?.message || err);
+            }
+        }
+
         // A7: serializar el cierre de caja bajo pos_write_lock leyendo bodega_sales_v1 fresco
         // para no pisar ventas registradas mientras el modal de arqueo estaba abierto.
         const updatedSales = await withLock('pos_write_lock', async () => {
             const freshSales = await storageService.getItem(SALES_KEY, []);
             const next = (Array.isArray(freshSales) ? freshSales : []).map(s => {
                 if (isManualCloseRecord(s)) {
-                    return { ...s, cajaCerrada: true, cierreId: currentCierreId };
+                    return {
+                        ...s,
+                        cajaCerrada: true,
+                        cierreId: currentCierreId,
+                        ...(todayApertura?.shiftId && !s.shiftId ? { shiftId: todayApertura.shiftId } : {}),
+                    };
                 }
                 return s;
             });
-            if (registroCierre) {
+            if (registroCierre && !next.some(s => String(s?.id) === String(registroCierre.id))) {
                 next.push(registroCierre);
             }
             await storageService.setItem(SALES_KEY, next);

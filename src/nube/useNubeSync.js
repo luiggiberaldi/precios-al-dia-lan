@@ -36,6 +36,8 @@ import {
 } from './businessConfigSync';
 import { keepChannel } from './realtimeChannel';
 import { CASHEA_LEDGER_KEY, applyCasheaBalances } from '../utils/casheaLedger';
+import { isSharedCashDrawerMode } from '../utils/cashDrawerMode';
+import { setSharedCashShiftBridge } from './sharedCashShiftBridge';
 
 const POLL_MS = 60_000;
 // Con los tres canales en vivo arriba, lo que cambia llega por aviso: releer de la nube
@@ -78,6 +80,7 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             store: getSyncStore(),
             cashIdSuffix: deviceId || null,
             withLocalLock: withPosLock,
+            isSharedCashMode: () => isSharedCashDrawerMode(),
             // Misma regla que push_records: un cajero solo sube clientes, su caja, Cashea, esperas y bitácora.
             canPush: (collection) => ['customers', 'cash', 'cashea', 'holds', 'audit'].includes(collection)
                 || ['dueno', 'administrador'].includes(readMemberSession()?.role),
@@ -85,7 +88,12 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             writeLocal: async (key, value) => {
                 await storageService.setItem(key, value, { skipSyncPush: true, fromCloud: true });
                 if (key === RATE_KEY) applyRateSnapshot(value); // la tasa de la cuenta llega a esta caja
-                if (key === BUSINESS_CONFIG_KEY) applyBusinessConfigSnapshot(value); // IVA, políticas y datos del negocio
+                if (key === BUSINESS_CONFIG_KEY) {
+                    const changed = applyBusinessConfigSnapshot(value); // IVA, políticas y datos del negocio
+                    if (changed.includes('cash_drawer_mode') && isSharedCashDrawerMode()) {
+                        engine.pull(['cash']).catch(() => {});
+                    }
+                }
             },
             onPulled: async (collection) => {
                 // A4: al llegar productos o clientes nuevos desde otra caja, aplicar inmediatamente
@@ -338,6 +346,38 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             await supplierLedger.pull();
         })();
 
+        setSharedCashShiftBridge({
+            openShift: async (shiftId, openingRecord) => {
+                const session = readMemberSession()?.token ?? null;
+                const { data, error } = await client.rpc('open_shared_cash_shift', {
+                    p_session: session,
+                    p_shift_id: shiftId,
+                    p_opening_record: openingRecord,
+                });
+                if (error) throw error;
+                await engine.pull(['cash']).catch(() => {});
+                return data;
+            },
+            closeShift: async (shiftId, closeRecord) => {
+                const session = readMemberSession()?.token ?? null;
+                const { data, error } = await client.rpc('close_shared_cash_shift', {
+                    p_session: session,
+                    p_shift_id: shiftId,
+                    p_close_record: closeRecord,
+                });
+                if (error) throw error;
+                await engine.pull(['cash']).catch(() => {});
+                return data;
+            },
+            getActiveShift: async () => {
+                const session = readMemberSession()?.token ?? null;
+                const { data, error } = await client.rpc('get_active_shared_shift', { p_session: session });
+                if (error) throw error;
+                return data;
+            },
+            pullCash: () => engine.pull(['cash']),
+        });
+
         const emitRemoteCashUpdate = (collection) => {
             if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('pdn_remote_cash_updated', { detail: { collection } }));
@@ -359,7 +399,11 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
                         return;
                     }
                     if (c === 'cash') {
-                        emitRemoteCashUpdate('cash');
+                        if (isSharedCashDrawerMode()) {
+                            engine.pull(['cash']).finally(() => emitRemoteCashUpdate('cash'));
+                        } else {
+                            emitRemoteCashUpdate('cash');
+                        }
                         return;
                     }
                     engine.pull(c ? [c] : undefined);
@@ -429,6 +473,7 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             setNubeBackupRestorer(null);
             setNubeRateLink(null);
             setNubeBusinessConfigLink(null);
+            setSharedCashShiftBridge(null);
             clearInterval(timer);
             clearInterval(rateTimer);
             document.removeEventListener('visibilitychange', forceTick);

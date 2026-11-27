@@ -14,6 +14,10 @@ import { loadTaxConfig, saveTaxConfig as saveTaxConfigLocal, resetTaxConfig as r
 import { pushLocalSync } from '../../../hooks/useCloudSync';
 import { notifyBusinessConfigChanged } from '../../../nube/businessConfigSync';
 import { useCartCompact, setCartCompactMode } from '../../../config/salesFeatures';
+import { CASH_DRAWER_MODES, CASH_DRAWER_MODE_KEY, readCashDrawerMode, writeCashDrawerMode } from '../../../utils/cashDrawerMode';
+import { storageService } from '../../../utils/storageService';
+import { findOpenCashShift } from '../../../utils/cashShift';
+import { pullSharedCashNow } from '../../../nube/sharedCashShiftBridge';
 
 // El IVA viaja al supervisor: las ventas remotas se cobran con el mismo total.
 const publishTaxConfig = (config) => { pushLocalSync('tax_config_v1', JSON.stringify(config)); return config; };
@@ -96,6 +100,34 @@ export default function SettingsTabVentas({
         return isNaN(stored) || stored < 0 ? '0' : stored.toString();
     });
     const [bsRoundMode, setBsRoundMode] = useState(() => localStorage.getItem('checkout_bs_round_mode') || 'ceil');
+    const [cashDrawerMode, setCashDrawerMode] = useState(() => readCashDrawerMode());
+    const [hasOpenShift, setHasOpenShift] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        const refreshShift = async () => {
+            try {
+                const sales = await storageService.getItem('bodega_sales_v1', []);
+                if (active) setHasOpenShift(Boolean(findOpenCashShift(sales)));
+            } catch {
+                if (active) setHasOpenShift(false);
+            }
+        };
+        refreshShift();
+        const onUpdate = (e) => {
+            if (e?.detail?.key === CASH_DRAWER_MODE_KEY) {
+                setCashDrawerMode(readCashDrawerMode());
+            }
+            if (!e?.detail?.key || e.detail.key === 'bodega_sales_v1') {
+                refreshShift();
+            }
+        };
+        window.addEventListener('app_storage_update', onUpdate);
+        return () => {
+            active = false;
+            window.removeEventListener('app_storage_update', onUpdate);
+        };
+    }, []);
 
     // ── IVA (fase 3): configuración fiscal guardada en taxConfig ──
     const [taxConfig, setTaxConfig] = useState(() => loadTaxConfig());
@@ -594,6 +626,91 @@ export default function SettingsTabVentas({
                     aria-labelledby="tab-ventas-caja"
                     className="space-y-4 animate-in fade-in duration-200"
                 >
+                    <SectionCard
+                        icon={Monitor}
+                        title="Modo de operación multi-caja"
+                        subtitle="Elige si cada PC lleva su propia gaveta o si comparten una sola"
+                        iconColor="text-teal-600"
+                    >
+                        <div className="space-y-3">
+                            {hasOpenShift && (
+                                <p
+                                    role="status"
+                                    className="text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-3 py-2 rounded-xl"
+                                >
+                                    Cierra el turno de caja actual antes de cambiar el modo de gaveta para evitar mezclar movimientos.
+                                </p>
+                            )}
+                            <div
+                                role="radiogroup"
+                                aria-label="Modo de operación multi-caja"
+                                className="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
+                            >
+                                {[
+                                    {
+                                        id: CASH_DRAWER_MODES.SEPARATE,
+                                        label: 'Cajas independientes',
+                                        badge: 'Por defecto',
+                                        desc: 'Cada PC abre, controla su efectivo y cierra su propia gaveta.',
+                                    },
+                                    {
+                                        id: CASH_DRAWER_MODES.SHARED,
+                                        label: 'Caja compartida (Gaveta única)',
+                                        badge: 'Multi-PC',
+                                        desc: 'Todas las PCs comparten apertura, fondo para vueltos, ventas y un solo cierre diario.',
+                                    },
+                                ].map((opt) => {
+                                    const selected = cashDrawerMode === opt.id;
+                                    return (
+                                        <button
+                                            key={opt.id}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={selected}
+                                            disabled={hasOpenShift}
+                                            data-testid={`cash-drawer-mode-${opt.id}`}
+                                            onClick={() => {
+                                                if (hasOpenShift || selected) return;
+                                                const saved = writeCashDrawerMode(opt.id);
+                                                setCashDrawerMode(saved);
+                                                forceHeartbeat?.();
+                                                if (saved === CASH_DRAWER_MODES.SHARED) {
+                                                    pullSharedCashNow().catch(() => {});
+                                                }
+                                                showToast(
+                                                    saved === CASH_DRAWER_MODES.SHARED
+                                                        ? 'Modo Caja compartida (Gaveta única) activado'
+                                                        : 'Modo Cajas independientes activado',
+                                                    'success',
+                                                );
+                                                triggerHaptic?.();
+                                            }}
+                                            className={`min-h-[44px] p-3.5 rounded-xl text-left transition-all border flex flex-col justify-between gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                                                selected
+                                                    ? 'bg-teal-800 text-white dark:bg-teal-900 border-teal-700 shadow-md ring-2 ring-teal-500/30'
+                                                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-teal-300 dark:hover:border-teal-700'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-xs font-black tracking-tight">{opt.label}</span>
+                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                                    selected
+                                                        ? 'bg-white text-teal-800'
+                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                                                }`}>
+                                                    {selected ? 'Activo' : opt.badge}
+                                                </span>
+                                            </div>
+                                            <p className={`text-[11px] leading-snug ${selected ? 'text-teal-100' : 'text-slate-500 dark:text-slate-400'}`}>
+                                                {opt.desc}
+                                            </p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </SectionCard>
+
                     <div className="cq-grid items-stretch">
                         {/* Desglose del Cambio */}
                         <SectionCard

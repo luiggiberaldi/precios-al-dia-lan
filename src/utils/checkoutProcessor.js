@@ -14,6 +14,7 @@ import { loadTaxConfig, resolveLineIvaRate, getCartIvaOpts } from '../config/tax
 import { nubeCommitSale } from '../nube/checkoutBridge.js';
 import { adjustNubeStockBaseline } from '../nube/localWriteHook.js';
 import { appendCasheaMovementWithinLock } from './casheaLedger.js';
+import { findOpenCashShift } from './cashShift.js';
 
 const SALES_KEY = 'bodega_sales_v1';
 const PRODUCTS_KEY = 'bodega_products_v1';
@@ -446,6 +447,12 @@ export async function processSaleTransaction({
         // devuelve (el recibo lo lee de ahí).
         if (walletSnapshot) {
             finalPersistedSale = deepFreeze({ ...finalPersistedSale, walletSnapshot });
+        }
+
+        // Modo caja compartida: vincular la venta al shiftId del turno abierto actual.
+        const activeShift = findOpenCashShift(existingSales);
+        if (activeShift?.shiftId && !finalPersistedSale.shiftId) {
+            finalPersistedSale = deepFreeze({ ...finalPersistedSale, shiftId: activeShift.shiftId });
         }
 
         // Precios al Día Nube (F3): el servidor registra la venta y descuenta el stock.

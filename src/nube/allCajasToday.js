@@ -17,6 +17,7 @@ import { findOpenCashShift, isRecordInOpenCashShift, isShiftCashMovement } from 
 import { calcularEfectivoEsperado } from '../utils/cajaEsperada';
 import { computeReceivablesMovements } from '../utils/receivablesReport';
 import { loadAllCajasSales, onlySalesHistory } from './allCajasSales';
+import { isSharedCashDrawerMode } from '../utils/cashDrawerMode';
 
 const SALE_TYPES = new Set(['VENTA', 'VENTA_FIADA', 'VENTA_CASHEA']);
 export const LOCAL_CAJA_KEY = 'local';
@@ -96,6 +97,7 @@ export function buildAllCajasSummary({
     remoteSales = [], localSales = [], localDeviceId = null, labels = {},
     revokedDeviceIds = [],
     today = getLocalISODate(), bcvRate = 1, products = [],
+    sharedDrawerMode = isSharedCashDrawerMode(),
 } = {}) {
     const localId = localDeviceId || inferLocalDeviceId(remoteSales, localSales);
     const localIds = new Set(localSales.filter(Boolean).map((s) => String(s.id)));
@@ -103,6 +105,102 @@ export function buildAllCajasSummary({
         ...(revokedDeviceIds ? [...revokedDeviceIds] : []),
         ...remoteSales.filter((s) => s?._deviceId && s._deviceRevoked).map((s) => s._deviceId),
     ]);
+
+    if (sharedDrawerMode) {
+        const byId = new Map();
+        for (const r of remoteSales) {
+            if (!r?.id) continue;
+            byId.set(String(r.id), r);
+        }
+        for (const l of localSales) {
+            if (!l?.id) continue;
+            const prev = byId.get(String(l.id));
+            if (prev) {
+                // Conservar cierre o anulación remota si ya ocurrió en otra PC
+                const merged = {
+                    ...prev,
+                    ...l,
+                    _deviceId: l._deviceId || prev._deviceId || localId,
+                    cajaCerrada: Boolean(l.cajaCerrada || prev.cajaCerrada),
+                    status: (l.status === 'ANULADA' || prev.status === 'ANULADA') ? 'ANULADA' : (l.status || prev.status),
+                };
+                byId.set(String(l.id), merged);
+            } else {
+                byId.set(String(l.id), { ...l, _deviceId: l._deviceId || localId });
+            }
+        }
+        const unified = [...byId.values()];
+        const m = summarizeCajaRecords(unified, { today, bcvRate, products });
+
+        // Desglose informativo por equipo (solo para saber cuánto aportó cada PC, sin volver a sumar)
+        const byDevice = new Map();
+        for (const rec of unified) {
+            const devKey = rec._deviceId || localId || NO_DEVICE_KEY;
+            if (!byDevice.has(devKey)) byDevice.set(devKey, []);
+            byDevice.get(devKey).push(rec);
+        }
+        const nameOfShared = (devKey, recs) => {
+            if (localId && devKey === localId) return labels[devKey] || 'Esta caja';
+            if (devKey === NO_DEVICE_KEY) return 'Sin caja';
+            return labels[devKey] || recs.find((r) => r._cajaLabel)?._cajaLabel || 'Caja';
+        };
+        const cajas = [...byDevice.entries()].map(([devKey, recs]) => {
+            const devSales = m.todaySales.filter((s) => (s._deviceId || localId || NO_DEVICE_KEY) === devKey);
+            const devCash = m.cashFlow.filter((s) => (s._deviceId || localId || NO_DEVICE_KEY) === devKey);
+            const isLocal = Boolean(localId && devKey === localId);
+            return {
+                key: isLocal ? LOCAL_CAJA_KEY : devKey,
+                deviceId: devKey === NO_DEVICE_KEY ? null : devKey,
+                isLocal,
+                revoked: !isLocal && devKey !== NO_DEVICE_KEY && revokedSet.has(devKey),
+                name: nameOfShared(devKey, recs),
+                opening: m.opening,
+                todaySales: devSales,
+                cashFlow: devCash,
+                expenses: m.expenses.filter((s) => (s._deviceId || localId || NO_DEVICE_KEY) === devKey),
+                salesCount: devSales.length,
+                totalUsd: sumR(devSales.map((s) => s.totalUsd || 0)),
+                totalBs: sumR(devSales.map((s) => s.totalBs || 0)),
+                totalCop: sumR(devSales.map((s) => s.totalCop || 0)),
+                itemsSold: devSales.reduce((n, s) => n + (Array.isArray(s.items) ? s.items.reduce((acc, i) => acc + (Number(i?.qty) || 0), 0) : 0), 0),
+                expensesUsd: 0,
+                gastosUsd: 0,
+                profit: FinancialEngine.calculateAggregateProfit(devSales, bcvRate, products),
+                paymentBreakdown: FinancialEngine.calculatePaymentBreakdown(devCash),
+                expectedUsd: m.expectedUsd,
+                expectedBs: m.expectedBs,
+                expectedCop: m.expectedCop,
+            };
+        }).filter((c) => c.isLocal || c.cashFlow.length > 0 || c.todaySales.length > 0);
+
+        const fondoBreakdown = FinancialEngine.calculatePaymentBreakdown(
+            m.cashFlow.filter((s) => s.tipo === 'APERTURA_CAJA' || s.tipo === 'APORTE_CAJA'),
+        );
+
+        return {
+            cajas,
+            localDeviceId: localId,
+            isSharedDrawer: true,
+            totals: {
+                todaySales: m.todaySales.map((s) => ({
+                    ...s,
+                    _cajaName: nameOfShared(s._deviceId || localId || NO_DEVICE_KEY, [s]),
+                })),
+                todayCashFlow: m.cashFlow,
+                todayExpenses: m.expenses,
+                todayTotalUsd: m.totalUsd,
+                todayTotalBs: m.totalBs,
+                todayTotalCop: m.totalCop,
+                todayItemsSold: m.itemsSold,
+                todayExpensesUsd: m.expensesUsd,
+                todayGastosUsd: m.gastosUsd,
+                todayProfit: m.profit,
+                paymentBreakdown: m.paymentBreakdown,
+                fondoBreakdown,
+                todayReceivables: computeReceivablesMovements(m.cashFlow),
+            },
+        };
+    }
 
     const groups = new Map();
     const push = (key, rec) => { if (!groups.has(key)) groups.set(key, []); groups.get(key).push(rec); };

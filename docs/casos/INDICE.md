@@ -22,6 +22,7 @@ Un caso es un trabajo grande (varios archivos, visible para el usuario, o que to
 | [CASO-005](CASO-005-nomina-simple.md) | «Nómina simple» en Gestión | 2026-11-14 | Aplicado | «Clientes» pasa a «Gestión» con sub-pestaña Nómina (solo Administrador): adelantos, pagos, bonos y descuentos que cuadran en el cierre. Gastos internos con candado. Sin los errores E1–E3 de Donde Juancho. |
 | [CASO-006](CASO-006-egress-realtime.md) | Egress de Realtime: el supervisor deja de recibir documentos enteros | 2026-11-14 | En curso | Código hecho, sin publicar. Audit log por franjas de 2 h, ventas de hoy en tramos chicos, avisos livianos en vez de filas completas, pestaña oculta suelta Realtime, alarma diaria e informe semanal. P-014 a P-017. |
 | [CASO-007](CASO-007-presentaciones-multinivel-productos.md) | Presentaciones multinivel (1, 2 o 3 niveles) y rediseño del modal de productos | 2026-11-27 | Verificado | Soporte para 1, 2 o 3 presentaciones con nombres personalizables, modal unificado de 2 columnas con vista previa en Caja, venta/escaneo/lotes multinivel y E2E en desktop y móvil. |
+| [CASO-008](CASO-008-modo-caja-compartida.md) | Modo «Caja compartida / Gaveta única» en Ajustes | 2026-11-27 | Verificado | Selector en Ajustes (`separate` por defecto vs `shared`), migración `023` con turnos compartidos atómicos, sync bidireccional de `cash` con deduplicación y pruebas multi-caja LAN reales. |
 
 ## Antes de la ley
 

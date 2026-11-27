@@ -41,6 +41,12 @@ export function isRecordInOpenCashShift(record, opening) {
     if (!record || !opening || record.cajaCerrada === true) return false;
     if (record.id === opening.id) return true;
 
+    // En modo caja compartida (o cuando ambos tienen shiftId explícito), el shiftId
+    // es la fuente de verdad inmune a desfases de reloj entre PCs.
+    if (opening.shiftId && record.shiftId) {
+        return String(record.shiftId) === String(opening.shiftId);
+    }
+
     const openingTime = timestampMs(opening);
     const recordTime = timestampMs(record);
     return Number.isFinite(openingTime)

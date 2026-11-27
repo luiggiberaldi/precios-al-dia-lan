@@ -243,6 +243,7 @@ export function createRecordSync({
     readLocal,
     writeLocal,
     withLocalLock = (fn) => fn(),
+    isSharedCashMode = () => false,
     onStatus = () => {},
     onPulled = () => {},
     cashIdSuffix = null,
@@ -299,12 +300,13 @@ export function createRecordSync({
         // escalamiento diferido cuando un administrador inicie turno después.
         if (!canPush(cfg.collection) || unsupportedCollections.has(cfg.collection)) return;
         const state = await loadState(cfg.collection);
-        const records = toRecords(key, value, { cashIdSuffix });
+        const effectiveCashSuffix = (cfg.cash && isSharedCashMode()) ? null : cashIdSuffix;
+        const records = toRecords(key, value, { cashIdSuffix: effectiveCashSuffix });
         // Ids que SIGUEN en la copia local (también los de caja demasiado viejos para
         // subir): solo lo que de verdad desapareció se borra en la nube.
         const present = new Set(cfg.kind === 'list' && Array.isArray(value)
             ? value.filter((item) => item && item.id !== undefined && item.id !== null && String(item.id) !== '')
-                .map((item) => (cfg.cash ? cashRecordId(item.id, cashIdSuffix) : String(item.id)))
+                .map((item) => (cfg.cash ? cashRecordId(item.id, effectiveCashSuffix) : String(item.id)))
             : []);
         const seen = new Set();
         // Un id que el servidor nunca aceptará (más de 120 caracteres) tumba el lote entero
@@ -514,12 +516,20 @@ export function createRecordSync({
         // primero esa hora (por id) y luego se sigue con las siguientes.
         let cursor = since;
         let tieId = null;
+        const isCash = collection === 'cash';
+        const selectCols = isCash
+            ? 'id, data, version, deleted_at, updated_at, updated_by_device'
+            : 'id, data, version, deleted_at, updated_at';
         for (;;) {
             let query = client.from('account_records')
-                .select('id, data, version, deleted_at, updated_at')
+                .select(selectCols)
                 .eq('collection', collection);
             if (tieId !== null) query = query.eq('updated_at', cursor).gt('id', tieId);
             else if (cursor) query = query.gt('updated_at', cursor);
+            else if (isCash) {
+                const cashSince = new Date(Date.now() - 14 * 86_400_000).toISOString();
+                query = query.gte('updated_at', cashSince);
+            }
             const { data, error } = await query.order('updated_at').order('id').limit(PULL_PAGE);
             if (error) {
                 if (isUnsupportedCollectionError(error, collection)) {
@@ -528,7 +538,13 @@ export function createRecordSync({
                 }
                 throw new Error(error.message || 'No se pudo bajar de la nube');
             }
-            const page = data || [];
+            const page = isCash
+                ? (data || []).map((r) => (
+                    r?.data && typeof r.data === 'object' && !r.data._deviceId && r.updated_by_device
+                        ? { ...r, data: { ...r.data, _deviceId: r.updated_by_device } }
+                        : r
+                ))
+                : (data || []);
             rows.push(...page);
             const last = page[page.length - 1];
             if (tieId !== null) {
@@ -585,12 +601,16 @@ export function createRecordSync({
         return toApply.length;
     }
 
+    const isCollectionPullable = (collection) => !Object.values(SYNCED_KEYS).some(
+        (x) => x.collection === collection && x.pushOnly && !(x.cash && isSharedCashMode()),
+    );
+
     /**
      * Baja lo nuevo. Las llamadas que llegan mientras otra baja (un aviso de Realtime por
      * CADA registro de un lote) no abren otra descarga: se suman a UNA sola vuelta extra.
      */
-    function pull(collections = [...new Set(Object.values(SYNCED_KEYS).filter((c) => !c.pushOnly).map((c) => c.collection))]) {
-        const wanted = collections.filter((c) => !Object.values(SYNCED_KEYS).some((x) => x.collection === c && x.pushOnly));
+    function pull(collections = [...new Set(Object.values(SYNCED_KEYS).filter((c) => isCollectionPullable(c.collection)).map((c) => c.collection))]) {
+        const wanted = collections.filter((c) => isCollectionPullable(c));
         if (pulling) {
             for (const c of wanted) pullAgain.add(c);
             return pulling;

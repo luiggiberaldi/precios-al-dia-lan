@@ -121,20 +121,30 @@ export function useSalesData({ setCart, cartRef, isActive }) {
         };
 
         const onStorageUpdate = (e) => {
-            if (e.detail && (e.detail.key === SALES_KEY || e.detail.key === CUSTOMERS_KEY || e.detail.key === 'bodega_payment_methods_v1')) {
+            if (e.detail && (
+                e.detail.key === SALES_KEY
+                || e.detail.key === CUSTOMERS_KEY
+                || e.detail.key === 'bodega_payment_methods_v1'
+                || e.detail.key === 'cash_drawer_mode'
+            )) {
                 // Pequeño timeout para dar margen a que IndexedDB haya persistido los datos
                 setTimeout(handleReloadContent, 50);
             }
+        };
+        const onRemoteCashUpdated = () => {
+            setTimeout(handleReloadContent, 80);
         };
 
         document.addEventListener('visibilitychange', onVisibilityChange);
         window.addEventListener('focus', handleReloadContent);
         window.addEventListener('app_storage_update', onStorageUpdate);
+        window.addEventListener('pdn_remote_cash_updated', onRemoteCashUpdated);
 
         return () => {
             document.removeEventListener('visibilitychange', onVisibilityChange);
             window.removeEventListener('focus', handleReloadContent);
             window.removeEventListener('app_storage_update', onStorageUpdate);
+            window.removeEventListener('pdn_remote_cash_updated', onRemoteCashUpdated);
         };
     }, [handleReloadContent]);
 

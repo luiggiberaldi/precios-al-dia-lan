@@ -125,6 +125,7 @@ const ALLOWED_TABLES = new Set([
     'supplier_movements',
     'supplier_balances',
     'cash_shifts',
+    'shared_cash_shifts',
 ]);
 
 const MUTATING_RPCS = new Set([
@@ -133,6 +134,8 @@ const MUTATING_RPCS = new Set([
     'process_stock_movements',
     'push_records',
     'push_records_v2',
+    'open_shared_cash_shift',
+    'close_shared_cash_shift',
     'push_customer_movements',
     'push_supplier_movements',
     'reset_account',

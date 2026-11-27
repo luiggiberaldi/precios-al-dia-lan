@@ -36,6 +36,7 @@ export const SYNCED_BUSINESS_LS_KEYS = Object.freeze([
     'label_currency_mode',
     'granel_unit_mode',
     'admin_auto_lock_minutes',
+    'cash_drawer_mode',
 ]);
 
 export function readBusinessConfigSnapshot(storage = globalThis.localStorage) {
