@@ -164,7 +164,8 @@ export function OwnerAuthScreen({
     const [password2, setPassword2] = useState('');
     const [pairingCode, setPairingCode] = useState('');
     const [ownerPin, setOwnerPin] = useState('');
-    const [resettingPin, setResettingPin] = useState(false);
+    const [resettingPin, setResettingPin] = useState(() => initialMode === 'reset');
+    const [masterKey, setMasterKey] = useState('');
     const [newPin1, setNewPin1] = useState('');
     const [newPin2, setNewPin2] = useState('');
     const [errors, setErrors] = useState({});
@@ -198,17 +199,21 @@ export function OwnerAuthScreen({
     };
 
     if (lanMode) {
-        if (isLocalMaster) {
+        if (isLocalMaster || onLocalPinReset) {
             const submitMasterPin = (e) => {
                 e.preventDefault();
                 const next = {};
                 if (resettingPin) {
-                    if (!/^[0-9]{6}$/.test(newPin1)) next.newPin1 = 'El PIN debe tener 6 números.';
-                    else if (newPin1 === '000000') next.newPin1 = 'Elige un PIN distinto de 000000.';
-                    if (newPin1 !== newPin2) next.newPin2 = 'Los PIN no coinciden.';
+                    if (!masterKey.trim()) next.masterKey = 'Escribe la Clave Maestra para continuar.';
+                    const wantsPinChange = Boolean(newPin1 || newPin2);
+                    if (wantsPinChange) {
+                        if (!/^[0-9]{6}$/.test(newPin1)) next.newPin1 = 'El PIN debe tener 6 números.';
+                        else if (newPin1 === '000000') next.newPin1 = 'Elige un PIN distinto de 000000.';
+                        if (newPin1 !== newPin2) next.newPin2 = 'Los PIN no coinciden.';
+                    }
                     setErrors(next);
                     if (Object.keys(next).length) return;
-                    onLocalPinReset?.(newPin1);
+                    onLocalPinReset?.(wantsPinChange ? newPin1 : null, masterKey.trim());
                     return;
                 }
                 if (!/^[0-9]{6}$/.test(ownerPin)) next.ownerPin = 'Escribe tu PIN de 6 números.';
@@ -220,18 +225,26 @@ export function OwnerAuthScreen({
                 <AuthCard testId="nube-owner-auth" onBack={onBack}>
                     <Logo
                         caption={resettingPin
-                            ? 'Solo desde esta PC Principal. Elige un PIN nuevo de 6 dígitos para entrar como dueño.'
+                            ? 'Ingresa tu Clave Maestra para entrar como dueño o definir un nuevo PIN.'
                             : 'Acceso del dueño en esta Caja Principal.'}
                     />
                     <form onSubmit={submitMasterPin} className="space-y-3" noValidate>
                         {resettingPin ? (
                             <>
+                                <PasswordField
+                                    value={masterKey}
+                                    onChange={(v) => { setMasterKey(v); setErrors((x) => ({ ...x, masterKey: null })); }}
+                                    placeholder="Clave Maestra del dueño"
+                                    autoComplete="off"
+                                    testId="lan-master-key-input"
+                                    error={errors.masterKey}
+                                />
                                 <Field
                                     icon={Key}
                                     type="password"
                                     inputMode="numeric"
                                     maxLength={6}
-                                    placeholder="Nuevo PIN de dueño (6 dígitos)"
+                                    placeholder="Nuevo PIN de 6 dígitos (opcional)"
                                     value={newPin1}
                                     onChange={(e) => { setNewPin1(e.target.value.replace(/\D/g, '').slice(0, 6)); setErrors((x) => ({ ...x, newPin1: null })); }}
                                     error={errors.newPin1}
@@ -242,7 +255,7 @@ export function OwnerAuthScreen({
                                     type="password"
                                     inputMode="numeric"
                                     maxLength={6}
-                                    placeholder="Repite el nuevo PIN (6 dígitos)"
+                                    placeholder="Repite el nuevo PIN (si vas a cambiarlo)"
                                     value={newPin2}
                                     onChange={(e) => { setNewPin2(e.target.value.replace(/\D/g, '').slice(0, 6)); setErrors((x) => ({ ...x, newPin2: null })); }}
                                     error={errors.newPin2}
@@ -267,7 +280,9 @@ export function OwnerAuthScreen({
                         <button type="submit" disabled={busy} className={CTA} data-testid={resettingPin ? 'lan-reset-pin-submit' : 'lan-owner-pin-submit'}>
                             {busy ? <Spinner /> : (
                                 <>
-                                    {resettingPin ? 'Guardar nuevo PIN y entrar' : 'Entrar con PIN'}
+                                    {resettingPin
+                                        ? ((newPin1 || newPin2) ? 'Guardar nuevo PIN y entrar' : 'Entrar con Clave Maestra')
+                                        : 'Entrar con PIN'}
                                     <ArrowRight size={16} strokeWidth={3} />
                                 </>
                             )}
@@ -276,10 +291,10 @@ export function OwnerAuthScreen({
                             <button
                                 type="button"
                                 data-testid="lan-open-reset-pin"
-                                onClick={() => { setResettingPin((v) => !v); setErrors({}); setNewPin1(''); setNewPin2(''); onClearMessages?.(); }}
+                                onClick={() => { setResettingPin((v) => !v); setErrors({}); setMasterKey(''); setNewPin1(''); setNewPin2(''); onClearMessages?.(); }}
                                 className={GHOST}
                             >
-                                {resettingPin ? 'Volver a entrar con PIN' : '¿Olvidaste tu PIN? Restablécelo en esta PC'}
+                                {resettingPin ? (isLocalMaster ? 'Volver a entrar con PIN' : 'Cancelar') : '¿Olvidaste tu PIN? Usar Clave Maestra'}
                             </button>
                         )}
                         {onChangeLanServer && (

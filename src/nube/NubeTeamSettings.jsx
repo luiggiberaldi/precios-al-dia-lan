@@ -4,14 +4,15 @@
  * las cajas. Dueño y administrador gestionan el equipo; cualquiera cambia su PIN.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Users, Lock, KeyRound, UserPlus, Pencil, UserX, UserCheck, Cloud, Info, Loader2, RotateCw, BadgeCheck, SlidersHorizontal, X } from 'lucide-react';
+import { Users, Lock, KeyRound, UserPlus, Pencil, UserX, UserCheck, Cloud, Wifi, ShieldCheck, Info, Loader2, RotateCw, BadgeCheck, SlidersHorizontal, X } from 'lucide-react';
 import { SectionCard } from '../components/SettingsShared';
 import LoginAvatar from '../components/security/LoginAvatar';
 import { getDeviceClient } from './nubeSupabase';
+import { isLanModeEnabled } from '../lan/lanConfig';
 import * as svc from './accountService';
 import { readMemberSession } from './memberSession';
 import { roleLabel, canManageTeam, canEditMember, assignableRoles } from './teamRules';
-import { MemberFormModal, PinChangeModal, ConfirmModal } from './NubeTeamUI';
+import { MemberFormModal, PinChangeModal, ConfirmModal, MasterKeyConfigModal } from './NubeTeamUI';
 import { notifyBusinessConfigChanged } from './businessConfigSync';
 import EmployeeBadgeModal from '../components/Settings/EmployeeBadgeModal';
 import RbacConfigPanel from '../components/Settings/RbacConfigPanel';
@@ -39,16 +40,19 @@ const ROLE_BADGE = {
 };
 
 export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, showToast, triggerHaptic, client: clientProp, session: sessionProp }) {
+    const lanMode = isLanModeEnabled();
     const client = useMemo(() => clientProp || getDeviceClient(), [clientProp]);
     const session = sessionProp || readMemberSession();
     const me = session ? { memberId: session.memberId, role: session.role, name: session.name } : null;
+    const isOwner = me?.role === 'dueno';
     const manage = canManageTeam(me?.role);
 
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [modal, setModal] = useState(null); // { kind: 'create' | 'edit' | 'pin' | 'mypin' | 'toggle' | 'badge' | 'perms', member? }
+    const [modal, setModal] = useState(null); // { kind: 'create' | 'edit' | 'pin' | 'mypin' | 'toggle' | 'badge' | 'perms' | 'masterkey', member? }
     const [badgeCode, setBadgeCode] = useState('');
+    const [masterKeyStatus, setMasterKeyStatus] = useState(null);
     const [, setRbacTick] = useState(0);
 
     useEffect(() => {
@@ -61,8 +65,21 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
     const load = useCallback(async () => {
         setLoading(true);
         setError(null);
-        try { setMembers(await svc.listTeam(client)); } catch (e) { setError(svc.toNubeError(e).message); } finally { setLoading(false); }
-    }, [client]);
+        try {
+            const [teamList, mkStatus] = await Promise.all([
+                svc.listTeam(client),
+                (lanMode && isOwner && client?.lan?.getMasterKeyStatus)
+                    ? client.lan.getMasterKeyStatus().catch(() => null)
+                    : Promise.resolve(null),
+            ]);
+            setMembers(teamList);
+            if (mkStatus) setMasterKeyStatus(mkStatus);
+        } catch (e) {
+            setError(svc.toNubeError(e).message);
+        } finally {
+            setLoading(false);
+        }
+    }, [client, lanMode, isOwner]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -161,9 +178,15 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
     return (
         <div className="cq-grid items-start" data-testid="nube-team-settings">
             <div className="col-span-full flex items-start gap-3 p-4 rounded-2xl border border-brand/20 bg-brand-light/60">
-                <Cloud size={20} className="text-brand shrink-0 mt-0.5" />
+                {lanMode ? (
+                    <Wifi size={20} className="text-brand shrink-0 mt-0.5" />
+                ) : (
+                    <Cloud size={20} className="text-brand shrink-0 mt-0.5" />
+                )}
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    <strong className="text-slate-800 dark:text-white">El equipo vive en la nube.</strong>{' '}
+                    <strong className="text-slate-800 dark:text-white">
+                        {lanMode ? 'El equipo vive en tu red local.' : 'El equipo vive en la nube.'}
+                    </strong>{' '}
                     Lo que cambies aquí vale al instante en todas las cajas de tu negocio.
                     {!manage && ' Solo el dueño o un administrador agregan o cambian empleados.'}
                 </p>
@@ -203,10 +226,52 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
                     <div className="flex items-start gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
                         <Info size={16} className="text-slate-400 shrink-0 mt-0.5" />
                         <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed space-y-1">
-                            <p>Con la nube <strong>siempre se entra con PIN</strong>: la pantalla «¿Quién está operando?» no se puede apagar.</p>
-                            <p>No hay Clave Maestra de Emergencia. Si alguien olvida su PIN, el dueño o un administrador se lo cambia aquí. Si el dueño olvida el suyo, lo repone en «Administrar equipos y empleados» entrando con su correo y clave.</p>
+                            {lanMode ? (
+                                <>
+                                    <p>En red local <strong>siempre se entra con PIN</strong>: la pantalla «¿Quién está operando?» identifica a cada operador en todas las cajas.</p>
+                                    <p>Si un empleado olvida su PIN, el dueño o un administrador se lo cambia aquí. Si el dueño olvida el suyo, puede iniciar sesión o reponerlo usando su <strong>Clave Maestra</strong> directamente desde su tarjeta o en «Equipos y empleados».</p>
+                                </>
+                            ) : (
+                                <>
+                                    <p>Con la nube <strong>siempre se entra con PIN</strong>: la pantalla «¿Quién está operando?» no se puede apagar.</p>
+                                    <p>No hay Clave Maestra de Emergencia. Si alguien olvida su PIN, el dueño o un administrador se lo cambia aquí. Si el dueño olvida el suyo, lo repone en «Administrar equipos y empleados» entrando con su correo y clave.</p>
+                                </>
+                            )}
                         </div>
                     </div>
+
+                    {lanMode && me?.role === 'dueno' && (
+                        <div className="mb-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                            <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 dark:bg-amber-500/10 p-3.5 flex flex-wrap items-center justify-between gap-3" data-testid="lan-settings-master-key-card">
+                                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                    <div className="p-2 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
+                                        <ShieldCheck size={18} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <p className="text-xs font-black text-slate-800 dark:text-white">Clave Maestra de Emergencia</p>
+                                            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${masterKeyStatus?.isCustom ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'}`}>
+                                                {masterKeyStatus?.isCustom ? 'Personalizada' : 'Clave inicial · Personalízala'}
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                                            {masterKeyStatus?.isCustom
+                                                ? 'Tu Clave Maestra personalizada protege el inicio de emergencia y el reseteo de tu PIN.'
+                                                : 'Configura tu propia Clave Maestra secreta para entrar o cambiar tu PIN si algún día lo olvidas.'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    data-testid="lan-config-master-key"
+                                    onClick={() => { triggerHaptic?.(); setModal({ kind: 'masterkey' }); }}
+                                    className="px-3 py-2 min-h-[40px] rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-200 font-black text-xs transition-colors shrink-0"
+                                >
+                                    {masterKeyStatus?.isCustom ? 'Cambiar Clave Maestra' : 'Configurar Clave Maestra'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     <label className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400 block mb-1.5">Bloqueo Automático</label>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">La caja vuelve a «¿Quién está operando?» tras estos minutos sin uso.</p>
                     <div className="grid grid-cols-4 gap-2 max-w-sm">
@@ -349,6 +414,22 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
                         close();
                         toast('Tu PIN cambió');
                     }} />
+            )}
+            {modal?.kind === 'masterkey' && (
+                <MasterKeyConfigModal
+                    isCustom={Boolean(masterKeyStatus?.isCustom)}
+                    onClose={close}
+                    onSubmit={async ({ currentMasterKey, newMasterKey }) => {
+                        await client.lan.setMasterKey({
+                            newMasterKey,
+                            currentMasterKey,
+                            memberSessionToken: session?.token || null,
+                        });
+                        close();
+                        toast('Clave Maestra actualizada');
+                        await load();
+                    }}
+                />
             )}
             {modal?.kind === 'toggle' && (
                 <ConfirmModal danger={modal.member.active}

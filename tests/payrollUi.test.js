@@ -49,4 +49,49 @@ describe('recibo de nómina', () => {
         expect(html).toContain('ANULADO');
         expect(html).toContain('80mm');
     });
+
+    it('recibo de mercancía incluye logo, tabla de productos, origen, saldo anterior y quién autorizó', () => {
+        const goodsEntry = {
+            id: 'nom_0e646ea9',
+            tipo: 'MERCANCIA',
+            source: 'CAJA',
+            periodoId: 'Q-2026-11-2',
+            moneda: 'USD',
+            montoUsd: 2.5,
+            montoBs: 2200,
+            tasa: 880,
+            valoracion: 'venta',
+            saldoAntesUsd: 85,
+            status: 'ACTIVO',
+            timestamp: '2026-11-28T14:41:00.000Z',
+            actor: 'Luigi',
+            actorRol: 'CAJERO',
+            authorizedBy: 'Carlos Dueño',
+            authorizedByRol: 'DUENO',
+            createdByDevice: 'Caja A',
+            items: [
+                { name: 'Glup Fresh 1lt', qty: 2, unitUsd: 1.25, subtotalUsd: 2.5 },
+            ],
+            nota: 'Entregado en turno mañana',
+        };
+        const d = buildPayrollReceiptData({
+            entry: goodsEntry,
+            employee,
+            saldoDespuesUsd: 82.5,
+            business: { name: 'Abasto Central', rif: 'J-12345678-9', phone: '0414-0000000', logoSrc: '/logo.png' },
+        });
+        const html = buildPayrollReceiptHtml(d, '58');
+        expect(html).toContain('<img src="/logo.png"');
+        expect(html).toContain('Abasto Central');
+        expect(html).toContain('RIF: J-12345678-9');
+        expect(html).toContain('CONCEPTO');
+        expect(html).toContain('Glup Fresh 1lt');
+        expect(html).toContain('Caja (Punto de Venta)');
+        expect(html).toContain('Saldo antes:');
+        expect(html).toContain('Registrado por:');
+        expect(html).toContain('Luigi (Cajero)');
+        expect(html).toContain('Autorizado por:');
+        expect(html).toContain('Carlos Dueño (Dueño)');
+        expect(html).toContain('Recibí conforme');
+    });
 });

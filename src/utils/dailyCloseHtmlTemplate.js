@@ -132,23 +132,53 @@ export function buildDailyCloseHtml(cierreData, paperConfig, settings) {
         </div>
         <hr class="dash">` : '';
 
-    // ── Egresos (gastos/autoconsumos) ──────────────────────────────
-    const gastos = (sales || []).filter(s =>
-        s.tipo === 'GASTO_INTERNO' || s.tipo === 'AUTOCONSUMO' || s.tipo === 'APERTURA_CAJA'
+    // ── Egresos de caja vs Consumo de personal / Autoconsumo (retiros de inventario) ──
+    const gastosCaja = (sales || []).filter(s =>
+        s.status !== 'ANULADA'
+        && ((s.tipo === 'GASTO_INTERNO' && s.afectaCaja !== false && !s.isAutoconsumo) || s.tipo === 'APERTURA_CAJA')
     );
-    const totalGastosUsd = gastos.reduce((acc, s) => acc + (Number(s.totalUsd) || 0), 0);
+    const totalGastosUsd = gastosCaja.reduce((acc, s) => acc + Math.abs(Number(s.totalUsd) || 0), 0);
     const egresosHtml = totalGastosUsd > 0 ? `
         <div style="margin-bottom:6px;">
-            <div style="font-size:${fTiny};font-weight:bold;color:#000;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px;">Egresos</div>
+            <div style="font-size:${fTiny};font-weight:bold;color:#000;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px;">Egresos de Caja</div>
             <table style="width:100%;">
-                ${gastos.map(s => rowHtml(
-                    s.tipo === 'GASTO_INTERNO' ? (s.description || 'Gasto interno') :
-                    s.tipo === 'AUTOCONSUMO' ? 'Autoconsumo' : 'Apertura/Aporte',
-                    '-' + fmtUsd(Number(s.totalUsd) || 0),
+                ${gastosCaja.map(s => rowHtml(
+                    s.tipo === 'GASTO_INTERNO' ? (s.description || 'Gasto interno') : 'Apertura/Aporte',
+                    '-' + fmtUsd(Math.abs(Number(s.totalUsd) || 0)),
                     fSmall
                 )).join('')}
                 ${rowHtml('Total Egresos', '-' + fmtUsd(totalGastosUsd), fSmall, { bold: true, borderTop: true })}
             </table>
+        </div>
+        <hr class="dash">` : '';
+
+    // Compras / mercancía de personal (nómina) y autoconsumos (retiros de inventario, no afectan efectivo en gaveta)
+    const retirosPersonal = (sales || []).filter(s =>
+        s.status !== 'ANULADA' && s.tipo === 'GASTO_INTERNO' && s.isAutoconsumo === true && s.isPayroll === true
+    );
+    const retirosBodega = (sales || []).filter(s =>
+        s.status !== 'ANULADA' && ((s.tipo === 'GASTO_INTERNO' && s.isAutoconsumo === true && !s.isPayroll) || s.tipo === 'AUTOCONSUMO')
+    );
+    const totalPersonalUsd = retirosPersonal.reduce((acc, s) => acc + Math.abs(Number(s.totalUsd) || 0), 0);
+    const totalAutoBodegaUsd = retirosBodega.reduce((acc, s) => acc + Math.abs(Number(s.totalUsd) || 0), 0);
+    const retirosHtml = (totalPersonalUsd > 0 || totalAutoBodegaUsd > 0) ? `
+        <div style="margin-bottom:6px;">
+            <div style="font-size:${fTiny};font-weight:bold;color:#000;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px;">Consumo Personal / Retiros (*)</div>
+            <table style="width:100%;">
+                ${retirosPersonal.map(s => rowHtml(
+                    `${s.employeeName ? `Personal (${s.employeeName})` : (s.description || 'Consumo personal')}`,
+                    fmtUsd(Math.abs(Number(s.totalUsd) || 0)),
+                    fTiny
+                )).join('')}
+                ${retirosBodega.map(s => rowHtml(
+                    s.description || 'Autoconsumo bodega',
+                    fmtUsd(Math.abs(Number(s.totalUsd) || 0)),
+                    fTiny
+                )).join('')}
+                ${totalPersonalUsd > 0 ? rowHtml('Total Consumo Personal (*)', fmtUsd(totalPersonalUsd), fSmall, { bold: true, borderTop: true }) : ''}
+                ${totalAutoBodegaUsd > 0 ? rowHtml('Total Autoconsumo (*)', fmtUsd(totalAutoBodegaUsd), fSmall, { bold: true, borderTop: totalPersonalUsd === 0 }) : ''}
+            </table>
+            <div style="font-size:8px;margin-top:2px;">(*) Retiro de inventario (descontado de nómina/stock). No afecta efectivo en gaveta.</div>
         </div>
         <hr class="dash">` : '';
 
@@ -306,6 +336,7 @@ export function buildDailyCloseHtml(cierreData, paperConfig, settings) {
 
     <!-- Egresos -->
     ${egresosHtml}
+    ${retirosHtml}
 
     <!-- Total del día -->
     <div style="margin-bottom:6px;">

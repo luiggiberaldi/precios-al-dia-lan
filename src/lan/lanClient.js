@@ -600,10 +600,39 @@ export function createLanClient({
                 store.write({ token: res.data.token, user: res.data.user });
                 return res.data;
             },
-            async resetLocalOwnerPin(pin) {
-                const res = await requestJson('/lan/auth/local-reset-pin', { method: 'POST', body: { pin }, useAuth: false });
+            async resetLocalOwnerPin(pin, masterKey) {
+                const res = await requestJson('/lan/auth/local-reset-pin', {
+                    method: 'POST',
+                    body: { pin, masterKey },
+                    useAuth: false,
+                });
                 if (!res.ok) throw new Error(res.error?.message || 'No se pudo restablecer el PIN.');
                 store.write({ token: res.data.token, user: res.data.user });
+                return res.data;
+            },
+            async loginWithMasterKey({ masterKey, newPin = null, persistOwnerToken = false } = {}) {
+                const res = await requestJson('/lan/auth/master-key-login', {
+                    method: 'POST',
+                    body: { masterKey, newPin },
+                    useAuth: true,
+                });
+                if (!res.ok) throw new Error(res.error?.message || 'Clave Maestra incorrecta.');
+                if (persistOwnerToken && res.data?.token && res.data?.user) {
+                    store.write({ token: res.data.token, user: res.data.user });
+                }
+                return res.data;
+            },
+            async getMasterKeyStatus() {
+                const res = await requestJson('/lan/auth/master-key-status', { method: 'GET' });
+                if (!res.ok) throw new Error(res.error?.message || 'No se pudo consultar la Clave Maestra.');
+                return res.data;
+            },
+            async setMasterKey({ newMasterKey, currentMasterKey = null, memberSessionToken = null } = {}) {
+                const res = await requestJson('/lan/auth/master-key', {
+                    method: 'POST',
+                    body: { newMasterKey, currentMasterKey, memberSessionToken },
+                });
+                if (!res.ok) throw new Error(res.error?.message || 'No se pudo guardar la Clave Maestra.');
                 return res.data;
             },
             async rebindDevice({ deviceId, deviceUserId }) {

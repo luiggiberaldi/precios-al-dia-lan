@@ -2,6 +2,7 @@ import React from 'react';
 import { Crown } from 'lucide-react';
 import LoginAvatar from './LoginAvatar';
 import { CardBody, CardContainer, CardItem } from '../ui/3d-card';
+import { getRoleLabel, isManagerRole, isOwnerRole, normalizeRole, ROLES } from '../../security/permissions';
 
 const toTitleCase = (str) => {
   if (!str) return '';
@@ -9,7 +10,10 @@ const toTitleCase = (str) => {
 };
 
 export default function UserCard({ user, onClick }) {
-  const isAdmin = user.rol === 'ADMIN';
+  const role = normalizeRole(user) || ROLES.CAJERO;
+  const isOwner = isOwnerRole(user);
+  const isAdmin = isManagerRole(user);
+  const isInventario = role === ROLES.INVENTARIO;
 
   return (
     <div onClick={onClick} className="cursor-pointer outline-none focus:outline-none active:scale-95 transition-transform duration-200">
@@ -27,10 +31,10 @@ export default function UserCard({ user, onClick }) {
 
               {/* Fake thickness layers (3D depth) */}
               <div className="absolute inset-0 bg-black/40 rounded-3xl translate-y-4 translate-x-4 blur-xl" />
-              <div className={`absolute inset-0 rounded-3xl translate-y-2 translate-x-1 ${isAdmin ? 'bg-brand/20' : 'bg-emerald-500/20'}`} />
+              <div className={`absolute inset-0 rounded-3xl translate-y-2 translate-x-1 ${isAdmin ? 'bg-brand/20' : isInventario ? 'bg-amber-500/20' : 'bg-emerald-500/20'}`} />
 
-              {/* Admin Crown */}
-              {isAdmin && (
+              {/* Owner Crown */}
+              {isOwner && (
                 <div className="absolute -top-3 -left-3 z-50 animate-bounce duration-1000">
                   <div className="bg-gradient-to-br from-yellow-300 to-amber-500 p-1.5 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.6)] border border-yellow-100/50">
                     <Crown size={20} className="text-yellow-900 fill-yellow-100" strokeWidth={2.5} />
@@ -67,8 +71,8 @@ export default function UserCard({ user, onClick }) {
             <h3 className="text-lg font-bold text-slate-800 drop-shadow-sm">
               {toTitleCase(user.nombre)}
             </h3>
-            <span className={`block text-[9px] font-black uppercase tracking-[0.2em] ${isAdmin ? 'text-brand' : 'text-emerald-600'}`}>
-              {user.rol === 'ADMIN' ? 'Administrador' : 'Cajero'}
+            <span className={`block text-[9px] font-black uppercase tracking-[0.2em] ${isAdmin ? 'text-brand' : isInventario ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {getRoleLabel(user)}
             </span>
           </CardItem>
 

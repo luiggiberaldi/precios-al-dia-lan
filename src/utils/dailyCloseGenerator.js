@@ -144,10 +144,14 @@ export async function generateDailyClosePDF({
             gastosPorCat[cat].bs  += Math.abs(s.totalBs  || 0);
         });
 
-    // ── Autoconsumos (retiros de inventario, no afectan caja) ──
-    const totalAutoconsumoUsd = allSales
-        .filter(s => s.tipo === 'GASTO_INTERNO' && s.isAutoconsumo === true && s.status !== 'ANULADA')
-        .reduce((sum, s) => sum + Math.abs(s.totalUsd || 0), 0);
+    // ── Autoconsumos y Consumo de Personal (retiros de inventario, no afectan caja) ──
+    const consumoPersonalMovs = allSales
+        .filter(s => s.tipo === 'GASTO_INTERNO' && s.isAutoconsumo === true && s.isPayroll === true && s.status !== 'ANULADA');
+    const autoconsumoBodegaMovs = allSales
+        .filter(s => s.tipo === 'GASTO_INTERNO' && s.isAutoconsumo === true && !s.isPayroll && s.status !== 'ANULADA');
+    const totalConsumoPersonalUsd = consumoPersonalMovs.reduce((sum, s) => sum + Math.abs(s.totalUsd || 0), 0);
+    const totalAutoconsumoBodegaUsd = autoconsumoBodegaMovs.reduce((sum, s) => sum + Math.abs(s.totalUsd || 0), 0);
+    const totalAutoconsumoUsd = totalConsumoPersonalUsd + totalAutoconsumoBodegaUsd;
     const totalAutoconsumoBs = allSales
         .filter(s => s.tipo === 'GASTO_INTERNO' && s.isAutoconsumo === true && s.status !== 'ANULADA')
         .reduce((sum, s) => sum + Math.abs(s.totalBs || 0), 0);
@@ -365,8 +369,11 @@ export async function generateDailyClosePDF({
         if (totalEgresosUsd > 0) {
             opsRows.push(['Total Egresos Bs', `-Bs ${formatBs(totalEgresosBs)}`]);
         }
-        if (totalAutoconsumoUsd > 0) {
-            opsRows.push(['Retiros Inventario (*)', `$${formatUsd(totalAutoconsumoUsd)}`]);
+        if (totalConsumoPersonalUsd > 0) {
+            opsRows.push(['Consumo Personal (*)', `$${formatUsd(totalConsumoPersonalUsd)}`]);
+        }
+        if (totalAutoconsumoBodegaUsd > 0) {
+            opsRows.push(['Autoconsumo Bodega (*)', `$${formatUsd(totalAutoconsumoBodegaUsd)}`]);
         }
         opsRows.push(['Ganancia Estimada USD', fmtUsd(bcvRate > 0 ? divR(todayProfit, bcvRate) : 0)]);
         opsRows.push(['Ganancia Estimada Bs', `Bs ${formatBs(todayProfit)}`]);
@@ -376,7 +383,7 @@ export async function generateDailyClosePDF({
         opsRows.forEach(([lbl, val]) => {
             const isSub    = lbl.startsWith('  ·');
             const isNeg    = String(val).startsWith('-');
-            const isRetiro = lbl.includes('Retiros');
+            const isRetiro = lbl.includes('(*)') || lbl.includes('Retiros');
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(isSub ? 6.5 : 7.5);
             doc.setTextColor(...(isSub ? MUTED : BODY));
@@ -534,7 +541,8 @@ export async function generateDailyClosePDF({
                 const sinCaja = s.isAutoconsumo || s.afectaCaja === false;
 
                 let tipo = '';
-                if (s.isAutoconsumo)              tipo = 'Autoconsumo';
+                if (s.isAutoconsumo && s.isPayroll)   tipo = 'Consumo Personal';
+                else if (s.isAutoconsumo)             tipo = 'Autoconsumo';
                 else if (s.tipo === 'GASTO_INTERNO')  tipo = CATEGORY_LABELS[s.category] || 'Gasto';
                 else if (s.tipo === 'PAGO_PROVEEDOR') tipo = 'Proveedor';
 
@@ -1117,18 +1125,30 @@ export async function generateDailyClosePDF({
         dash(y); y += 6;
     }
 
-    // ── RETIROS DE INVENTARIO ──
+    // ── RETIROS DE INVENTARIO (Consumo Personal + Autoconsumo) ──
     if (totalAutoconsumoUsd > 0) {
-        y = sectionTitle('RETIROS INVENTARIO (*)', y);
+        y = sectionTitle('CONSUMO PERSONAL / RETIROS (*)', y);
 
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(fBody);
-        doc.setTextColor(...BODY);
-        doc.text('Autoconsumo de mercancía', M, y);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...MUTED);
-        doc.text(`$${formatUsd(totalAutoconsumoUsd)}`, VALUE_RIGHT, y, { align: 'right' });
-        y += 5;
+        if (totalConsumoPersonalUsd > 0) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(fBody);
+            doc.setTextColor(...BODY);
+            doc.text('Consumo de personal (nómina)', M, y);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...MUTED);
+            doc.text(`$${formatUsd(totalConsumoPersonalUsd)}`, VALUE_RIGHT, y, { align: 'right' });
+            y += 5;
+        }
+        if (totalAutoconsumoBodegaUsd > 0) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(fBody);
+            doc.setTextColor(...BODY);
+            doc.text('Autoconsumo de bodega', M, y);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...MUTED);
+            doc.text(`$${formatUsd(totalAutoconsumoBodegaUsd)}`, VALUE_RIGHT, y, { align: 'right' });
+            y += 5;
+        }
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(fMuted);

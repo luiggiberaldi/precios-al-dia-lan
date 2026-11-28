@@ -348,6 +348,13 @@ export async function registerGoods(input, ctx = {}) {
     const admin = allowCashier
         ? (ctx.actor || { nombre: 'Cajero', rol: 'CAJERO' })
         : await requireAdmin(c);
+    const operator = ctx.actor || admin;
+    const authorizedBy = allowCashier
+        ? (['ADMIN', 'DUENO', 'ENCARGADO'].includes(String(operator?.rol || '').toUpperCase())
+            ? actorName(operator)
+            : 'Dentro de saldo permitido')
+        : actorName(admin);
+    const authorizedByRol = allowCashier ? (operator?.rol || 'CAJERO') : (admin?.rol || 'ADMIN');
 
     return c.lock(POS_LOCK, async () => {
         const { employees, entries } = await readAll(c.storage);
@@ -405,9 +412,12 @@ export async function registerGoods(input, ctx = {}) {
                 costUsd: i.costUsd,
                 priceUsd: i.priceUsd,
             })),
-            actor: actorName(admin),
-            actorId: admin?.id ?? null,
-            actorRol: admin?.rol ?? 'ADMIN',
+            actor: actorName(operator),
+            actorId: operator?.id ?? admin?.id ?? null,
+            actorRol: operator?.rol ?? admin?.rol ?? 'ADMIN',
+            authorizedBy,
+            authorizedByRol,
+            createdByDevice: ctx.createdByDevice ?? localDeviceTag(),
         };
 
         // 1.º stock y movimiento (lectura fresca de productos dentro del candado).
@@ -453,9 +463,11 @@ export async function registerGoods(input, ctx = {}) {
             nota,
             saldoAntesUsd: ev.saldoAntesUsd,
             status: 'ACTIVO',
-            actor: actorName(admin),
-            actorId: admin?.id ?? null,
-            actorRol: admin?.rol ?? 'ADMIN',
+            actor: actorName(operator),
+            actorId: operator?.id ?? admin?.id ?? null,
+            actorRol: operator?.rol ?? admin?.rol ?? 'ADMIN',
+            authorizedBy,
+            authorizedByRol,
             createdByDevice: ctx.createdByDevice ?? localDeviceTag(),
             timestamp: nowIso,
             idempotencyKey: input.idempotencyKey,

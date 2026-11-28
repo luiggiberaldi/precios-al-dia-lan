@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createLanServer } from '../../desktop/server/lanServer.mjs';
+import { DEFAULT_LAN_MASTER_KEY } from '../../desktop/server/lanDb.mjs';
 import { createLanClient } from '../../src/lan/lanClient.js';
 import * as svc from '../../src/nube/accountService.js';
 import { ownerPinResetAccount } from '../../src/nube/accountReset.js';
@@ -159,5 +160,99 @@ describe('T15 · Seguridad LAN (CORS, auth localhost, path traversal) y reset po
         });
         expect(result.local.reset).toBe(true);
         expect(result.local.epoch).toBe(1);
+    }, 60_000);
+
+    it('5. Clave Maestra LAN: bloquea reseteo físico sin Clave Maestra, permite inicio directo, personalización, respaldo y rate-limit', async () => {
+        const srv = await createLanServer({
+            port: 0,
+            host: '127.0.0.1',
+            enableDiscovery: false,
+            localAdminSecret: 'secreto-fisico-caja-principal',
+        });
+        cleanups.push(() => srv.close());
+
+        const ownerBootstrap = createLanClient({ baseUrl: srv.baseUrl, persistSession: false });
+        await ownerBootstrap.lan.bootstrapLocalOwner();
+        await svc.createAccount(ownerBootstrap, {
+            businessName: 'Bodega Clave Maestra',
+            sedeName: 'Principal',
+            ownerName: 'Luigi',
+            ownerPin: '135790',
+        });
+
+        const device = createLanClient({ baseUrl: srv.baseUrl, persistSession: false });
+        const uid = await svc.ensureDeviceSession(device);
+        await svc.registerDevice(ownerBootstrap, { deviceUserId: uid, label: 'Caja 1', role: 'caja' });
+        await svc.upsertMember(ownerBootstrap, { name: 'Cajero Prueba', role: 'cajero', pin: '1234', active: true });
+
+        // 1) Incluso sentado en la Caja Principal (con X-PDN-Local-Secret), NO permite resetear PIN sin Clave Maestra
+        const resetWithoutMaster = await fetch(`${srv.baseUrl}/lan/auth/local-reset-pin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-PDN-Local-Secret': 'secreto-fisico-caja-principal',
+            },
+            body: JSON.stringify({ pin: '998877' }),
+        });
+        expect(resetWithoutMaster.status).toBe(401);
+
+        // 2) Un cajero NO puede configurar/cambiar la Clave Maestra
+        const members = await svc.listMembers(device);
+        const cajero = members.find((m) => m.role === 'cajero');
+        const cajeroSes = await svc.loginWithPin(device, cajero.id, '1234');
+        await expect(
+            device.lan.setMasterKey({ newMasterKey: 'IntentoCajero99', memberSessionToken: cajeroSes.token }),
+        ).rejects.toThrow(/Solo el dueño/);
+
+        // 3) Inicio directo del dueño con Clave Maestra inicial (sin cambiar su PIN) abre sesión real de miembro dueño
+        const directLogin = await device.lan.loginWithMasterKey({ masterKey: DEFAULT_LAN_MASTER_KEY });
+        expect(directLogin.memberSession?.role).toBe('dueno');
+        expect(directLogin.memberSession?.token).toBeTruthy();
+        const checked = await svc.checkMemberSession(device, directLogin.memberSession.token);
+        expect(checked?.role).toBe('dueno');
+
+        // 4) El dueño configura su propia Clave Maestra personalizada -> la inicial deja de servir
+        const statusBefore = await device.lan.getMasterKeyStatus();
+        expect(statusBefore.isCustom).toBe(false);
+
+        await device.lan.setMasterKey({
+            newMasterKey: 'MiClaveSecreta2026',
+            memberSessionToken: directLogin.memberSession.token,
+        });
+        const statusAfter = await device.lan.getMasterKeyStatus();
+        expect(statusAfter.isCustom).toBe(true);
+
+        await expect(
+            device.lan.loginWithMasterKey({ masterKey: DEFAULT_LAN_MASTER_KEY }),
+        ).rejects.toThrow(/Clave Maestra incorrecta/);
+
+        // 5) Con la Clave Maestra personalizada puede cambiar su PIN y entrar
+        const resetOk = await device.lan.loginWithMasterKey({
+            masterKey: 'MiClaveSecreta2026',
+            newPin: '654987',
+        });
+        expect(resetOk.pinChanged).toBe(true);
+        const dueno = members.find((m) => m.role === 'dueno');
+        const pinLogin = await svc.loginWithPin(device, dueno.id, '654987');
+        expect(pinLogin.role).toBe('dueno');
+
+        // 6) Respaldo exportado conserva la Clave Maestra personalizada
+        const ownerClient = createLanClient({
+            baseUrl: srv.baseUrl,
+            persistSession: false,
+            localAdminSecret: 'secreto-fisico-caja-principal',
+        });
+        const snapshot = await ownerClient.lan.exportSnapshot();
+        expect(snapshot.ownerMasterKey?.custom).toBe(true);
+
+        // 7) Rate-limit tras 5 intentos fallidos bloquea temporalmente con 429
+        for (let i = 0; i < 5; i += 1) {
+            await expect(
+                device.lan.loginWithMasterKey({ masterKey: `ClaveMala-${i}` }),
+            ).rejects.toThrow(/Clave Maestra incorrecta/);
+        }
+        await expect(
+            device.lan.loginWithMasterKey({ masterKey: 'MiClaveSecreta2026' }),
+        ).rejects.toThrow(/Demasiados intentos/);
     }, 60_000);
 });

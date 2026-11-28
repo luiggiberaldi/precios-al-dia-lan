@@ -4,7 +4,7 @@
  * Las usan Ajustes → Usuarios (NubeTeamSettings) y el panel del dueño (ManagePanel).
  */
 import { useEffect, useState } from 'react';
-import { X, Loader2, KeyRound, UserPlus, Save, Eye, EyeOff } from 'lucide-react';
+import { X, Loader2, KeyRound, UserPlus, Save, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { validatePin, validateMemberName, onlyPinDigits, roleLabel, roleDescription, pinHint } from './teamRules';
 import { isLanModeEnabled } from '../lan/lanConfig';
 
@@ -262,6 +262,234 @@ export function TextPromptModal({ title, label, initial = '', maxLength = 40, on
                     <button type="button" onClick={onClose} className={BTN_SECONDARY}>Cancelar</button>
                     <button type="submit" disabled={saving} className={BTN_PRIMARY}>
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}Guardar
+                    </button>
+                </div>
+            </form>
+        </NubeModal>
+    );
+}
+
+function SecretTextInput({ value, onChange, placeholder, autoFocus = false, testId, maxLength = 32 }) {
+    const [show, setShow] = useState(false);
+    return (
+        <div className="relative">
+            <input
+                type={show ? 'text' : 'password'}
+                autoComplete="off"
+                autoFocus={autoFocus}
+                placeholder={placeholder}
+                value={value}
+                maxLength={maxLength}
+                data-testid={testId}
+                onChange={(e) => onChange(e.target.value)}
+                className={`${FIELD} pr-12 font-bold tracking-wider placeholder:tracking-normal placeholder:font-normal`}
+            />
+            <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => setShow((s) => !s)}
+                aria-label={show ? 'Ocultar Clave Maestra' : 'Ver Clave Maestra'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+            >
+                {show ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+        </div>
+    );
+}
+
+/**
+ * Modal de acceso o recuperación inmediata del dueño usando Clave Maestra (Modo LAN).
+ * Permite entrar directo sin cambiar el PIN o dejar guardado un PIN nuevo en el mismo paso.
+ */
+export function MasterKeyAccessModal({ ownerName = 'Dueño', purpose = 'login', onSubmit, onClose }) {
+    const [masterKey, setMasterKey] = useState('');
+    const [changePin, setChangePin] = useState(false);
+    const [pin, setPin] = useState('');
+    const [confirm, setConfirm] = useState('');
+    const [error, setError] = useState(null);
+    const [saving, setSaving] = useState(false);
+
+    const submit = async (e) => {
+        e?.preventDefault?.();
+        if (!masterKey.trim()) {
+            setError('Escribe tu Clave Maestra.');
+            return;
+        }
+        if (changePin) {
+            const err = validatePin(pin, confirm, 'dueno');
+            if (err) {
+                setError(err);
+                return;
+            }
+        }
+        setSaving(true);
+        setError(null);
+        try {
+            await onSubmit({
+                masterKey: masterKey.trim(),
+                newPin: changePin ? pin : null,
+            });
+        } catch (ex) {
+            setError(ex?.message || 'Clave Maestra incorrecta.');
+            setSaving(false);
+        }
+    };
+
+    return (
+        <NubeModal
+            title={`Acceso con Clave Maestra · ${ownerName}`}
+            subtitle={purpose === 'manage'
+                ? 'Entra a administrar equipos y empleados o cambia tu PIN de dueño.'
+                : 'Inicia sesión como dueño aunque hayas olvidado tu PIN.'}
+            onClose={onClose}
+            testId="lan-master-key-modal"
+        >
+            <form onSubmit={submit} className="space-y-3.5">
+                <div>
+                    <span className={LABEL}>Clave Maestra</span>
+                    <SecretTextInput
+                        value={masterKey}
+                        onChange={(v) => { setMasterKey(v); setError(null); }}
+                        placeholder="Escribe tu Clave Maestra"
+                        autoFocus
+                        testId="master-key-login-input"
+                    />
+                </div>
+
+                <label className="flex items-center justify-between gap-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 px-3.5 py-2.5 cursor-pointer">
+                    <span>
+                        <span className="block text-xs font-black text-slate-800 dark:text-white">Cambiar mi PIN de dueño ahora</span>
+                        <span className="block text-[11px] text-slate-500 leading-snug">Opcional: si no lo marcas, solo entras con la Clave Maestra</span>
+                    </span>
+                    <input
+                        type="checkbox"
+                        checked={changePin}
+                        data-testid="master-key-change-pin-toggle"
+                        onChange={(e) => { setChangePin(e.target.checked); setError(null); }}
+                        className="w-5 h-5 accent-[#2b59c3]"
+                    />
+                </label>
+
+                {changePin && (
+                    <div className="space-y-2">
+                        <span className={LABEL}>Nuevo PIN de dueño (6 números)</span>
+                        <PinInput
+                            maxLength={6}
+                            value={pin}
+                            onChange={(v) => { setPin(v.slice(0, 6)); setError(null); }}
+                            placeholder="Nuevo PIN (6 números)"
+                            testId="master-key-new-pin"
+                        />
+                        <PinInput
+                            maxLength={6}
+                            value={confirm}
+                            onChange={(v) => { setConfirm(v.slice(0, 6)); setError(null); }}
+                            placeholder="Repite el PIN nuevo"
+                            testId="master-key-confirm-pin"
+                            onEnter={submit}
+                        />
+                    </div>
+                )}
+
+                <FormError message={error} />
+
+                <div className="flex gap-2 pt-1">
+                    <button type="button" onClick={onClose} className={BTN_SECONDARY}>Cancelar</button>
+                    <button type="submit" disabled={saving} className={BTN_PRIMARY} data-testid="master-key-login-submit">
+                        {saving ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                        {saving ? 'Verificando…' : (changePin ? 'Guardar PIN y entrar' : 'Entrar ahora')}
+                    </button>
+                </div>
+            </form>
+        </NubeModal>
+    );
+}
+
+/**
+ * Modal para que el dueño configure o cambie la Clave Maestra personalizada del negocio (Modo LAN).
+ */
+export function MasterKeyConfigModal({ isCustom = false, onSubmit, onClose }) {
+    const [currentKey, setCurrentKey] = useState('');
+    const [newKey, setNewKey] = useState('');
+    const [confirmKey, setConfirmKey] = useState('');
+    const [error, setError] = useState(null);
+    const [saving, setSaving] = useState(false);
+
+    const submit = async (e) => {
+        e?.preventDefault?.();
+        const cleanNew = newKey.trim();
+        const cleanConfirm = confirmKey.trim();
+        if (isCustom && !currentKey.trim()) {
+            setError('Escribe tu Clave Maestra actual para cambiarla.');
+            return;
+        }
+        if (cleanNew.length < 6 || cleanNew.length > 32) {
+            setError('La nueva Clave Maestra debe tener entre 6 y 32 caracteres.');
+            return;
+        }
+        if (/^0+$/.test(cleanNew)) {
+            setError('Elige una Clave Maestra distinta de puros ceros.');
+            return;
+        }
+        if (cleanNew !== cleanConfirm) {
+            setError('Las Claves Maestras no coinciden.');
+            return;
+        }
+        setSaving(true);
+        setError(null);
+        try {
+            await onSubmit({
+                currentMasterKey: isCustom ? currentKey.trim() : null,
+                newMasterKey: cleanNew,
+            });
+        } catch (ex) {
+            setError(ex?.message || 'No se pudo guardar la Clave Maestra.');
+            setSaving(false);
+        }
+    };
+
+    return (
+        <NubeModal
+            title={isCustom ? 'Cambiar Clave Maestra' : 'Configurar Clave Maestra'}
+            subtitle="Guárdala en un lugar seguro. Te permitirá entrar como dueño o reponer tu PIN si algún día lo olvidas."
+            onClose={onClose}
+            testId="lan-master-key-config-modal"
+        >
+            <form onSubmit={submit} className="space-y-3">
+                {isCustom && (
+                    <div>
+                        <span className={LABEL}>Clave Maestra actual</span>
+                        <SecretTextInput
+                            value={currentKey}
+                            onChange={(v) => { setCurrentKey(v); setError(null); }}
+                            placeholder="Tu Clave Maestra actual"
+                            autoFocus
+                            testId="master-key-config-current"
+                        />
+                    </div>
+                )}
+                <div className="space-y-2">
+                    <span className={LABEL}>Nueva Clave Maestra (mínimo 6 caracteres)</span>
+                    <SecretTextInput
+                        value={newKey}
+                        onChange={(v) => { setNewKey(v); setError(null); }}
+                        placeholder="Ej. MiClaveSegura2026"
+                        autoFocus={!isCustom}
+                        testId="master-key-config-new"
+                    />
+                    <SecretTextInput
+                        value={confirmKey}
+                        onChange={(v) => { setConfirmKey(v); setError(null); }}
+                        placeholder="Repite la Clave Maestra"
+                        testId="master-key-config-confirm"
+                    />
+                </div>
+                <FormError message={error} />
+                <div className="flex gap-2 pt-1">
+                    <button type="button" onClick={onClose} className={BTN_SECONDARY}>Cancelar</button>
+                    <button type="submit" disabled={saving} className={BTN_PRIMARY} data-testid="master-key-config-save">
+                        {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                        {saving ? 'Guardando…' : 'Guardar Clave Maestra'}
                     </button>
                 </div>
             </form>

@@ -3,6 +3,7 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLanServer } from '../../desktop/server/lanServer.mjs';
+import { DEFAULT_LAN_MASTER_KEY } from '../../desktop/server/lanDb.mjs';
 import { clearLanServerUrl, setLanServerUrl } from '../../src/lan/lanConfig';
 import * as svc from '../../src/nube/accountService';
 import { createLanClient } from '../../src/lan/lanClient';
@@ -49,7 +50,7 @@ vi.mock('../../src/hooks/store/useAuthStore', () => {
 import LanSetupScreen from '../../src/lan/LanSetupScreen';
 import LanPairingModal from '../../src/lan/LanPairingModal';
 import NubeGate from '../../src/nube/NubeGate';
-import { resetDeviceClient } from '../../src/nube/nubeSupabase';
+import { getDeviceClient, resetDeviceClient } from '../../src/nube/nubeSupabase';
 
 const cleanups = [];
 
@@ -230,14 +231,91 @@ describe('F-18 · Flujos de interfaz React LAN contra servidor real', () => {
         expect(openResetBtn).not.toBeNull();
         await act(async () => { openResetBtn.click(); });
 
+        // Sin Clave Maestra rechaza en el formulario
         await setInputValue(await waitForSelector(container, '[data-testid="lan-reset-pin1"]'), '112233');
         await setInputValue(container.querySelector('[data-testid="lan-reset-pin2"]'), '112233');
+        await act(async () => {
+            container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+        expect(container.textContent).toContain('Escribe la Clave Maestra');
+
+        await setInputValue(container.querySelector('[data-testid="lan-master-key-input"]'), DEFAULT_LAN_MASTER_KEY);
         await act(async () => {
             container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         });
 
         const regAfterReset = await waitForSelector(container, 'input[placeholder^="Nombre (ej."]', 6000);
         expect(regAfterReset).not.toBeNull();
+    }, 60_000);
+
+    it('Avatar del dueño y «Equipos y empleados» abren inicio con Clave Maestra en 1 clic y Ajustes muestra textos LAN', async () => {
+        const srv = await createLanServer({ port: 0, host: '127.0.0.1', enableDiscovery: false });
+        cleanups.push(() => srv.close());
+
+        const { default: NubeTeamSettings } = await import('../../src/nube/NubeTeamSettings.jsx');
+
+        const owner = createLanClient({ baseUrl: srv.baseUrl, persistSession: false });
+        await owner.lan.bootstrapLocalOwner();
+        await svc.createAccount(owner, {
+            businessName: 'Bodega Clave UI',
+            sedeName: 'Centro',
+            ownerName: 'Luigi',
+            ownerPin: '654321',
+        });
+
+        setLanServerUrl(srv.baseUrl, 'master');
+        resetDeviceClient();
+
+        // Registrar esta caja con el mismo storageKey ('pdn-device-auth') que usa NubeGate
+        const dev = getDeviceClient();
+        const devUid = await svc.ensureDeviceSession(dev);
+        await svc.registerDevice(owner, { deviceUserId: devUid, label: 'Caja 1', role: 'caja' });
+
+        await act(async () => {
+            root.render(<NubeGate><div data-testid="pos-open">POS ABIERTO CON CLAVE MAESTRA</div></NubeGate>);
+        });
+
+        // 1) «Equipos y empleados» abajo -> abre modal de Clave Maestra en 1 solo clic (sin doble clic)
+        const manageBtn = await waitForSelector(container, '[data-testid="nube-manage"]', 6000);
+        expect(manageBtn).not.toBeNull();
+        await act(async () => { manageBtn.click(); });
+
+        const manageMasterLink = await waitForSelector(document.body, '[data-testid="nube-manage-email"]', 3000);
+        expect(manageMasterLink?.textContent).toContain('Clave Maestra');
+        await act(async () => { manageMasterLink.click(); });
+
+        const mkManageModal = await waitForSelector(document.body, '[data-testid="lan-master-key-modal"]', 3000);
+        expect(mkManageModal).not.toBeNull();
+        await act(async () => { mkManageModal.querySelector('button[aria-label="Cerrar"]').click(); });
+
+        // 2) Tocar el avatar del dueño arriba -> muestra enlace de Clave Maestra y entra directo al POS en 1 clic
+        const ownerCard = await waitForSelector(container, 'button[data-testid^="nube-member-"]', 6000);
+        expect(ownerCard).not.toBeNull();
+        await act(async () => { ownerCard.click(); });
+
+        const pickedMasterBtn = await waitForSelector(document.body, '[data-testid="lan-picked-master-key"]', 3000);
+        expect(pickedMasterBtn).not.toBeNull();
+        await act(async () => { pickedMasterBtn.click(); });
+
+        const mkModal = await waitForSelector(document.body, '[data-testid="lan-master-key-modal"]', 3000);
+        expect(mkModal).not.toBeNull();
+
+        await setInputValue(mkModal.querySelector('[data-testid="master-key-login-input"]'), DEFAULT_LAN_MASTER_KEY);
+        await act(async () => {
+            mkModal.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+
+        const posOpen = await waitForSelector(container, '[data-testid="pos-open"]', 6000);
+        expect(posOpen).not.toBeNull();
+
+        // 3) En Ajustes -> Usuarios (Modo LAN): muestra «El equipo vive en tu red local.» y tarjeta para personalizar Clave Maestra
+        await act(async () => {
+            root.render(<NubeTeamSettings autoLockMinutes="3" setAutoLockMinutes={() => {}} showToast={() => {}} />);
+        });
+        const settingsEl = await waitForSelector(container, '[data-testid="nube-team-settings"]', 4000);
+        expect(settingsEl.textContent).toContain('El equipo vive en tu red local.');
+        expect(settingsEl.textContent).not.toContain('No hay Clave Maestra de Emergencia');
+        expect(container.querySelector('[data-testid="lan-config-master-key"]')).not.toBeNull();
     }, 60_000);
 
     it('LanPairingModal genera QR y código de 6 dígitos real contra el servidor', async () => {

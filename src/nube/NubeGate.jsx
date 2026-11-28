@@ -26,6 +26,7 @@ import {
     NubeLoading, NubeShell, NubeError, OwnerAuthScreen, CreateAccountScreen, RegisterDeviceScreen,
     MemberPickerScreen, ManagePanel, NewPasswordScreen, AuthLinkErrorScreen, EmailConfirmedScreen,
 } from './NubeScreens';
+import { MasterKeyAccessModal } from './NubeTeamUI';
 import {
     clearLanServerUrl, getElectronLanApi, getLanServerUrl, getSavedLanRole, isLanModeEnabled, isLocalMasterUrl, setLanServerUrl,
 } from '../lan/lanConfig';
@@ -88,6 +89,8 @@ function NubeGateFlow({ children }) {
     // Panel abierto con el PIN del dueño: { token, pin } de esa sesión (solo en memoria).
     const pinAdminRef = useRef(null);
     const [askOwnerPin, setAskOwnerPin] = useState(false);
+    // 'login' (entrar al POS desde avatar del dueño) | 'manage' (entrar a Equipos y empleados) | null
+    const [masterKeyTarget, setMasterKeyTarget] = useState(null);
     // { accessToken, refreshToken } | { error } | { confirmed } | { done } — enlaces de correo del dueño.
     const [recovery, setRecovery] = useState(takeRecoveryFromUrl);
     // Ya montada con el enlace en su estado: la próxima apertura vuelve a mirar la URL.
@@ -441,13 +444,21 @@ function NubeGateFlow({ children }) {
     };
 
     const loadManage = async (client) => {
-        const [devices, ownerMembers, lic, summary] = await Promise.all([
+        const [devices, ownerMembers, lic, summary, masterKeyStatus] = await Promise.all([
             svc.listOwnerDevices(client),
             svc.listTeam(client),
             client.from('account_licenses').select('status, max_cajas, max_sedes, expires_at').limit(1),
             client.rpc('cash_day_summary', {}),
+            lanMode ? client.lan?.getMasterKeyStatus?.().catch(() => null) : Promise.resolve(null),
         ]);
-        setManage({ purpose: 'manage', devices, members: ownerMembers, license: lic.data?.[0] ?? null, summary: summary?.data ?? [] });
+        setManage({
+            purpose: 'manage',
+            devices,
+            members: ownerMembers,
+            license: lic.data?.[0] ?? null,
+            summary: summary?.data ?? [],
+            masterKeyStatus: masterKeyStatus || null,
+        });
         setPhase('administrar');
     };
 
@@ -458,6 +469,9 @@ function NubeGateFlow({ children }) {
             ownerRef.current = owner;
         }
         await svc.createAccount(ownerRef.current, form);
+        if (lanMode && form?.masterKey) {
+            await ownerRef.current.lan?.setMasterKey?.({ newMasterKey: form.masterKey }).catch(() => {});
+        }
         setLocalHasAccount(true);
         await loadRegister(ownerRef.current, await svc.getOwnerAccount(ownerRef.current));
     });
@@ -477,10 +491,14 @@ function NubeGateFlow({ children }) {
         }
     });
 
-    const handleLanResetPin = (newPin) => run(async () => {
+    const handleLanResetPin = (newPin, masterKey) => run(async () => {
         setInfo(null);
         const owner = createOwnerClient();
-        await owner.lan.resetLocalOwnerPin(newPin);
+        if (isMasterDevice && newPin) {
+            await owner.lan.resetLocalOwnerPin(newPin, masterKey);
+        } else {
+            await owner.lan.loginWithMasterKey({ masterKey, newPin: newPin || null, persistOwnerToken: true });
+        }
         ownerRef.current = owner;
         const account = await svc.getOwnerAccount(owner);
         if (phase === 'sin-registrar') {
@@ -491,6 +509,36 @@ function NubeGateFlow({ children }) {
             await loadManage(owner);
         }
     });
+
+    const handleMasterKeyModalSubmit = async ({ masterKey, newPin = null }) => {
+        if (await guardReset()) throw new svc.NubeError('El dueño reinició la cuenta. Recargando…');
+        const out = await device.lan.loginWithMasterKey({ masterKey, newPin });
+        if (lanMode && !offlineMode) {
+            device.lan?.fetchOfflinePassport?.().then((p) => { if (p) saveOfflinePassport(p); }).catch(() => {});
+        }
+        if (masterKeyTarget === 'manage') {
+            const owner = createOwnerClient();
+            await owner.lan.loginWithMasterKey({ masterKey, newPin: null, persistOwnerToken: true });
+            ownerRef.current = owner;
+            setMasterKeyTarget(null);
+            await loadManage(owner);
+            return;
+        }
+        if (!out?.memberSession?.token) {
+            throw new svc.NubeError('No se pudo abrir la sesión del dueño en este equipo.');
+        }
+        offlinePinRef.current = null;
+        setOfflineMode(false);
+        saveMemberSession(out.memberSession);
+        setMasterKeyTarget(null);
+        setPicked(null);
+        if (status?.device?.role === 'consulta') {
+            setPhase('consulta');
+            return;
+        }
+        applyToAuthStore(useAuthStore, out.memberSession);
+        setPhase('listo');
+    };
 
     const handleRegister = ({ label, role, sedeId }) => run(async () => {
         const uid = deviceUserId || await svc.ensureDeviceSession(device);
@@ -792,7 +840,7 @@ function NubeGateFlow({ children }) {
                 onClaimCode={lanMode && phase === 'sin-registrar' && !isMasterDevice ? handleClaimPairingCode : undefined}
                 isLocalMaster={isMasterDevice}
                 onOwnerPinSubmit={handleLanOwnerPin}
-                onLocalPinReset={isMasterDevice ? handleLanResetPin : undefined}
+                onLocalPinReset={(isMasterDevice || (lanMode && phase === 'dueno-administrar')) ? handleLanResetPin : undefined}
                 onChangeLanServer={lanMode && phase === 'sin-registrar' ? changeLanServer : undefined}
                 busy={busy} error={error}
                 info={info}
@@ -828,6 +876,15 @@ function NubeGateFlow({ children }) {
                 <ManagePanel
                     license={manage.license} devices={manage.devices} members={manage.members} summary={manage.summary}
                     currentDeviceId={status?.device?.id} busy={busy} error={error}
+                    masterKeyStatus={manage.masterKeyStatus}
+                    onSaveMasterKey={lanMode ? async ({ currentMasterKey, newMasterKey }) => {
+                        await adminClient().lan.setMasterKey({
+                            newMasterKey,
+                            currentMasterKey,
+                            memberSessionToken: adminSession(),
+                        });
+                        await reloadManage();
+                    } : null}
                     onOpenLanPairing={lanMode ? () => setShowLanPairing(true) : undefined}
                     onRename={async (id, label) => {
                         if (adminSession()) await svc.teamRenameDevice(device, adminSession(), id, { label });
@@ -909,17 +966,51 @@ function NubeGateFlow({ children }) {
                 user={ownerMember ? { id: ownerMember.id, nombre: ownerMember.display_name, rol: svc.toAppRole('dueno') } : null}
                 subtitle="PIN del dueño para administrar equipos y empleados"
                 onSubmit={handleOwnerPin}
-                footer={(!lanMode || isMasterDevice) ? (
+                footer={(
                     <button type="button" data-testid="nube-manage-email"
-                        onClick={() => { setAskOwnerPin(false); setError(null); setPhase('dueno-administrar'); }}
+                        onClick={() => {
+                            setAskOwnerPin(false);
+                            setError(null);
+                            if (lanMode) {
+                                setMasterKeyTarget('manage');
+                            } else {
+                                setPhase('dueno-administrar');
+                            }
+                        }}
                         className="text-xs font-bold text-slate-400 hover:text-white underline underline-offset-2">
-                        {lanMode ? '¿Olvidaste tu PIN? Restablécelo en esta PC' : '¿Olvidaste tu PIN? Entra con tu correo'}
+                        {lanMode ? '¿Olvidaste tu PIN? Entrar con Clave Maestra' : '¿Olvidaste tu PIN? Entra con tu correo'}
                     </button>
-                ) : null} />
+                )} />
             <LoginPinModal isOpen={Boolean(picked)} onClose={() => setPicked(null)}
                 user={picked ? { id: picked.id, nombre: picked.display_name, rol: svc.toAppRole(picked.role) } : null}
                 pinLength={memberPinLength(picked) ?? undefined}
-                onSubmit={(pin) => handlePin(pin)} />
+                onSubmit={(pin) => handlePin(pin)}
+                footer={picked?.role === 'dueno' ? (
+                    <button
+                        type="button"
+                        data-testid={lanMode ? 'lan-picked-master-key' : 'nube-picked-forgot-pin'}
+                        onClick={() => {
+                            setPicked(null);
+                            setError(null);
+                            if (lanMode) {
+                                setMasterKeyTarget('login');
+                            } else {
+                                setPhase('dueno-administrar');
+                            }
+                        }}
+                        className="text-xs font-bold text-slate-400 hover:text-white underline underline-offset-2"
+                    >
+                        {lanMode ? '¿Olvidaste tu PIN? Iniciar con Clave Maestra' : '¿Olvidaste tu PIN? Reponer con tu correo'}
+                    </button>
+                ) : null} />
+            {lanMode && masterKeyTarget && (
+                <MasterKeyAccessModal
+                    ownerName={ownerMember?.display_name || 'Dueño'}
+                    purpose={masterKeyTarget}
+                    onClose={() => setMasterKeyTarget(null)}
+                    onSubmit={handleMasterKeyModalSubmit}
+                />
+            )}
         </>
     );
 }

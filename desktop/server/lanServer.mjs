@@ -339,10 +339,64 @@ export async function createLanServer({
                     sendJson(res, 403, { error: 'Autorización de Caja Principal requerida para restablecer el PIN.' });
                     return;
                 }
-                const { pin } = await readJsonBody(req);
-                const sessionOut = await lanDb.resetLocalOwnerPin(pin);
-                cloudBridge?.syncOwnerPin?.(pin).catch(() => {});
+                const { pin, masterKey } = await readJsonBody(req);
+                const sessionOut = await lanDb.resetLocalOwnerPin(pin, masterKey);
+                if (sessionOut.events?.length) broadcastEvents(sessionOut.events);
+                if (sessionOut.pinChanged && pin) {
+                    cloudBridge?.syncOwnerPin?.(pin).catch(() => {});
+                }
                 sendJson(res, 200, sessionOut);
+                return;
+            }
+
+            if (req.method === 'POST' && pathname === '/lan/auth/master-key-login') {
+                const token = bearerToken(req, urlObj);
+                const session = await lanDb.getSessionByToken(token);
+                if (!session && !isLocalhostRequest(req)) {
+                    sendJson(res, 401, { error: 'Sesión de caja requerida para usar la Clave Maestra.' });
+                    return;
+                }
+                const { masterKey, newPin = null } = await readJsonBody(req);
+                const out = await lanDb.authenticateWithMasterKey(masterKey, {
+                    newPin,
+                    deviceAuthUserId: session?.user?.anonymous ? session.user.id : null,
+                });
+                if (out.events?.length) broadcastEvents(out.events);
+                if (out.pinChanged && newPin) {
+                    cloudBridge?.syncOwnerPin?.(newPin).catch(() => {});
+                }
+                sendJson(res, 200, out);
+                return;
+            }
+
+            if (req.method === 'GET' && pathname === '/lan/auth/master-key-status') {
+                const token = bearerToken(req, urlObj);
+                const session = await lanDb.getSessionByToken(token);
+                if (!session && !hasValidLocalSecret(req)) {
+                    sendJson(res, 401, { error: 'Sesión requerida.' });
+                    return;
+                }
+                const statusOut = await lanDb.getMasterKeyStatus();
+                sendJson(res, 200, statusOut);
+                return;
+            }
+
+            if (req.method === 'POST' && pathname === '/lan/auth/master-key') {
+                const token = bearerToken(req, urlObj);
+                const session = await lanDb.getSessionByToken(token);
+                if (!session && !hasValidLocalSecret(req)) {
+                    sendJson(res, 401, { error: 'Sesión requerida.' });
+                    return;
+                }
+                const { newMasterKey, currentMasterKey = null, memberSessionToken = null } = await readJsonBody(req);
+                const out = await lanDb.setOwnerMasterKey({
+                    newMasterKey,
+                    currentMasterKey,
+                    ownerUser: session?.user || null,
+                    memberSessionToken,
+                    deviceAuthUserId: session?.user?.anonymous ? session.user.id : null,
+                });
+                sendJson(res, 200, out);
                 return;
             }
 

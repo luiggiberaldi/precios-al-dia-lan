@@ -15,6 +15,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
 const scryptAsync = promisify(crypto.scrypt);
+export const DEFAULT_LAN_MASTER_KEY = '24457713';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1065,6 +1066,7 @@ export async function createLanDb({
             const authUsers = (await db.query('select id, email, is_anonymous from auth.users', [], { parsers: TIMESTAMP_AS_TEXT })).rows;
             const ownerCredentials = (await db.query('select user_id, email, password_hash, created_at from lan_auth.owner_credentials', [], { parsers: TIMESTAMP_AS_TEXT })).rows;
             const offlineVerifiers = (await db.query('select member_id, salt, hash, no_pin, iterations, updated_at from lan_auth.offline_pin_verifiers', [], { parsers: TIMESTAMP_AS_TEXT })).rows;
+            const masterKeyRow = (await db.query("select value from lan_auth.meta where key = 'owner_master_key' limit 1")).rows[0];
             return {
                 format: 'preciosaldia-lan-snapshot-v1',
                 lanId,
@@ -1073,6 +1075,7 @@ export async function createLanDb({
                 authUsers,
                 ownerCredentials,
                 offlineVerifiers,
+                ownerMasterKey: masterKeyRow?.value?.custom ? masterKeyRow.value : null,
             };
         });
     }
@@ -1168,6 +1171,19 @@ export async function createLanDb({
                          values ($1, $2, $3, $4, $5, $6)
                          on conflict (member_id) do nothing`,
                         [v.member_id, v.salt, v.hash, Boolean(v.no_pin), v.iterations || 1000, v.updated_at || new Date().toISOString()],
+                    );
+                }
+
+                if (snapshot.ownerMasterKey?.custom && snapshot.ownerMasterKey?.hash) {
+                    await tx.query(
+                        `insert into lan_auth.meta (key, value, updated_at)
+                         values ('owner_master_key', $1::jsonb, now())
+                         on conflict (key) do update set value = excluded.value, updated_at = now()`,
+                        [JSON.stringify({
+                            hash: snapshot.ownerMasterKey.hash,
+                            custom: true,
+                            updatedAt: snapshot.ownerMasterKey.updatedAt || new Date().toISOString(),
+                        })],
                     );
                 }
 
@@ -1488,15 +1504,169 @@ export async function createLanDb({
         });
     }
 
-    async function resetLocalOwnerPin(newPin) {
-        const cleanPin = String(newPin || '').trim();
-        if (!/^[0-9]{6,32}$/.test(cleanPin) || cleanPin === '000000') {
+    function safeConstantMatch(aStr, bStr) {
+        const a = Buffer.from(String(aStr ?? ''), 'utf8');
+        const b = Buffer.from(String(bStr ?? ''), 'utf8');
+        if (a.length !== b.length) return false;
+        return crypto.timingSafeEqual(a, b);
+    }
+
+    async function readMasterKeyMetaUnsafe() {
+        const row = (await db.query("select value from lan_auth.meta where key = 'owner_master_key' limit 1")).rows[0];
+        return row?.value || null;
+    }
+
+    async function readMasterKeyGuardUnsafe() {
+        const row = (await db.query("select value from lan_auth.meta where key = 'master_key_guard' limit 1")).rows[0];
+        return row?.value || { failedAttempts: 0, lockouts: 0, lockedUntil: null };
+    }
+
+    async function writeMasterKeyGuardUnsafe(guard) {
+        await db.query(
+            `insert into lan_auth.meta (key, value, updated_at)
+             values ('master_key_guard', $1::jsonb, now())
+             on conflict (key) do update set value = excluded.value, updated_at = now()`,
+            [JSON.stringify(guard)],
+        );
+    }
+
+    async function verifyMasterKeyUnsafe(rawMasterKey) {
+        const cleanKey = String(rawMasterKey || '').trim();
+        if (!cleanKey) {
+            throw Object.assign(new Error('Escribe la Clave Maestra para continuar.'), { status: 401, code: 'MASTER_KEY_REQUIRED' });
+        }
+        const guard = await readMasterKeyGuardUnsafe();
+        if (guard.lockedUntil && Date.parse(guard.lockedUntil) > Date.now()) {
+            const secs = Math.max(1, Math.ceil((Date.parse(guard.lockedUntil) - Date.now()) / 1000));
+            throw Object.assign(new Error(`Demasiados intentos con Clave Maestra. Espera ${secs} segundos.`), { status: 429, code: 'MASTER_KEY_LOCKED' });
+        }
+
+        const meta = await readMasterKeyMetaUnsafe();
+        const isValid = (meta?.custom && meta?.hash)
+            ? await verifyPassword(cleanKey, meta.hash)
+            : safeConstantMatch(cleanKey, DEFAULT_LAN_MASTER_KEY);
+
+        if (!isValid) {
+            const fails = Number(guard.failedAttempts || 0) + 1;
+            if (fails >= 5) {
+                const lockSecs = Math.min(30 * (2 ** Number(guard.lockouts || 0)), 15 * 60);
+                await writeMasterKeyGuardUnsafe({
+                    failedAttempts: 0,
+                    lockouts: Number(guard.lockouts || 0) + 1,
+                    lockedUntil: new Date(Date.now() + lockSecs * 1000).toISOString(),
+                });
+            } else {
+                await writeMasterKeyGuardUnsafe({
+                    failedAttempts: fails,
+                    lockouts: Number(guard.lockouts || 0),
+                    lockedUntil: null,
+                });
+            }
+            throw Object.assign(new Error('Clave Maestra incorrecta.'), { status: 401, code: 'INVALID_MASTER_KEY' });
+        }
+
+        if (guard.failedAttempts || guard.lockouts || guard.lockedUntil) {
+            await writeMasterKeyGuardUnsafe({ failedAttempts: 0, lockouts: 0, lockedUntil: null });
+        }
+        return true;
+    }
+
+    async function getMasterKeyStatus() {
+        return enqueue(async () => {
+            const meta = await readMasterKeyMetaUnsafe();
+            return {
+                configured: true,
+                isCustom: Boolean(meta?.custom && meta?.hash),
+                updatedAt: meta?.updatedAt || null,
+            };
+        });
+    }
+
+    async function isOwnerMemberSessionUnsafe(memberSessionToken, deviceAuthUserId = null) {
+        if (!memberSessionToken) return false;
+        const cleanToken = String(memberSessionToken).trim();
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanToken)) return false;
+        const params = [cleanToken];
+        let extraWhere = '';
+        if (deviceAuthUserId) {
+            params.push(deviceAuthUserId);
+            extraWhere = ' and d.auth_user_id = $2';
+        }
+        const rows = (
+            await db.query(
+                `select m.id
+                   from public.member_sessions s
+                   join public.account_members m on m.id = s.member_id and m.active = true
+                   join public.account_devices d on d.id = s.device_id and d.revoked_at is null
+                  where s.token = $1::uuid
+                    and s.ended_at is null
+                    and s.expires_at > now()
+                    and m.role = 'dueno'${extraWhere}
+                  limit 1`,
+                params,
+            )
+        ).rows;
+        return rows.length > 0;
+    }
+
+    async function setOwnerMasterKey({
+        newMasterKey,
+        currentMasterKey = null,
+        ownerUser = null,
+        memberSessionToken = null,
+        deviceAuthUserId = null,
+    } = {}) {
+        const cleanNew = String(newMasterKey || '').trim();
+        if (cleanNew.length < 6 || cleanNew.length > 32) {
+            throw Object.assign(new Error('La Clave Maestra debe tener entre 6 y 32 caracteres.'), { status: 400 });
+        }
+        if (/^0+$/.test(cleanNew)) {
+            throw Object.assign(new Error('Elige una Clave Maestra distinta de puros ceros.'), { status: 400 });
+        }
+
+        const hash = await hashPassword(cleanNew);
+        return enqueue(async () => {
+            const acc = (await db.query('select id, owner_user_id from public.accounts order by created_at limit 1')).rows[0];
+            if (!acc) {
+                throw Object.assign(new Error('Primero crea el negocio en la Caja Principal.'), { status: 404 });
+            }
+
+            const hasOwnerAuth = Boolean(ownerUser?.id && !ownerUser.anonymous && ownerUser.id === acc.owner_user_id);
+            const hasOwnerMemberSession = await isOwnerMemberSessionUnsafe(memberSessionToken, deviceAuthUserId);
+
+            if (currentMasterKey !== null && String(currentMasterKey).trim() !== '') {
+                await verifyMasterKeyUnsafe(currentMasterKey);
+            } else if (!hasOwnerAuth && !hasOwnerMemberSession) {
+                throw Object.assign(new Error('Solo el dueño puede configurar o cambiar la Clave Maestra.'), { status: 403 });
+            }
+
+            const updatedAt = new Date().toISOString();
+            await db.query(
+                `insert into lan_auth.meta (key, value, updated_at)
+                 values ('owner_master_key', $1::jsonb, now())
+                 on conflict (key) do update set value = excluded.value, updated_at = now()`,
+                [JSON.stringify({ hash, custom: true, updatedAt })],
+            );
+            await writeMasterKeyGuardUnsafe({ failedAttempts: 0, lockouts: 0, lockedUntil: null });
+            await markDirtyMutation();
+            return { ok: true, isCustom: true, updatedAt };
+        });
+    }
+
+    async function authenticateWithMasterKey(masterKey, { newPin = null, deviceAuthUserId = null } = {}) {
+        const hasNewPin = newPin !== null && newPin !== undefined && String(newPin).trim() !== '';
+        const cleanPin = hasNewPin ? String(newPin).trim() : null;
+        if (hasNewPin && (!/^[0-9]{6,32}$/.test(cleanPin) || cleanPin === '000000')) {
             throw Object.assign(new Error('El PIN nuevo debe tener 6 o más números y no puede ser 000000.'), { status: 400 });
         }
+
         return enqueue(async () => {
+            await verifyMasterKeyUnsafe(masterKey);
+
             const rows = (
                 await db.query(
-                    `select m.id as member_id, a.owner_user_id, u.email
+                    `select m.id as member_id, m.display_name, m.role, m.account_id, m.pin_length,
+                            a.owner_user_id, u.email
                      from public.account_members m
                      join public.accounts a on a.id = m.account_id
                      join auth.users u on u.id = a.owner_user_id
@@ -1509,25 +1679,95 @@ export async function createLanDb({
             if (!row) {
                 throw Object.assign(new Error('Todavía no existe un negocio creado.'), { status: 404 });
             }
-            const token = crypto.randomBytes(32).toString('hex');
+
+            const ownerToken = crypto.randomBytes(32).toString('hex');
+            let memberSession = null;
+            let updatedMember = null;
+
             await db.transaction(async (tx) => {
-                await tx.query(
-                    `update public.account_members
-                        set pin_hash = extensions.crypt($2, extensions.gen_salt('bf')),
-                            pin_length = length($2),
-                            active = true,
-                            failed_attempts = 0,
-                            lockouts = 0,
-                            locked_until = null
-                      where id = $1`,
-                    [row.member_id, cleanPin],
-                );
-                await tx.query('update public.member_sessions set ended_at = now() where member_id = $1 and ended_at is null', [row.member_id]);
-                await tx.query('insert into lan_auth.sessions (token, user_id, is_anonymous) values ($1, $2, false)', [token, row.owner_user_id]);
+                if (hasNewPin) {
+                    const up = (
+                        await tx.query(
+                            `update public.account_members
+                                set pin_hash = extensions.crypt($2, extensions.gen_salt('bf')),
+                                    pin_length = length($2),
+                                    active = true,
+                                    failed_attempts = 0,
+                                    lockouts = 0,
+                                    locked_until = null
+                              where id = $1
+                              returning id, account_id, display_name, role, active, pin_length`,
+                            [row.member_id, cleanPin],
+                        )
+                    ).rows[0];
+                    updatedMember = up || null;
+                    await tx.query('update public.member_sessions set ended_at = now() where member_id = $1 and ended_at is null', [row.member_id]);
+                } else {
+                    await tx.query(
+                        `update public.account_members
+                            set active = true,
+                                failed_attempts = 0,
+                                lockouts = 0,
+                                locked_until = null
+                          where id = $1`,
+                        [row.member_id],
+                    );
+                }
+
+                await tx.query('insert into lan_auth.sessions (token, user_id, is_anonymous) values ($1, $2, false)', [ownerToken, row.owner_user_id]);
+
+                if (deviceAuthUserId) {
+                    const dev = (
+                        await tx.query(
+                            'select id from public.account_devices where auth_user_id = $1 and account_id = $2 and revoked_at is null limit 1',
+                            [deviceAuthUserId, row.account_id],
+                        )
+                    ).rows[0];
+                    if (dev?.id) {
+                        await tx.query('update public.account_devices set last_seen_at = now() where id = $1', [dev.id]);
+                        const sesRow = (
+                            await tx.query(
+                                `insert into public.member_sessions (member_id, device_id, expires_at)
+                                 values ($1, $2, now() + interval '12 hours')
+                                 returning token, expires_at`,
+                                [row.member_id, dev.id],
+                                { parsers: TIMESTAMP_AS_TEXT },
+                            )
+                        ).rows[0];
+                        if (sesRow?.token) {
+                            memberSession = {
+                                token: sesRow.token,
+                                memberId: row.member_id,
+                                name: row.display_name,
+                                role: row.role,
+                                expiresAt: sesRow.expires_at,
+                            };
+                        }
+                    }
+                }
             });
-            await saveOfflinePinVerifier(row.member_id, cleanPin);
-            return { token, user: { id: row.owner_user_id, email: row.email, anonymous: false } };
+
+            if (hasNewPin) {
+                await saveOfflinePinVerifier(row.member_id, cleanPin);
+            }
+            await markDirtyMutation();
+
+            const events = updatedMember
+                ? [{ table: 'account_members', account_id: row.account_id, new: updatedMember }]
+                : [];
+
+            return {
+                token: ownerToken,
+                user: { id: row.owner_user_id, email: row.email, anonymous: false },
+                memberSession,
+                pinChanged: hasNewPin,
+                events,
+            };
         });
+    }
+
+    async function resetLocalOwnerPin(newPin, masterKey) {
+        return authenticateWithMasterKey(masterKey, { newPin });
     }
 
     async function rebindDevice(ownerUser, { deviceId, deviceUserId } = {}) {
@@ -1606,6 +1846,9 @@ export async function createLanDb({
         bootstrapLocalOwner,
         signInLocalOwnerByPin,
         resetLocalOwnerPin,
+        authenticateWithMasterKey,
+        getMasterKeyStatus,
+        setOwnerMasterKey,
         getSessionByToken,
         signOutToken,
         updateOwnerPassword,

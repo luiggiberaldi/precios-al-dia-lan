@@ -15,7 +15,7 @@ import { CardBody, CardContainer, CardItem } from '../components/ui/3d-card';
 import { toAppRole } from './accountService';
 import { describeDeviceLocation, roleLabel } from './teamRules';
 import NubeLogo from './NubeLogo';
-import { MemberFormModal, PinChangeModal, ConfirmModal, TextPromptModal, NubeModal } from './NubeTeamUI';
+import { MemberFormModal, PinChangeModal, ConfirmModal, TextPromptModal, NubeModal, MasterKeyConfigModal } from './NubeTeamUI';
 
 export { NubeLogo };
 export { OwnerAuthScreen, NewPasswordScreen, AuthLinkErrorScreen, EmailConfirmedScreen } from './NubeOwnerAuth';
@@ -92,7 +92,7 @@ function IconInput({ icon: Icon, right, ...props }) {
 export function CreateAccountScreen({ onSubmit, busy, error, onBack }) {
     const lanMode = isLanModeEnabled();
     const maxPin = lanMode ? 6 : 32;
-    const [form, setForm] = useState({ businessName: '', sedeName: 'Principal', ownerName: '', ownerPin: '', ownerPin2: '' });
+    const [form, setForm] = useState({ businessName: '', sedeName: 'Principal', ownerName: '', ownerPin: '', ownerPin2: '', masterKey: '' });
     const [localError, setLocalError] = useState(null);
     const set = (k) => (e) => setForm((f) => ({ ...f, [k]: k.startsWith('ownerPin') ? e.target.value.replace(/\D/g, '').slice(0, maxPin) : e.target.value }));
     const submit = (e) => {
@@ -103,8 +103,19 @@ export function CreateAccountScreen({ onSubmit, busy, error, onBack }) {
         }
         if (form.ownerPin === '000000') { setLocalError('Elige un PIN distinto de 000000.'); return; }
         if (form.ownerPin !== form.ownerPin2) { setLocalError('Los PIN no coinciden'); return; }
+        const cleanMaster = String(form.masterKey || '').trim();
+        if (lanMode && cleanMaster) {
+            if (cleanMaster.length < 6 || cleanMaster.length > 32) {
+                setLocalError('La Clave Maestra debe tener entre 6 y 32 caracteres.');
+                return;
+            }
+            if (/^0+$/.test(cleanMaster)) {
+                setLocalError('Elige una Clave Maestra distinta de puros ceros.');
+                return;
+            }
+        }
         setLocalError(null);
-        onSubmit(form);
+        onSubmit({ ...form, masterKey: cleanMaster || null });
     };
     return (
         <NubeShell title="Crea tu negocio" onBack={onBack} subtitle="Esto se hace una sola vez. Luego podrás sumar cajas, sedes y empleados.">
@@ -115,6 +126,22 @@ export function CreateAccountScreen({ onSubmit, busy, error, onBack }) {
                 <IconInput icon={Crown} placeholder="Tu nombre (así te verán en la caja)" value={form.ownerName} onChange={set('ownerName')} required maxLength={40} />
                 <IconInput icon={KeyRound} inputMode="numeric" type="password" maxLength={maxPin} placeholder={lanMode ? 'Tu PIN (6 números)' : 'Tu PIN (6 números o más)'} value={form.ownerPin} onChange={set('ownerPin')} required />
                 <IconInput icon={KeyRound} inputMode="numeric" type="password" maxLength={maxPin} placeholder="Repite tu PIN" value={form.ownerPin2} onChange={set('ownerPin2')} required />
+                {lanMode && (
+                    <div className="pt-1">
+                        <IconInput
+                            icon={ShieldCheck}
+                            type="password"
+                            maxLength={32}
+                            placeholder="Clave Maestra de respaldo (opcional, mín. 6 caracteres)"
+                            value={form.masterKey}
+                            onChange={set('masterKey')}
+                            data-testid="lan-create-master-key"
+                        />
+                        <p className="text-[11px] text-slate-400 mt-1 px-1">
+                            Te servirá para entrar si olvidas tu PIN. También puedes configurarla después en Configuración → Usuarios.
+                        </p>
+                    </div>
+                )}
                 <button className={BTN} disabled={busy} type="submit">{busy && <Loader2 className="animate-spin" size={18} />}Crear negocio</button>
             </form>
         </NubeShell>
@@ -223,6 +250,7 @@ const RING_ANIMATED = 'linear-gradient(180deg, rgb(110, 168, 255), rgb(43, 89, 1
 const CARD_STYLE = {
     dueno: { animated: true, depth: 'bg-brand/20', glow: 'shadow-[0_0_20px_rgba(43,89,195,0.45)]', label: 'text-brand' },
     administrador: { animated: true, depth: 'bg-brand/20', glow: 'shadow-[0_0_20px_rgba(43,89,195,0.35)]', label: 'text-brand' },
+    inventario: { animated: false, depth: 'bg-amber-500/20', ring: 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30', label: 'text-amber-600' },
     cajero: { animated: false, depth: 'bg-emerald-500/20', ring: 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/30', label: 'text-emerald-600' },
 };
 
@@ -509,6 +537,7 @@ export function MemberPickerScreen({ status, members, onPick, onManage, onSignOu
  */
 export function ManagePanel({
     license, devices, members, summary, currentDeviceId, onRename, onRevoke, onSaveMember, onSetOwnerPin,
+    masterKeyStatus = null, onSaveMasterKey = null,
     onImport, importInfo, onOpenLanPairing, onClose, busy, error,
 }) {
     const [modal, setModal] = useState(null);
@@ -590,6 +619,31 @@ export function ManagePanel({
                     <ul className="space-y-2">{inactiveMembers.map(memberRow)}</ul>
                 </>
             )}
+            {onSaveMasterKey && (
+                <div className="mt-5 rounded-2xl border border-amber-500/25 bg-amber-500/5 dark:bg-amber-500/10 p-3.5 flex items-center justify-between gap-3" data-testid="lan-manage-master-key">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <ShieldCheck size={15} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                            <p className="text-xs font-black text-slate-800 dark:text-white">Clave Maestra de Emergencia</p>
+                            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${masterKeyStatus?.isCustom ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'}`}>
+                                {masterKeyStatus?.isCustom ? 'Personalizada' : 'Clave inicial'}
+                            </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Permite entrar como dueño o cambiar tu PIN desde la pantalla de inicio si lo olvidas.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setModal({ kind: 'masterkey' })}
+                        data-testid="lan-manage-master-key-btn"
+                        className="shrink-0 px-3 py-2 min-h-[38px] rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 text-xs font-black"
+                    >
+                        {masterKeyStatus?.isCustom ? 'Cambiar' : 'Configurar'}
+                    </button>
+                </div>
+            )}
             {onImport && (
                 <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
                     <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Traer datos de Precios al Día</h2>
@@ -618,6 +672,13 @@ export function ManagePanel({
                 <PinChangeModal title="Tu PIN de dueño" role="dueno" onClose={close}
                     subtitle="Úsalo si olvidaste tu PIN o quieres cambiarlo. También te desbloquea."
                     onSubmit={done(({ pin }) => onSetOwnerPin(pin))} />
+            )}
+            {modal?.kind === 'masterkey' && onSaveMasterKey && (
+                <MasterKeyConfigModal
+                    isCustom={Boolean(masterKeyStatus?.isCustom)}
+                    onClose={close}
+                    onSubmit={done((payload) => onSaveMasterKey(payload))}
+                />
             )}
             {modal?.kind === 'toggle' && (
                 <ConfirmModal danger={modal.member.active !== false}
