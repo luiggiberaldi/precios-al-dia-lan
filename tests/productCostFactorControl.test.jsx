@@ -37,34 +37,18 @@ describe('ProductCostFactorControl — modo de entrada', () => {
     beforeEach(() => localStorage.clear());
     afterEach(() => cleanup());
 
-    it('de fábrica muestra el modo porcentaje (margen)', () => {
+    it('muestra únicamente el modo porcentaje (sin toggle 0.7)', () => {
         render(<ProductCostFactorControl costFactor="0.6" onChange={() => {}} />);
         expect(screen.getByText(/Margen de ganancia en %/)).toBeTruthy();
         expect(screen.getByPlaceholderText('30')).toBeTruthy();
+        expect(screen.queryByRole('button', { name: '0.7' })).toBeNull();
     });
 
-    it('si el usuario cambia al toggle 0.7, se queda en 0.7 y persiste', () => {
-        const { unmount } = render(<ProductCostFactorControl costFactor="0.6" onChange={() => {}} />);
-        fireEvent.click(screen.getByRole('button', { name: '0.7' }));
-        expect(screen.getByPlaceholderText('0.7')).toBeTruthy();
-        expect(localStorage.getItem(COST_FACTOR_MODE_KEY)).toBe(COST_FACTOR_MODE_FACTOR);
-
-        // Reabrir el formulario (remontar) conserva el modo elegido.
-        unmount();
-        render(<ProductCostFactorControl costFactor="0.6" onChange={() => {}} />);
-        expect(screen.getByPlaceholderText('0.7')).toBeTruthy();
-    });
-
-    it('permite volver al modo porcentaje y también persiste', () => {
-        const { unmount } = render(<ProductCostFactorControl costFactor="0.6" onChange={() => {}} />);
-        fireEvent.click(screen.getByRole('button', { name: '0.7' }));
-        fireEvent.click(screen.getByRole('button', { name: '%' }));
-        expect(screen.getByPlaceholderText('30')).toBeTruthy();
-        expect(getCostFactorMode()).toBe(COST_FACTOR_MODE_PERCENT);
-
-        unmount();
-        render(<ProductCostFactorControl costFactor="0.6" onChange={() => {}} />);
-        expect(screen.getByPlaceholderText('30')).toBeTruthy();
+    it('convierte el porcentaje ingresado al factor interno esperado', () => {
+        const onChange = vi.fn();
+        render(<ProductCostFactorControl costFactor="0.6" onChange={onChange} />);
+        fireEvent.change(screen.getByLabelText('Factor costo'), { target: { value: '30' } });
+        expect(onChange).toHaveBeenCalledWith('0.7');
     });
 });
 

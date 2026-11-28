@@ -60,11 +60,15 @@ function defaults(ctx = {}) {
 
 /** Mueve el stock de los productos de la lista: `sign` −1 retira, +1 devuelve. */
 function applyStock(products, items, sign, allowNegative) {
-    const byId = new Map(items.map(i => [i.id, i]));
+    const deltaById = new Map();
+    for (const i of items) {
+        const units = Number(i?.stockUnits ?? i?.qty) || 0;
+        deltaById.set(i.id, (deltaById.get(i.id) || 0) + units);
+    }
     return products.map(p => {
-        const item = byId.get(p?.id);
-        if (!item) return p;
-        const next = adjustStockValue(p.stock ?? 0, sign * item.qty, isGranelProduct(p));
+        const units = deltaById.get(p?.id);
+        if (!units) return p;
+        const next = adjustStockValue(p.stock ?? 0, sign * units, isGranelProduct(p));
         return { ...p, stock: sign < 0 && !allowNegative ? Math.max(0, next) : next };
     });
 }
@@ -340,13 +344,16 @@ export async function registerEntry(input, ctx = {}) {
  */
 export async function registerGoods(input, ctx = {}) {
     const c = defaults(ctx);
-    const admin = await requireAdmin(c);
+    const allowCashier = ctx.allowCashierWithinBalance === true && input?.confirmarExceso !== true;
+    const admin = allowCashier
+        ? (ctx.actor || { nombre: 'Cajero', rol: 'CAJERO' })
+        : await requireAdmin(c);
 
     return c.lock(POS_LOCK, async () => {
         const { employees, entries } = await readAll(c.storage);
 
         const existing = entries.find(e => e.idempotencyKey && e.idempotencyKey === input?.idempotencyKey);
-        if (existing) return { entry: existing, movement: null, arrastre: null, duplicate: true, sales: null };
+        if (existing) return { entry: existing, movement: null, arrastre: null, duplicate: true, sales: null, updatedProducts: null };
 
         const employee = employees.find(e => e.id === input?.employeeId);
         if (!employee) throw new Error('No se encontró el empleado.');
@@ -375,23 +382,37 @@ export async function registerGoods(input, ctx = {}) {
             isPayroll: true,
             payrollEntryId: entryId,
             employeeId: employee.id,
+            employeeName: employee.nombre,
             periodoId,
             afectaCaja: false,
             cajaCerrada: false,
             valoracion: ev.valoracion,
+            source: ctx.allowCashierWithinBalance ? 'CAJA' : 'NOMINA',
             description: `${payrollMovementDescription(GOODS_TYPE, employee, periodoId)}: ${resumen}`.slice(0, 200),
             note: nota,
             totalUsd: -ev.montoUsd,
             totalBs: -ev.montoBs,
             paymentMethod: 'autoconsumo',
             payments: [{ methodId: 'autoconsumo', amountUsd: -ev.montoUsd, amountBs: -ev.montoBs, currency: 'USD', methodLabel: 'Mercancía de nómina' }],
-            items: ev.items.map(i => ({ id: i.id, name: i.name, qty: i.qty, costUsd: i.costUsd, priceUsd: i.priceUsd })),
+            items: ev.items.map(i => ({
+                id: i.id,
+                name: i.name,
+                qty: i.qty,
+                stockUnits: i.stockUnits,
+                presentationId: i.presentationId,
+                presentationName: i.presentationName,
+                factorToBase: i.factorToBase,
+                costUsd: i.costUsd,
+                priceUsd: i.priceUsd,
+            })),
             actor: actorName(admin),
             actorId: admin?.id ?? null,
+            actorRol: admin?.rol ?? 'ADMIN',
         };
 
         // 1.º stock y movimiento (lectura fresca de productos dentro del candado).
-        await c.storage.setItem(PRODUCTS_KEY, applyStock(products, ev.items, -1, allowNegative));
+        const updatedProducts = applyStock(products, ev.items, -1, allowNegative);
+        await c.storage.setItem(PRODUCTS_KEY, updatedProducts);
         let sales;
         try {
             sales = await appendSalesRecordsUnlocked(c.storage, [movement]);
@@ -404,10 +425,12 @@ export async function registerGoods(input, ctx = {}) {
         const entry = {
             id: entryId,
             employeeId: employee.id,
+            employeeName: employee.nombre,
             periodoId,
             sueldoPeriodoUsd: frozenSalaryUsd(entries, employee, periodoId),
             tipo: GOODS_TYPE,
             origen: 'MANUAL',
+            source: ctx.allowCashierWithinBalance ? 'CAJA' : 'NOMINA',
             montoUsd: ev.montoUsd,
             moneda: 'USD',
             montoBs: ev.montoBs,
@@ -416,13 +439,24 @@ export async function registerGoods(input, ctx = {}) {
             saleDeGaveta: false,
             movimientoCajaId: movement.id,
             valoracion: ev.valoracion,
-            items: ev.items.map(i => ({ id: i.id, name: i.name, qty: i.qty, unitUsd: i.unitUsd, subtotalUsd: i.subtotalUsd })),
+            items: ev.items.map(i => ({
+                id: i.id,
+                name: i.name,
+                qty: i.qty,
+                stockUnits: i.stockUnits,
+                presentationId: i.presentationId,
+                presentationName: i.presentationName,
+                factorToBase: i.factorToBase,
+                unitUsd: i.unitUsd,
+                subtotalUsd: i.subtotalUsd,
+            })),
             nota,
             saldoAntesUsd: ev.saldoAntesUsd,
             status: 'ACTIVO',
             actor: actorName(admin),
             actorId: admin?.id ?? null,
-            createdByDevice: localDeviceTag(),
+            actorRol: admin?.rol ?? 'ADMIN',
+            createdByDevice: ctx.createdByDevice ?? localDeviceTag(),
             timestamp: nowIso,
             idempotencyKey: input.idempotencyKey,
         };
@@ -450,7 +484,7 @@ export async function registerGoods(input, ctx = {}) {
 
         if (isNubeSyncActive()) flushNubeStockNow().catch(() => {});
 
-        return { entry, movement, arrastre, duplicate: false, sales };
+        return { entry, movement, arrastre, duplicate: false, sales, updatedProducts };
     });
 }
 

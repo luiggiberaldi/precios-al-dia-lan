@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, ShoppingCart, Keyboard, LogOut, Wallet } from 'lucide-react';
+import { RefreshCw, ShoppingCart, Keyboard, LogOut, Wallet, ShoppingBag } from 'lucide-react';
 import Tooltip from '../Tooltip';
 import { pushLocalSync } from '../../hooks/useCloudSync';
 import { useAuthStore } from '../../hooks/store/useAuthStore';
@@ -28,6 +28,7 @@ export default function SalesHeader({
     setTasaCopManual,
     canRegistrarAporte,
     onOpenAporte,
+    onOpenEmployeeConsumption,
 }) {
     const isCopMode = copEnabled && copPrimary && tasaCop > 0;
 
@@ -118,6 +119,18 @@ export default function SalesHeader({
                             >
                                 <Wallet size={14} />
                                 <span className="text-xs font-bold">Aporte</span>
+                            </button>
+                        )}
+                        {onOpenEmployeeConsumption && (
+                            <button
+                                type="button"
+                                onClick={() => { triggerHaptic && triggerHaptic(); onOpenEmployeeConsumption(); }}
+                                title="Registrar consumo de empleado con sueldo"
+                                data-testid="pos-employee-consumption-mobile"
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 transition-colors border border-amber-200/60 text-xs font-bold active:scale-95 shrink-0 cursor-pointer"
+                            >
+                                <ShoppingBag size={14} />
+                                <span className="text-xs font-bold">Personal</span>
                             </button>
                         )}
 

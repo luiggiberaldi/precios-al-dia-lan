@@ -223,3 +223,92 @@ describe('anular y recuperar mercancía', () => {
         void e;
     });
 });
+
+describe('ventas a trabajadores desde Caja y presentaciones multinivel', () => {
+    it('desde Caja permite al cajero registrar sin PIN dentro del saldo y guarda trazabilidad completa', async () => {
+        const { storage, ctx, e } = await withEmployee({ valuation: 'venta' });
+        const cajaCtx = {
+            ...ctx,
+            pin: '',
+            allowCashierWithinBalance: true,
+            source: 'CAJA',
+            actor: { id: 7, nombre: 'Ana Cajera', rol: 'CAJERO' },
+            createdByDevice: 'CAJA-01',
+        };
+        const res = await registerGoods(goods(e.id, [{ id: 'harina', qty: 2 }]), cajaCtx);
+
+        expect(res.entry).toMatchObject({
+            tipo: 'MERCANCIA',
+            montoUsd: 2.4,
+            actor: 'Ana Cajera',
+            actorId: 7,
+            actorRol: 'CAJERO',
+            createdByDevice: 'CAJA-01',
+            source: 'CAJA',
+            employeeName: 'María',
+        });
+        expect(res.movement).toMatchObject({
+            actor: 'Ana Cajera',
+            actorId: 7,
+            actorRol: 'CAJERO',
+            source: 'CAJA',
+            employeeName: 'María',
+        });
+        expect(res.updatedProducts.find(p => p.id === 'harina').stock).toBe(8);
+        expect(await stockOf(storage, 'harina')).toBe(8);
+    });
+
+    it('desde Caja sigue exigiendo PIN de administrador si el consumo excede el saldo', async () => {
+        const { storage, ctx, e } = await withEmployee({ valuation: 'costo' });
+        await registerEntry({ employeeId: e.id, tipo: 'ADELANTO', moneda: 'USD', monto: 99, metodoId: 'efectivo_usd', idempotencyKey: 'ad-caja' }, ctx);
+        const cajaCtx = {
+            ...ctx,
+            pin: '',
+            allowCashierWithinBalance: true,
+            source: 'CAJA',
+            actor: { id: 7, nombre: 'Ana Cajera', rol: 'CAJERO' },
+        };
+
+        await expect(registerGoods(goods(e.id, [{ id: 'aceite', qty: 1 }]), cajaCtx)).rejects.toMatchObject({ code: 'EXCEDE_SALDO' });
+        await expect(registerGoods(goods(e.id, [{ id: 'aceite', qty: 1 }], { confirmarExceso: true }), cajaCtx)).rejects.toThrow(/PIN/);
+        expect(await stockOf(storage, 'aceite')).toBe(2);
+
+        const res = await registerGoods(goods(e.id, [{ id: 'aceite', qty: 1 }], { confirmarExceso: true }), { ...cajaCtx, pin: '123456' });
+        expect(res.arrastre).toMatchObject({ tipo: 'DESCUENTO', origen: 'ARRASTRE', montoUsd: 1.5 });
+        expect(await stockOf(storage, 'aceite')).toBe(1);
+    });
+
+    it('descuenta y revierte stock canónico en presentaciones multinivel', async () => {
+        const { storage, ctx, e } = await withEmployee({ valuation: 'venta' });
+        const multiProduct = {
+            id: 'galleta',
+            name: 'Galleta María',
+            stock: 50,
+            costUsd: 0.5,
+            priceUsd: 0.8,
+            presentations: [
+                { id: 'unit', level: 1, name: 'Unidad', containsQty: 1, sellable: true, priceUsd: 0.8, costUsd: 0.5 },
+                { id: 'pack', level: 2, name: 'Paquete', containsQty: 10, sellable: true, priceUsd: 7.5, costUsd: 4.5 },
+            ],
+        };
+        const current = await storage.getItem(PRODUCTS_KEY);
+        await storage.setItem(PRODUCTS_KEY, [...current, multiProduct]);
+
+        const res = await registerGoods(goods(e.id, [{ id: 'galleta', qty: 2, presentationId: 'pack' }]), ctx);
+        expect(res.entry.montoUsd).toBe(15);
+        expect(res.entry.items[0]).toMatchObject({
+            id: 'galleta',
+            qty: 2,
+            presentationId: 'pack',
+            presentationName: 'Paquete',
+            factorToBase: 10,
+            stockUnits: 20,
+            unitUsd: 7.5,
+            subtotalUsd: 15,
+        });
+        expect(await stockOf(storage, 'galleta')).toBe(30);
+
+        await voidEntry(res.entry.id, ctx);
+        expect(await stockOf(storage, 'galleta')).toBe(50);
+    });
+});

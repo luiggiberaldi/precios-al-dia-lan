@@ -57,8 +57,8 @@ export default function EmployeeFormModal({ isOpen, employee, onClose, onSave })
                     <input className={inputCls} value={form.nombre} onChange={set('nombre')} data-testid="employee-nombre" autoFocus />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
-                    <Field label="Cédula"><input className={inputCls} value={form.cedula} onChange={set('cedula')} /></Field>
                     <Field label="Cargo"><input className={inputCls} value={form.cargo} onChange={set('cargo')} placeholder="Cajera, despacho…" /></Field>
+                    <Field label="Teléfono"><input className={inputCls} value={form.telefono} onChange={set('telefono')} /></Field>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                     <Field label="Sueldo en $ *">
@@ -79,10 +79,6 @@ export default function EmployeeFormModal({ isOpen, employee, onClose, onSave })
                         ⚠ Si el periodo actual ya tiene movimientos, sigue con el sueldo anterior. El nuevo vale desde el próximo periodo.
                     </p>
                 )}
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Teléfono"><input className={inputCls} value={form.telefono} onChange={set('telefono')} /></Field>
-                    <Field label="Fecha de ingreso"><input className={inputCls} type="date" value={form.fechaIngreso} onChange={set('fechaIngreso')} /></Field>
-                </div>
                 <Field label="Nota"><input className={inputCls} value={form.nota} onChange={set('nota')} /></Field>
                 <PinField value={pin} onChange={setPin} />
                 {error && <p role="alert" data-testid="employee-error" className="text-sm font-bold text-red-600">{error}</p>}

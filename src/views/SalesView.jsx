@@ -12,7 +12,7 @@ import { normalizeBarcode, isLikelyBarcode } from '../utils/barcodeNormalizer';
 import { findProductAndPresentationByCode } from '../utils/barcodeAssign';
 import { getSellablePresentations, resolveProductPresentations } from '../utils/presentations';
 import { showToast } from '../components/Toast';
-import { ShoppingCart, X, DollarSign, CheckCircle2, Trash2 } from 'lucide-react';
+import { ShoppingCart, X, DollarSign, CheckCircle2, Trash2, ShoppingBag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useProductContext } from '../context/ProductContext';
 import { isGranelProduct, parseCartQuantity, adjustStockValue, parseEan13ScaleBarcode, calculateItemStockDeduction } from '../utils/granel'; // GRANEL-001
@@ -36,6 +36,10 @@ import CajaCerradaOverlay from '../components/Sales/CajaCerradaOverlay';
 import { calcularFondoEnGaveta } from '../utils/fondoGaveta';
 import AperturaCajaModal from '../components/Dashboard/AperturaCajaModal';
 import AporteCajaModal from '../components/Sales/AporteCajaModal';
+import PayrollGoodsModal from '../components/Payroll/PayrollGoodsModal';
+import { registerGoods } from '../services/payrollService';
+import { verifyNubeAdminPin } from '../nube/nubeAdminPin';
+import { buildPayrollReceiptData, printPayrollReceipt, downloadPayrollReceiptPdf } from '../utils/payrollReceipt';
 import { useAuthStore } from '../hooks/store/useAuthStore';
 import HoldsModal from '../components/Sales/HoldsModal';
 
@@ -90,6 +94,7 @@ export default function SalesView({ triggerHaptic, isActive }) {
     // Aporte de efectivo: solo con caja abierta y, si hay login, solo ADMIN.
     // La validación definitiva también vive en useCheckoutFlow.handleSaveAporte.
     const [isAporteOpen, setIsAporteOpen] = useState(false);
+    const [showEmployeeGoodsModal, setShowEmployeeGoodsModal] = useState(false);
     const { requireLogin, usuarioActivo } = useAuthStore();
 
     // Cart (from global context)
@@ -880,6 +885,7 @@ export default function SalesView({ triggerHaptic, isActive }) {
             <SalesHeader
                 canRegistrarAporte={canRegistrarAporte}
                 onOpenAporte={() => setIsAporteOpen(true)}
+                onOpenEmployeeConsumption={todayAperturaData ? () => setShowEmployeeGoodsModal(true) : null}
                 effectiveRate={effectiveRate}
                 rateMode={rateMode} setRateMode={setRateMode}
                 useAutoRate={useAutoRate} setUseAutoRate={setUseAutoRate}
@@ -949,6 +955,24 @@ export default function SalesView({ triggerHaptic, isActive }) {
                                         copEnabled={copEnabled} copPrimary={copPrimary} tasaCop={tasaCop}
                                     />
                                 </div>
+
+                                {/* Botón directo: Consumo de empleado con cargo a sueldo */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        triggerHaptic?.();
+                                        setShowEmployeeGoodsModal(true);
+                                    }}
+                                    data-testid="pos-employee-consumption"
+                                    title="Registrar mercancía a empleado (se descuenta de su sueldo)"
+                                    className="hidden lg:flex shrink-0 flex-col items-center justify-center rounded-2xl sm:rounded-3xl px-3.5 border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/70 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 shadow-xs transition-all min-w-[104px] gap-0.5 cursor-pointer hover:border-amber-400 hover:bg-amber-50 active:scale-95"
+                                >
+                                    <div className="flex items-center gap-1.5 font-black text-xs">
+                                        <ShoppingBag size={14} />
+                                        <span>Personal</span>
+                                    </div>
+                                    <span className="text-[10px] font-bold opacity-80">Con sueldo</span>
+                                </button>
 
                                 {/* Tasa de Referencia Flotante (estilo Listo POS 2026) — solo visible en desktop (lg:flex) */}
                                 {canEditRate && (
@@ -1233,6 +1257,42 @@ export default function SalesView({ triggerHaptic, isActive }) {
                 }}
                 copEnabled={copEnabled}
                 copPrimary={copPrimary}
+            />
+
+            {/* Consumo de empleado con cargo a sueldo (desde Caja) */}
+            <PayrollGoodsModal
+                isOpen={showEmployeeGoodsModal}
+                onClose={() => setShowEmployeeGoodsModal(false)}
+                rate={effectiveRate}
+                allowCashierWithinBalance
+                onSubmit={async (input, pin) => {
+                    const legacyAuth = useAuthStore.getState().verifyAdminPin;
+                    const res = await registerGoods(input, {
+                        allowCashierWithinBalance: true,
+                        actor: usuarioActivo || { nombre: 'Cajero', rol: 'CAJERO' },
+                        authorize: (p) => verifyNubeAdminPin(p, { fallbackAuthorize: legacyAuth }),
+                        pin,
+                        getRate: () => effectiveRate,
+                    });
+                    if (Array.isArray(res?.updatedProducts)) {
+                        setProducts(res.updatedProducts);
+                    }
+                    if (Array.isArray(res?.sales)) {
+                        setSalesData(res.sales);
+                    }
+                    return res;
+                }}
+                onReceipt={(entry, kind, emp) => {
+                    if (!emp) return;
+                    const data = buildPayrollReceiptData({
+                        employee: emp,
+                        entry,
+                        saldoDespuesUsd: Math.max(0, (entry.saldoAntesUsd || 0) - (entry.montoUsd || 0)),
+                        methodLabel: null,
+                    });
+                    if (kind === 'print') printPayrollReceipt(data);
+                    else downloadPayrollReceiptPdf(data);
+                }}
             />
 
             {/* Holds Modal */}

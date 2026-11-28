@@ -344,8 +344,8 @@ export default function PresentationHierarchyBuilder({
                                                         : 'border-surface-200 bg-surface-50 dark:bg-surface-800 text-surface-500'
                                                 }`}
                                             >
-                                                <span className={`w-8 h-5 rounded-full relative transition-colors ${lvl.sellable ? 'bg-emerald-600' : 'bg-surface-300 dark:bg-surface-600'}`}>
-                                                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${lvl.sellable ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                                                <span className={`w-9 h-5 rounded-full relative shrink-0 transition-colors ${lvl.sellable ? 'bg-emerald-600' : 'bg-surface-300 dark:bg-surface-600'}`}>
+                                                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${lvl.sellable ? 'translate-x-4' : 'translate-x-0'}`} />
                                                 </span>
                                                 <span className="text-[11px] font-black uppercase">Vender</span>
                                             </button>

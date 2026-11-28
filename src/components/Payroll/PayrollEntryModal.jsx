@@ -123,10 +123,35 @@ export default function PayrollEntryModal({ isOpen, tipo, employee, balance, rat
                 </div>
 
                 <label className="block">
-                    <span className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Monto en {moneda === 'USD' ? '$' : 'Bs'}</span>
-                    <input className={`${inputCls} text-lg`} type="number" inputMode="decimal" min="0" step="0.01" autoFocus
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Monto en {moneda === 'USD' ? '$' : 'Bs'}</span>
+                        {saldoUsd > 0 && (tipo === 'ADELANTO' || tipo === 'PAGO') && (
+                            <div className="flex items-center gap-1">
+                                {[
+                                    { label: '25%', mult: 0.25 },
+                                    { label: '50%', mult: 0.5 },
+                                    { label: 'Total', mult: 1 },
+                                ].map(chip => (
+                                    <button
+                                        key={chip.label}
+                                        type="button"
+                                        onClick={() => {
+                                            const rawUsd = Math.round(saldoUsd * chip.mult * 100) / 100;
+                                            const val = moneda === 'BS' ? mulR(rawUsd, rate) : rawUsd;
+                                            setMonto(String(val));
+                                            setExceso(null);
+                                        }}
+                                        className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-light hover:text-brand cursor-pointer transition-colors"
+                                    >
+                                        {chip.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <input className={`${inputCls} text-lg font-mono tabular-nums`} type="number" inputMode="decimal" min="0" step="0.01" autoFocus
                         data-testid="payroll-monto" value={monto} onChange={e => { setMonto(e.target.value); setExceso(null); }} />
-                    <span className="block text-xs text-slate-500 mt-1">{equivalente} · tasa de la tienda {rate || '—'}</span>
+                    <span className="block text-xs font-mono tabular-nums text-slate-500 mt-1">{equivalente} · tasa de la tienda {rate || '—'}</span>
                 </label>
 
                 {isMoney && (

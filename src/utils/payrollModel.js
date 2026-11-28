@@ -15,6 +15,7 @@
 
 import { round0, round2, mulR, divR, sumR, subR } from './dinero';
 import { formatUsd } from './calculatorUtils';
+import { resolveProductPresentations } from './presentations';
 
 // ─── Constantes ─────────────────────────────────────────────────────────────
 
@@ -373,16 +374,27 @@ export function readGoodsValuation(store = globalThis.localStorage) {
     }
 }
 
-/** Precio unitario en $ de un producto según la valoración. */
-export function goodsUnitPriceUsd(product, valuation) {
-    return round2(Number(valuation === 'venta' ? product?.priceUsd : product?.costUsd) || 0);
+/** Precio unitario en $ de un producto (o presentación) según la valoración. */
+export function goodsUnitPriceUsd(product, valuation, presentationId = null) {
+    if (presentationId && product) {
+        const levels = resolveProductPresentations(product);
+        const lvl = levels.find(l => l.id === presentationId);
+        if (lvl) {
+            const raw = valuation === 'venta'
+                ? (lvl.priceUsd > 0 ? lvl.priceUsd : (product?.priceUsd ?? product?.priceUsdt))
+                : (lvl.costUsd > 0 ? lvl.costUsd : product?.costUsd);
+            return round2(Number(raw) || 0);
+        }
+    }
+    const baseRaw = valuation === 'venta' ? (product?.priceUsd ?? product?.priceUsdt) : product?.costUsd;
+    return round2(Number(baseRaw) || 0);
 }
 
 /**
  * Valida la mercancía y calcula su monto con los productos FRESCOS. NO guarda.
  *
  * Contrato de entrada:
- *   { employeeId, tipo: 'MERCANCIA', items: [{ id, qty }], nota?, idempotencyKey, confirmarExceso? }
+ *   { employeeId, tipo: 'MERCANCIA', items: [{ id, qty, presentationId? }], nota?, idempotencyKey, confirmarExceso? }
  * El precio lo pone el servicio con la valoración de Ajustes, nunca la pantalla.
  *
  * @returns {{ items, montoUsd, montoBs, tasa, excedenteUsd, saldoAntesUsd, valoracion }}
@@ -396,16 +408,28 @@ export function evaluateGoods({ input, products = [], balance, tasa, valuation =
 
     const byId = new Map(products.map(p => [p?.id, p]));
     const seen = new Set();
-    const items = raw.map(({ id, qty }) => {
-        if (seen.has(id)) throw new Error('Un producto está repetido en la lista.');
-        seen.add(id);
+    const totalUnitsByProduct = new Map();
+    const items = raw.map(({ id, qty, presentationId = null }) => {
+        const lineKey = `${id}::${presentationId || ''}`;
+        if (seen.has(lineKey)) throw new Error('Un producto está repetido en la lista.');
+        seen.add(lineKey);
         const product = byId.get(id);
         if (!product) throw new Error('Un producto de la lista ya no existe en el inventario.');
         const q = Number(qty);
         if (!Number.isFinite(q) || q <= 0) throw new Error(`Cantidad no válida para ${product.name}.`);
+
+        const levels = presentationId ? resolveProductPresentations(product) : [];
+        const matchedLevel = presentationId ? levels.find(l => l.id === presentationId) : null;
+        const factorToBase = matchedLevel ? Math.max(1, Number(matchedLevel.factorToBase) || 1) : 1;
+        const stockUnits = factorToBase > 1 ? mulR(q, factorToBase) : q;
+
+        const prevNeeded = totalUnitsByProduct.get(product.id) || 0;
+        const needed = prevNeeded + stockUnits;
+        totalUnitsByProduct.set(product.id, needed);
         const stock = Number(product.stock) || 0;
-        if (!allowNegative && q > stock + 1e-9) throw new Error(`No hay suficiente ${product.name}: quedan ${stock}.`);
-        const unitUsd = goodsUnitPriceUsd(product, valoracion);
+        if (!allowNegative && needed > stock + 1e-9) throw new Error(`No hay suficiente ${product.name}: quedan ${stock}.`);
+
+        const unitUsd = goodsUnitPriceUsd(product, valoracion, matchedLevel?.id || null);
         if (!(unitUsd > 0)) {
             throw new Error(`${product.name} no tiene ${valoracion === 'venta' ? 'precio de venta' : 'costo'} cargado. Cárgalo en Inventario o cambia la opción en Ajustes.`);
         }
@@ -413,10 +437,14 @@ export function evaluateGoods({ input, products = [], balance, tasa, valuation =
             id: product.id,
             name: product.name,
             qty: q,
+            stockUnits,
+            presentationId: matchedLevel?.id || null,
+            presentationName: matchedLevel?.name || null,
+            factorToBase,
             unitUsd,
             subtotalUsd: mulR(unitUsd, q),
-            costUsd: round2(Number(product.costUsd) || 0),
-            priceUsd: round2(Number(product.priceUsd) || 0),
+            costUsd: round2(Number(matchedLevel?.costUsd || product.costUsd) || 0),
+            priceUsd: round2(Number(matchedLevel?.priceUsd || product.priceUsd || product.priceUsdt) || 0),
         };
     });
 
@@ -444,7 +472,11 @@ export function evaluateGoods({ input, products = [], balance, tasa, valuation =
 
 /** Texto corto de los productos: «2 × Harina PAN, 1 × Aceite y 3 más». */
 export function goodsSummary(items = [], max = 3) {
-    const parts = items.slice(0, max).map(i => `${i.qty} × ${i.name}`);
+    const parts = items.slice(0, max).map(i => (
+        i.presentationName && i.factorToBase > 1
+            ? `${i.qty} × ${i.name} (${i.presentationName})`
+            : `${i.qty} × ${i.name}`
+    ));
     const text = parts.join(', ');
     return items.length > max ? `${text} y ${items.length - max} más` : text;
 }

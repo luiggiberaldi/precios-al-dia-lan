@@ -58,12 +58,16 @@ const ProductsToolbar = ({
     // despegaría del botón → cerrarlo en lugar de quedar flotando huérfano.
     useEffect(() => {
         if (!showToolsMenu) return;
-        const close = () => setShowToolsMenu(false);
-        window.addEventListener('scroll', close, true);
-        window.addEventListener('resize', close);
+        const closeOnScroll = (e) => {
+            if (toolsMenuRef.current && e?.target && toolsMenuRef.current.contains(e.target)) return;
+            setShowToolsMenu(false);
+        };
+        const closeOnResize = () => setShowToolsMenu(false);
+        window.addEventListener('scroll', closeOnScroll, true);
+        window.addEventListener('resize', closeOnResize);
         return () => {
-            window.removeEventListener('scroll', close, true);
-            window.removeEventListener('resize', close);
+            window.removeEventListener('scroll', closeOnScroll, true);
+            window.removeEventListener('resize', closeOnResize);
         };
     }, [showToolsMenu]);
 
@@ -245,7 +249,8 @@ const ProductsToolbar = ({
                             {/* Dropdown Menu */}
                             {showToolsMenu && (
                                 <div
-                                    className="fixed z-50 w-64 max-w-[calc(100vw-1rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-1.5 animate-in fade-in zoom-in-95 duration-150"
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    className="fixed z-[90] w-64 max-w-[calc(100vw-1rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-1.5 animate-in fade-in zoom-in-95 duration-150"
                                     style={toolsMenuPos || undefined}
                                 >
                                     <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
