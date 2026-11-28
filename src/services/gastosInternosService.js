@@ -50,14 +50,18 @@ export async function confirmSalesRecords(storage, expectedRecords) {
 export async function appendSalesRecordsUnlocked(storage, records) {
     const freshSales = await storage.getItem(SALES_KEY, []);
     const list = Array.isArray(freshSales) ? freshSales : [];
-    if (records.some(requiresOpenCash) && !findOpenCashShift(list)) {
+    const openShift = findOpenCashShift(list);
+    if (records.some(requiresOpenCash) && !openShift) {
         throw new Error(CAJA_CERRADA_MSG);
     }
+    const stampedRecords = openShift?.shiftId
+        ? records.map(r => (r && !r.shiftId ? { ...r, shiftId: openShift.shiftId } : r))
+        : records;
     const ids = new Set(list.map(r => r?.id));
-    const nuevos = records.filter(r => !ids.has(r.id));
+    const nuevos = stampedRecords.filter(r => !ids.has(r.id));
     const updated = [...nuevos, ...list];
     await storage.setItem(SALES_KEY, updated);
-    await confirmSalesRecords(storage, records);
+    await confirmSalesRecords(storage, stampedRecords);
     return updated;
 }
 

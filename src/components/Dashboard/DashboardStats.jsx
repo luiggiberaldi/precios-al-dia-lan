@@ -11,9 +11,10 @@ export default function DashboardStats({
     todayProfit, bcvRate,
     totalDeudas, showTopDeudas, setShowTopDeudas,
     triggerHaptic, copEnabled, copPrimary, tasaCop,
+    canViewProfit = true,
 }) {
     return (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className={`grid grid-cols-2 ${canViewProfit ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3 mb-4`}>
             {/* Licencia Demo — estilo Farmacia: tarjeta clara con el color de la marca */}
             {isDemo && demoTimeLeft && (
                 <div className="col-span-2 lg:col-span-4 bg-brand-light dark:bg-slate-900 border border-brand/20 dark:border-slate-800 rounded-2xl p-4 shadow-sm relative overflow-hidden flex items-center justify-between gap-3">
@@ -128,6 +129,7 @@ export default function DashboardStats({
             </div>
 
             {/* Ganancia Estimada */}
+            {canViewProfit && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
                 <div className="absolute -right-4 -top-4 w-16 h-16 bg-green-50 dark:bg-green-900/10 rounded-full blur-2xl"></div>
                 <div className="flex items-center justify-between mb-3 relative z-10">
@@ -163,6 +165,7 @@ export default function DashboardStats({
                     <p className="text-[11px] font-medium text-slate-400 mt-1">Ganancia estimada</p>
                 </div>
             </div>
+            )}
 
 
             {/* Deudas Pendientes */}

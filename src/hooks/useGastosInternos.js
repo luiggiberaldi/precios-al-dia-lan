@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { round2 } from '../utils/dinero';
 import { showToast } from '../components/Toast';
 import { useAuthStore } from './store/useAuthStore';
+import { can as canPerm, PERMISSIONS } from '../security/permissions';
 import { buildGastoInternoRecord } from '../utils/gastoInterno';
 import { saveGastoInterno, saveAutoconsumo, voidGastoInterno } from '../services/gastosInternosService';
 
@@ -26,6 +27,11 @@ export function useGastosInternos({ bcvRate, tasaCop, copEnabled, triggerHaptic,
     // ─── Gasto de caja normal (sin movimiento de inventario) ────────────────
     const registrarGasto = useCallback(async ({ description, category, amountUsd, amountBs, methodId, currency, note }) => {
         triggerHaptic && triggerHaptic();
+        const authState = useAuthStore.getState();
+        if (!canPerm(authState?.usuarioActivo, PERMISSIONS.CASH_EXPENSES, { requireLogin: authState?.requireLogin })) {
+            showToast('No tienes permiso para registrar gastos o retiros.', 'warning');
+            return false;
+        }
 
         let record;
         try {
@@ -64,6 +70,11 @@ export function useGastosInternos({ bcvRate, tasaCop, copEnabled, triggerHaptic,
      */
     const registrarAutoconsumo = useCallback(async ({ description, items, valoracion = 'costo', note, totalUsd, totalBs }) => {
         triggerHaptic && triggerHaptic();
+        const authState = useAuthStore.getState();
+        if (!canPerm(authState?.usuarioActivo, PERMISSIONS.CASH_EXPENSES, { requireLogin: authState?.requireLogin })) {
+            showToast('No tienes permiso para registrar retiros de inventario.', 'warning');
+            return false;
+        }
 
         if (!items || items.length === 0) {
             showToast('Selecciona al menos un producto', 'warning');
@@ -126,10 +137,10 @@ export function useGastosInternos({ bcvRate, tasaCop, copEnabled, triggerHaptic,
     const anularGasto = useCallback(async (gastoId) => {
         triggerHaptic && triggerHaptic();
 
-        // Guard de seguridad: Cajeros no pueden borrar/anular gastos
+        // Guard de seguridad: solo quien tenga permiso RBAC de gestión de caja puede anular gastos
         const authState = useAuthStore.getState();
-        if (authState?.requireLogin && authState?.usuarioActivo?.rol === 'CAJERO') {
-            showToast('Los cajeros no tienen permiso para anular gastos', 'warning');
+        if (!canPerm(authState?.usuarioActivo, PERMISSIONS.CASH_MANAGE, { requireLogin: authState?.requireLogin })) {
+            showToast('No tienes permiso para anular gastos', 'warning');
             return false;
         }
 

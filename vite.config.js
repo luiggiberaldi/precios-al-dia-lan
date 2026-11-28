@@ -3,6 +3,7 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fetchBcvRates } from './api/bcvRatesHelper.js';
+import { searchProductImagesMultiTier, fetchExternalImageSafe } from './desktop/server/imageSearchEngine.mjs';
 // Fuente única del system prompt — la misma que usa api/chat.js en Vercel.
 import { RELEASE_NOTES } from './src/data/releaseNotes.js';
 import { buildChatSystemMessage, CHAT_TEMPERATURE, CHAT_MAX_TOKENS } from './src/services/chatSystemPrompt.js';
@@ -79,6 +80,15 @@ export default defineConfig(({ mode }) => {
             },
           },
           {
+            urlPattern: /\/images\/catalog\/catalog\.json/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'catalog-index-cache',
+              expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             // OFFLINE-IMG (F1): catálogo base servido desde public/images/catalog/.
             // NO entra al precache: el globPatterns por defecto de vite-plugin-pwa
             // no incluye .webp, y precargar los 612 archivos (23MB) al instalar
@@ -86,13 +96,13 @@ export default defineConfig(({ mode }) => {
             // CacheFirst de runtime solo se persisten las que el negocio abre.
             // Sin regex anclado con `$`: así también matchea si algún día llega
             // con querystring.
-            urlPattern: /\/images\/catalog\//i,
+            urlPattern: /\/images\/catalog\/.*\.(?:webp|png|jpe?g)$/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'catalog-images-cache',
-              // 612 archivos en el catálogo → 700 deja margen sin desalojar.
+              // 1.143 archivos en el catálogo → 1.400 deja margen sin desalojar.
               // Son inmutables (el nombre es el slug del producto) → 1 año.
-              expiration: { maxEntries: 700, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              expiration: { maxEntries: 1400, maxAgeSeconds: 60 * 60 * 24 * 365 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
@@ -289,7 +299,7 @@ export default defineConfig(({ mode }) => {
             return;
           }
 
-          // ── /api/search-image ──
+          // ── /api/search-image (Offline + Supabase + Web Fallback unificado) ──
           if (req.url.startsWith('/api/search-image')) {
             (async () => {
               res.setHeader('Content-Type', 'application/json');
@@ -306,195 +316,14 @@ export default defineConfig(({ mode }) => {
               }
 
               try {
-                const supabaseUrl = env.VITE_SUPABASE_CLOUD_URL || env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_CLOUD_URL || process.env.VITE_SUPABASE_URL;
-                const supabaseKey = env.VITE_SUPABASE_CLOUD_KEY || env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_CLOUD_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-                
-                if (!supabaseUrl || !supabaseKey) {
-                  throw new Error('Supabase URL/Key no configurada en dev .env');
-                }
-
-                const { createClient } = await import('@supabase/supabase-js');
-                const supabase = createClient(supabaseUrl, supabaseKey);
-                const customMappings = {
-                  'TRIFOGON': 'trifogon',
-                  'TOM GUAYABANA': 'dulce tom',
-                  'TOM PLATANO': 'dulce tom',
-                  'ALISOFT PAPEL': 'alisoft',
-                  'EURO': 'papel euro',
-                  'BAMBOO 4 ROLLO': 'bamboo',
-                  'BAMBOO UNIDA': 'bamboo',
-                  'LA PAMPA': 'pampa',
-                  'AURORA SOYA': 'aurora',
-                  'DOÑA TITA VINAGRE': 'dona tita',
-                  'CAPRI SALSA': 'capri',
-                  'KETCHUP': 'ketchup',
-                  'PAZCUM SALSA': 'pazcum',
-                  'SARDINES OIL': 'sardinas',
-                  'TWISTI': 'twisti',
-                  'MARGARINA ATUN': 'margarina',
-                  'DIABLITO UNDER': 'diablito',
-                  'BLANCA FLOR LEUDANTE': 'blanca flor',
-                  'BLANCA FLOR TODO': 'blanca flor',
-                  'KONFIT AZUCAR': 'konfit',
-                  'RONCO CORTA PLUMA 500 GR': 'ronco',
-                  'MARY PASTA PLUMA 500 GR': 'mary',
-                  'SAN SIMON LECHE 400GR': 'san simon',
-                  'ARROZ MARY SUPERIOR': 'arroz mary',
-                  'ARROZ MARY PREMIUM': 'arroz mary',
-                  'DOÑA BELEN': 'dona belen',
-                  'PRIMOR PASTA LARGA': 'primor',
-                  'MARY PASTA LARGA PREMIUM 500G': 'mary pasta',
-                  'SAL PROSANCA': 'prosanca',
-                  'CAFÉ LA PROTECTORA 100GR': 'protectora',
-                  'CAFÉ LA PROTECTORA 200GR': 'protectora',
-                  'ALIVE DETERGENTE POLVO 400GR': 'alive',
-                  'AVENA 400GR GRAVENCA': 'gravenca',
-                  'JUMBY RIKO': 'jumby',
-                  'BUEN ARROZ 900GR': 'buen arroz',
-                  'HARINA BUDARE': 'budare',
-                  'HARINA MARY 900G': 'harina mary',
-                  'WYNCON BUZZY': 'buzzy',
-                  'JABON ANITA': 'anita',
-                  'LA LLAVES JABON': 'llaves',
-                  'BON BON SURTIDO': 'bon bon',
-                  'CARAMELO CAFÉ': 'caramelo cafe',
-                  'TOALLAS WANITA': 'wanita',
-                  'PRESTOBALBA DORCO AZUL , ROSADA': 'dorco',
-                  'GALLETAS MARIA ALIVAL': 'galletas maria',
-                  'MIMLOT JABON': 'mimlot',
-                  'MAVESA MARGARINA MANTEQUILLA': 'margarina mavesa',
-                  'JUSTY DURAZNO 400L': 'justy',
-                  'JUSTY MANZANA 400L': 'justy',
-                  'GLUP COLA 2L': 'glup',
-                  'GLUP SABORES 1L': 'glup',
-                  'GLUP COLA 400L': 'glup',
-                  'CIGARRO CONSUL PAQ': 'consul',
-                  'CIGARRO VICEBOY PAQ': 'viceboy',
-                  'CHEESKING 50G': 'cheeseking',
-                  'CREMA ALIDENT AZUL': 'alident',
-                  'SUAVITETWL 180ML': 'suavitel',
-                  'AGUA COLL 1.5L': 'agua coll',
-                  'AGUA COLL 600M': 'agua coll',
-                  'GALLETA COCO RANCH': 'coco ranch',
-                  'GALLETA ANIMALITOS': 'animalitos',
-                  'GALLETA SODA': 'galleta soda',
-                  'GALLETA CLUB SOCIAL': 'club social',
-                  'LECHE DOBON 120G': 'dobon',
-                  'PALITO DANIBISK': 'danibisk',
-                  'FLIPS 120GR CHOCO': 'flips',
-                  'FLIPS 120GR DULCE': 'flips',
-                  'TIP TOP CHOCO': 'tip top',
-                  'GALLETA INDEPENDENCIA': 'independencia',
-                  'GALLETA DANINBISK': 'danibisk',
-                  'OREO TUBO': 'oreo',
-                  'RAQUETY PICANTE': 'raquety',
-                  'CHEESE TRIS 4G': 'cheese tris',
-                  'CHISKESITOS 45G': 'chiskesitos',
-                  'TOSTON TOM 80G': 'toston tom',
-                  'ESPONJA AMARILLA': 'esponja',
-                  'HUEVOS TIPO A und': 'huevos',
-                  'MANTEQUILLA NELLY 250G': 'nelly',
-                  'MAYONESAMAVESA 500G': 'mayonesa mavesa',
-                  'MAYONES MAVESA 175G': 'mayonesa mavesa',
-                  'DESIFENTANTE 1LT': 'desinfectante'
-                };
-
-                const cleanText = (str) => str
-                  .toLowerCase()
-                  .normalize("NFD")
-                  .replace(/[\u0300-\u036f]/g, "")
-                  .replace(/[^a-z0-9\s]/g, " ")
-                  .replace(/\s+/g, ' ')
-                  .trim();
-
-                const originalQuery = query.trim();
-                const normalizedQuery = cleanText(originalQuery).toUpperCase();
-                
-                // Obtener query semántico sanitizado
-                let searchQuery = customMappings[normalizedQuery] || normalizedQuery.toLowerCase();
-                if (!customMappings[normalizedQuery]) {
-                  let words = normalizedQuery.split(' ');
-                  const noise = ['UND', 'UNIDA', 'LOTE', 'PAQ', 'PAQUE', 'PAQUETE', 'GR', 'GRS', 'KG', '1KG', '400GR', '500GR', '900G', '175G', '250G', '180ML', '200ML', '1LT', '1.5L', '2L', '1L', '400L', '600M'];
-                  words = words.filter(w => !noise.includes(w) && w.length > 1);
-                  searchQuery = words.length > 0 ? words[0].toLowerCase() : normalizedQuery.toLowerCase();
-                }
-
-                // Generar slug para coincidencia exacta
-                const slug = searchQuery.replace(/\s+/g, '-');
-
-                // 1. Intentar coincidencia exacta de slug
-                const { data: exactMatch } = await supabase
-                  .from("product_images_catalog")
-                  .select("name, image_url")
-                  .eq("id", slug)
-                  .maybeSingle();
-
-                if (exactMatch) {
-                  res.end(JSON.stringify({
-                    success: true,
-                    matches: [{ title: exactMatch.name, dataUri: exactMatch.image_url }]
-                  }));
-                  return;
-                }
-
-                // 2. Intentar coincidencia parcial
-                const words = searchQuery.split(/\s+/).filter(w => w.length > 2);
-                if (words.length > 0) {
-                  const { data: matches } = await supabase
-                    .from("product_images_catalog")
-                    .select("id, name, image_url, tags")
-                    .overlaps("tags", words);
-
-                  if (matches && matches.length > 0) {
-                    const ranked = matches.map(item => {
-                      let score = 0;
-                      const nameLower = item.name.toLowerCase();
-                      
-                      // Scoring inteligente
-                      words.forEach(w => {
-                        if (w.length < 4) {
-                          // Si es muy corta, exigir que aparezca como palabra completa delimitada (ej. "bon" en "bon bon", no "bicarbonato")
-                          const regex = new RegExp(`\\b${w}\\b`, 'i');
-                          if (regex.test(nameLower)) {
-                            score += 10;
-                            if (nameLower.startsWith(w)) score += 5;
-                          }
-                        } else {
-                          // Para palabras de 4 o más caracteres, permitimos coincidencia parcial de subcadena
-                          if (nameLower.includes(w)) {
-                            score += 10;
-                            if (nameLower.startsWith(w)) score += 5;
-                          }
-                        }
-                      });
-
-
-                      // Bonus por coincidencia exacta de palabras en tags
-                      const itemTags = Array.isArray(item.tags) ? item.tags : [];
-                      words.forEach(w => {
-                        if (itemTags.includes(w)) score += 15;
-                      });
-
-                      return { ...item, score };
-                    })
-                    .filter(item => item.score > 0)
-                    .sort((a, b) => b.score - a.score);
-
-                    if (ranked.length > 0) {
-                      const topMatches = ranked.slice(0, 5).map(item => ({
-                        title: item.name,
-                        dataUri: item.image_url
-                      }));
-                      
-                      res.end(JSON.stringify({ success: true, matches: topMatches }));
-                      return;
-                    }
-                  }
-                }
-
-                res.statusCode = 404;
-                res.end(JSON.stringify({ error: "No se encontraron imágenes en el catálogo para el producto especificado." }));
-
+                const supabaseUrl = env.VITE_SUPABASE_CLOUD_URL || env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_CLOUD_URL || process.env.VITE_SUPABASE_URL || '';
+                const supabaseKey = env.VITE_SUPABASE_CLOUD_KEY || env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_CLOUD_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+                const matches = await searchProductImagesMultiTier(query, {
+                  supabaseUrl,
+                  supabaseKey,
+                  enableWebFallback: true,
+                });
+                res.end(JSON.stringify({ success: true, matches }));
               } catch (err) {
                 res.statusCode = 500;
                 res.end(JSON.stringify({ error: err.message }));
@@ -503,7 +332,7 @@ export default defineConfig(({ mode }) => {
             return;
           }
 
-          // ── /api/image-proxy ──
+          // ── /api/image-proxy (seguro anti-SSRF + soporte ?format=json) ──
           if (req.url.startsWith('/api/image-proxy')) {
             (async () => {
               res.setHeader('Access-Control-Allow-Origin', corsOrigin);
@@ -511,30 +340,28 @@ export default defineConfig(({ mode }) => {
 
               const urlObj = new URL(req.url, `http://${req.headers.host}`);
               const targetUrl = urlObj.searchParams.get('url');
+              const format = urlObj.searchParams.get('format');
 
               if (!targetUrl) {
                 res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'Falta el parámetro url.' }));
                 return;
               }
 
               try {
-                const response = await fetch(targetUrl);
-                if (!response.ok) {
-                  res.statusCode = response.status;
-                  res.end(JSON.stringify({ error: `Error fetching target image: ${response.statusText}` }));
+                const { buffer, contentType, dataUri } = await fetchExternalImageSafe(targetUrl);
+                if (format === 'json') {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ success: true, contentType, dataUri }));
                   return;
                 }
-
-                const contentType = response.headers.get('Content-Type') || 'image/png';
-                const arrayBuffer = await response.arrayBuffer();
-                const buffer = Buffer.from(arrayBuffer);
-
                 res.setHeader('Content-Type', contentType);
                 res.setHeader('Cache-Control', 'public, max-age=86400');
                 res.end(buffer);
               } catch (err) {
-                res.statusCode = 500;
+                res.statusCode = err?.status || 500;
+                res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: err.message }));
               }
             })();

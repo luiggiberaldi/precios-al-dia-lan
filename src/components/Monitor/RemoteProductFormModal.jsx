@@ -8,6 +8,10 @@ import { prepareProductFormState } from '../../hooks/useProductForm';
 import { getGranelUnitMode } from '../../utils/granel';
 import { showToast } from '../Toast';
 import { findOtherProductWithCode } from '../../utils/barcodeAssign';
+import {
+    searchProductImages,
+    resolveImageChoiceToDataUri,
+} from '../../services/productImageSearchService';
 import { Save } from 'lucide-react';
 import { SUPERVISOR_REMOTE_PRODUCTS_ENABLED } from '../../config/supervisorPolicy';
 import { sendSupervisorCommand } from '../../services/supervisorCommandService';
@@ -233,17 +237,26 @@ export default function RemoteProductFormModal({ isOpen, onClose, targetDeviceId
         }
     };
 
-    // Las fotos encontradas se guardan como URL de Storage, no como base64.
-    // Así el comando de producto permanece pequeño y no comparte estado con
-    // los comandos de ingreso/egreso.
-    const handleLoadImageFromUrl = (url) => {
+    // Convertir cualquier foto elegida o enlace externo a WebP liviano (~20 KB)
+    // para que viaje autorizada dentro del comando remoto a la caja (< 1 MB)
+    // y no se pierda por depender de una URL externa.
+    const handleLoadImageFromUrl = async (url) => {
         const trimmedUrl = typeof url === 'string' ? url.trim() : '';
         if (!trimmedUrl.startsWith('http')) {
             showToast('Ingresa un enlace de imagen válido', 'warning');
             return;
         }
-        setImage(trimmedUrl);
-        showToast('Imagen cargada correctamente', 'success');
+        setIsSearchingImage(true);
+        try {
+            const compressed = await resolveImageChoiceToDataUri(trimmedUrl);
+            setImage(compressed);
+            showToast('Imagen cargada correctamente', 'success');
+        } catch (err) {
+            console.error('[RemoteProductImage] Error cargando enlace:', err);
+            showToast(err?.message || 'No se pudo descargar la imagen', 'error');
+        } finally {
+            setIsSearchingImage(false);
+        }
     };
 
     const handleAutoSearchImage = async (productName) => {
@@ -254,14 +267,10 @@ export default function RemoteProductFormModal({ isOpen, onClose, targetDeviceId
         setIsSearchingImage(true);
         setImageMatches([]);
         try {
-            const response = await fetch(`/api/search-image?q=${encodeURIComponent(productName.trim())}`);
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || 'No se pudo buscar la imagen');
-            }
-            if (data.success && Array.isArray(data.matches) && data.matches.length > 0) {
-                setImageMatches(data.matches);
-                showToast(`Encontramos ${data.matches.length} fotos. Elige la correcta.`, 'info');
+            const matches = await searchProductImages(productName.trim());
+            if (matches.length > 0) {
+                setImageMatches(matches);
+                showToast(`Encontramos ${matches.length} fotos. Elige la correcta.`, 'info');
             } else {
                 showToast('No encontramos una foto para este producto', 'info');
             }
@@ -273,11 +282,20 @@ export default function RemoteProductFormModal({ isOpen, onClose, targetDeviceId
         }
     };
 
-    const handleSelectImage = (imageUrl) => {
+    const handleSelectImage = async (imageUrl) => {
         if (!imageUrl) return;
-        setImage(imageUrl);
-        setImageMatches([]);
-        showToast('Foto seleccionada', 'success');
+        setIsSearchingImage(true);
+        try {
+            const compressed = await resolveImageChoiceToDataUri(imageUrl);
+            setImage(compressed);
+            setImageMatches([]);
+            showToast('Foto seleccionada', 'success');
+        } catch (err) {
+            console.error('[RemoteProductImage] Error seleccionando foto:', err);
+            showToast(err?.message || 'No se pudo procesar la foto elegida', 'error');
+        } finally {
+            setIsSearchingImage(false);
+        }
     };
 
     const handleSubmit = async (e) => {

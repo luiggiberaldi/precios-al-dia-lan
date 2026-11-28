@@ -10,6 +10,7 @@ import { allocatePaymentsToInvoices, paidAmountForInvoice } from '../utils/suppl
 import { round2 } from '../utils/dinero';
 import { buildSupplierPaymentRecord } from '../utils/supplierPayment';
 import { mergeSupplierPayments } from '../utils/supplierLedger';
+import { findOpenCashShift } from '../utils/cashShift';
 
 export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHaptic, auditLog }) {
     const [suppliers, setSuppliers] = useState([]);
@@ -258,25 +259,29 @@ export function useSupplierManagement({ bcvRate, tasaCop, copEnabled, triggerHap
         });
         setSelectedSupplier(updatedSupplier);
 
-        // 2. Registrar en Caja/Sistema
-        const sales = allSales;
-        const pagoRecord = buildSupplierPaymentRecord({
-            id: pagoId,
-            supplier,
-            amountUsd: safeAmountUsd,
-            amountBs,
-            amountCop,
-            exchangeRate: exchangeRate || bcvRate,
-            rateType,
-            paymentMethod,
-            currencyMode,
-            retiraCaja,
-            invoiceId,
-            tasaCop,
-            copEnabled,
+        // 2. Registrar en Caja/Sistema bajo pos_write_lock
+        await withLock('pos_write_lock', async () => {
+            const freshSales = await storageService.getItem('bodega_sales_v1', []);
+            const list = Array.isArray(freshSales) ? freshSales : [];
+            const openShift = findOpenCashShift(list);
+            const pagoRecord = buildSupplierPaymentRecord({
+                id: pagoId,
+                supplier,
+                amountUsd: safeAmountUsd,
+                amountBs,
+                amountCop,
+                exchangeRate: exchangeRate || bcvRate,
+                rateType,
+                paymentMethod,
+                currencyMode,
+                retiraCaja,
+                invoiceId,
+                tasaCop,
+                copEnabled,
+            });
+            const stamped = openShift?.shiftId ? { ...pagoRecord, shiftId: openShift.shiftId } : pagoRecord;
+            await storageService.setItem('bodega_sales_v1', [...list, stamped]);
         });
-        sales.push(pagoRecord);
-        await storageService.setItem('bodega_sales_v1', sales);
 
         setIsPayInvoiceModalOpen(false);
         showToast(retiraCaja ? 'Pago registrado y descontado de caja' : 'Pago registrado (externo)', 'success');

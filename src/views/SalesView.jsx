@@ -41,6 +41,9 @@ import { registerGoods } from '../services/payrollService';
 import { verifyNubeAdminPin } from '../nube/nubeAdminPin';
 import { buildPayrollReceiptData, printPayrollReceipt, downloadPayrollReceiptPdf } from '../utils/payrollReceipt';
 import { useAuthStore } from '../hooks/store/useAuthStore';
+import { usePermissions, PERMISSIONS } from '../hooks/usePermissions';
+import { readRbacConfig } from '../security/rbacConfig';
+import PermissionPinPrompt from '../components/security/PermissionPinPrompt';
 import HoldsModal from '../components/Sales/HoldsModal';
 
 import ConfirmModal from '../components/ConfirmModal';
@@ -100,6 +103,7 @@ export default function SalesView({ triggerHaptic, isActive }) {
     // Cart (from global context)
     const { cart, setCart, cartRef, pendingNavigate, setPendingNavigate, discount, setDiscount } = useCart();
     const [showDiscountModal, setShowDiscountModal] = useState(false);
+    const [pendingDiscountAuth, setPendingDiscountAuth] = useState(false);
 
     // Search
     const searchInputRef = useRef(null);
@@ -158,8 +162,28 @@ export default function SalesView({ triggerHaptic, isActive }) {
     } = useSalesData({ setCart, cartRef, isActive });
 
     const isLoading = isLoadingProducts || isLoadingLocal;
-    const canRegistrarAporte = !!todayAperturaData && (!requireLogin || usuarioActivo?.rol === 'ADMIN');
-    const canEditRate = !requireLogin || usuarioActivo?.rol === 'ADMIN';
+    const { can } = usePermissions();
+    const canRegistrarAporte = !!todayAperturaData && can(PERMISSIONS.CASH_MANAGE);
+    const canEditRate = can(PERMISSIONS.RATES_ADJUST);
+    const canStaffGoods = can(PERMISSIONS.SALES_STAFF_GOODS);
+    const canFreeAmount = can(PERMISSIONS.SALES_FREE_AMOUNT);
+    const canCashAdvance = allowCashAdvance && can(PERMISSIONS.SALES_CASH_ADVANCE);
+    const canDiscount = can(PERMISSIONS.SALES_DISCOUNT);
+    const canCredit = can(PERMISSIONS.CUSTOMERS_CREDIT);
+    const canSell = can(PERMISSIONS.SALES_CREATE);
+    const canRequestDiscount = canDiscount || readRbacConfig().allowQuickAuth;
+
+    const handleRequestDiscount = () => {
+        if (canDiscount) {
+            setShowDiscountModal(true);
+            return;
+        }
+        if (!readRbacConfig().allowQuickAuth) {
+            showToast('No tienes permiso para aplicar descuentos.', 'warning');
+            return;
+        }
+        setPendingDiscountAuth(true);
+    };
 
     // Auto-select last item when cart length changes (if user was already interacting with the cart)
     useEffect(() => {
@@ -485,7 +509,7 @@ export default function SalesView({ triggerHaptic, isActive }) {
     // Global keybinds (F9 = checkout, F7 = hold/park, Escape = close modals)
     useEffect(() => {
         const handler = (e) => {
-            if (e.key === 'F9') { e.preventDefault(); if (cart.length > 0 && !showCheckout && !showReceipt) setShowCheckout(true); }
+            if (e.key === 'F9') { e.preventDefault(); if (canSell && cart.length > 0 && !showCheckout && !showReceipt) setShowCheckout(true); }
             if (e.key === 'F7') {
                 e.preventDefault();
                 if (cart.length > 0 && !showCheckout && !showReceipt && !showHoldsModal) {
@@ -885,7 +909,7 @@ export default function SalesView({ triggerHaptic, isActive }) {
             <SalesHeader
                 canRegistrarAporte={canRegistrarAporte}
                 onOpenAporte={() => setIsAporteOpen(true)}
-                onOpenEmployeeConsumption={todayAperturaData ? () => setShowEmployeeGoodsModal(true) : null}
+                onOpenEmployeeConsumption={todayAperturaData && canStaffGoods ? () => setShowEmployeeGoodsModal(true) : null}
                 effectiveRate={effectiveRate}
                 rateMode={rateMode} setRateMode={setRateMode}
                 useAutoRate={useAutoRate} setUseAutoRate={setUseAutoRate}
@@ -957,22 +981,24 @@ export default function SalesView({ triggerHaptic, isActive }) {
                                 </div>
 
                                 {/* Botón directo: Consumo de empleado con cargo a sueldo */}
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        triggerHaptic?.();
-                                        setShowEmployeeGoodsModal(true);
-                                    }}
-                                    data-testid="pos-employee-consumption"
-                                    title="Registrar mercancía a empleado (se descuenta de su sueldo)"
-                                    className="hidden lg:flex shrink-0 flex-col items-center justify-center rounded-2xl sm:rounded-3xl px-3.5 border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/70 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 shadow-xs transition-all min-w-[104px] gap-0.5 cursor-pointer hover:border-amber-400 hover:bg-amber-50 active:scale-95"
-                                >
-                                    <div className="flex items-center gap-1.5 font-black text-xs">
-                                        <ShoppingBag size={14} />
-                                        <span>Personal</span>
-                                    </div>
-                                    <span className="text-[10px] font-bold opacity-80">Con sueldo</span>
-                                </button>
+                                {canStaffGoods && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            triggerHaptic?.();
+                                            setShowEmployeeGoodsModal(true);
+                                        }}
+                                        data-testid="pos-employee-consumption"
+                                        title="Registrar mercancía a empleado (se descuenta de su sueldo)"
+                                        className="hidden lg:flex shrink-0 flex-col items-center justify-center rounded-2xl sm:rounded-3xl px-3.5 border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/70 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 shadow-xs transition-all min-w-[104px] gap-0.5 cursor-pointer hover:border-amber-400 hover:bg-amber-50 active:scale-95"
+                                    >
+                                        <div className="flex items-center gap-1.5 font-black text-xs">
+                                            <ShoppingBag size={14} />
+                                            <span>Personal</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold opacity-80">Con sueldo</span>
+                                    </button>
+                                )}
 
                                 {/* Tasa de Referencia Flotante (estilo Listo POS 2026) — solo visible en desktop (lg:flex) */}
                                 {canEditRate && (
@@ -1006,7 +1032,7 @@ export default function SalesView({ triggerHaptic, isActive }) {
                                     searchTerm={searchTerm}
                                     deferredSearchTerm={deferredSearchTerm}
                                     posSearchViewMode={posSearchViewMode}
-                                    onOpenCustomAmount={() => setShowCustomAmountModal(true)}
+                                    onOpenCustomAmount={canFreeAmount ? () => setShowCustomAmountModal(true) : null}
                                     copEnabled={copEnabled}
                                     copPrimary={copPrimary}
                                     tasaCop={tasaCop}
@@ -1021,7 +1047,7 @@ export default function SalesView({ triggerHaptic, isActive }) {
                                     onOpenHelp={() => setShowKeyboardHelp(true)}
                                     onOpenHolds={() => setShowHoldsModal(true)}
                                     cart={cart}
-                                    allowCashAdvance={allowCashAdvance}
+                                    allowCashAdvance={canCashAdvance}
                                     onOpenCashAdvance={() => setShowCashAdvanceModal(true)}
                                 />
                     )}
@@ -1035,7 +1061,8 @@ export default function SalesView({ triggerHaptic, isActive }) {
                         cartSubtotalUsd={cartSubtotalUsd} cartSubtotalBs={cartSubtotalBs}
                         cartBaseUsd={cartBaseUsd} cartIvaUsd={cartIvaUsd}
                         cartTotalUsd={cartTotalUsd} cartTotalBs={cartTotalBs} cartTotalCop={cartTotalCop} cartItemCount={cartItemCount}
-                        discountData={discountData} onOpenDiscount={() => setShowDiscountModal(true)}
+                        discountData={discountData} onOpenDiscount={canRequestDiscount ? handleRequestDiscount : null}
+                        checkoutDisabled={!canSell}
                         updateQty={updateQty} removeFromCart={removeFromCart}
                         onCheckout={() => { triggerHaptic && triggerHaptic(); setShowCheckout(true); }}
                         onClearCart={() => { triggerHaptic && triggerHaptic(); setShowClearCartConfirm(true); }}
@@ -1123,7 +1150,8 @@ export default function SalesView({ triggerHaptic, isActive }) {
                                 cartSubtotalUsd={cartSubtotalUsd} cartSubtotalBs={cartSubtotalBs}
                                 cartBaseUsd={cartBaseUsd} cartIvaUsd={cartIvaUsd}
                                 cartTotalUsd={cartTotalUsd} cartTotalBs={cartTotalBs} cartTotalCop={cartTotalCop} cartItemCount={cartItemCount}
-                                discountData={discountData} onOpenDiscount={() => setShowDiscountModal(true)}
+                                discountData={discountData} onOpenDiscount={canRequestDiscount ? handleRequestDiscount : null}
+                                checkoutDisabled={!canSell}
                                 updateQty={updateQty} removeFromCart={removeFromCart}
                                 onCheckout={() => { triggerHaptic && triggerHaptic(); setShowCheckout(true); setIsCartSheetOpen(false); }}
                                 onClearCart={() => { triggerHaptic && triggerHaptic(); setShowClearCartConfirm(true); }}
@@ -1160,6 +1188,7 @@ export default function SalesView({ triggerHaptic, isActive }) {
                     onOpenAporte: canRegistrarAporte ? () => setIsAporteOpen(true) : null,
                     onSwitchMode: setCheckoutMode,
                     isProcessing,
+                    allowCredit: canCredit,
                 };
                 const activeMode = checkoutOpenMode.mode || effectiveCheckoutMode || 'basic';
                 return activeMode === 'pos'
@@ -1209,6 +1238,19 @@ export default function SalesView({ triggerHaptic, isActive }) {
                 message="Todos los productos serán eliminados de la cesta actual. Esta acción no se puede deshacer."
                 confirmText="Sí, vaciar"
                 variant="cart"
+            />
+
+            {/* Autorización puntual de Descuento (PIN o Carnet) */}
+            <PermissionPinPrompt
+                isOpen={pendingDiscountAuth}
+                onClose={() => setPendingDiscountAuth(false)}
+                requiredPermission={PERMISSIONS.SALES_DISCOUNT}
+                actionLabel="aplicar descuento"
+                onAuthorized={({ authorizer }) => {
+                    setPendingDiscountAuth(false);
+                    showToast(`Autorizado por ${authorizer?.nombre || 'Encargado'}`, 'success');
+                    setShowDiscountModal(true);
+                }}
             />
 
             {/* Discount Modal */}
@@ -1261,7 +1303,7 @@ export default function SalesView({ triggerHaptic, isActive }) {
 
             {/* Consumo de empleado con cargo a sueldo (desde Caja) */}
             <PayrollGoodsModal
-                isOpen={showEmployeeGoodsModal}
+                isOpen={showEmployeeGoodsModal && canStaffGoods}
                 onClose={() => setShowEmployeeGoodsModal(false)}
                 rate={effectiveRate}
                 allowCashierWithinBalance

@@ -17,6 +17,7 @@ import { getDeviceClient, createOwnerClient, resetDeviceClient } from './nubeSup
 import * as svc from './accountService';
 import { readMemberSession, saveMemberSession, clearMemberSession, applyToAuthStore } from './memberSession';
 import { useNubeSync } from './useNubeSync';
+import { flushNubeBeforeLogout } from './localWriteHook';
 import { checkAccountReset, takeResetNotice, wipeLocalData } from './accountReset';
 import { setNubeLicense } from './nubeLicense';
 import { memberPinLength } from './teamRules';
@@ -266,15 +267,27 @@ function NubeGateFlow({ children }) {
         };
     }, [lanMode, offlineMode, phase, device, refresh, guardReset]);
 
-    // Si la app heredada cierra sesión, se cierra también la sesión de PIN de la nube.
+    // Si la app heredada cierra sesión, primero subimos cualquier venta/cierre en cola
+    // mientras el token sigue vivo y luego cerramos la sesión de PIN en el servidor.
+    const loggingOutRef = useRef(false);
     useEffect(() => {
-        if (phase === 'listo' && !usuarioActivo) {
-            const saved = readMemberSession();
-            offlinePinRef.current = null;
-            clearMemberSession();
-            if (saved?.token) svc.logoutMember(device, saved.token);
-            if (!offlineMode) svc.listMembers(device).then(setMembers).catch(() => {});
-            setPhase('elegir');
+        if (phase === 'listo' && !usuarioActivo && !loggingOutRef.current) {
+            loggingOutRef.current = true;
+            (async () => {
+                try {
+                    if (!offlineMode) {
+                        await flushNubeBeforeLogout(2500);
+                    }
+                } finally {
+                    const saved = readMemberSession();
+                    offlinePinRef.current = null;
+                    clearMemberSession();
+                    if (saved?.token) svc.logoutMember(device, saved.token);
+                    if (!offlineMode) svc.listMembers(device).then(setMembers).catch(() => {});
+                    loggingOutRef.current = false;
+                    setPhase('elegir');
+                }
+            })();
         }
     }, [phase, usuarioActivo, device, offlineMode]);
 

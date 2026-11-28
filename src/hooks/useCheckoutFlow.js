@@ -8,6 +8,7 @@ import { CurrencyService } from '../services/CurrencyService'; // FIN-026: safeP
 import { SALES_KEY } from './useSalesData';
 import { buildAporteCajaRecord } from '../utils/cajaAporte';
 import { useAuthStore } from './store/useAuthStore';
+import { can as canPerm, PERMISSIONS } from '../security/permissions';
 import { findOpenCashShift } from '../utils/cashShift';
 import { appendCustomerLocked } from '../utils/customerHistory';
 import { isSharedCashDrawerMode } from '../utils/cashDrawerMode';
@@ -180,13 +181,11 @@ export function useCheckoutFlow({
         }
     };
 
-    // Aporte de efectivo a la caja. Permiso: con login activo solo ADMIN (un CAJERO no);
-    // sin login (requireLogin=false) cualquiera con acceso a la caja, igual que la apertura.
-    // Decidido por el dueño (2026-10-13). El permiso se valida aquí, no solo en la UI.
+    // Aporte de efectivo a la caja: gobernado por el permiso RBAC `cash.manage`.
     const handleSaveAporte = async (data) => {
         const { requireLogin, usuarioActivo } = useAuthStore.getState();
-        if (requireLogin && usuarioActivo?.rol !== 'ADMIN') {
-            showToast('Solo el administrador puede registrar aportes de efectivo.', 'error');
+        if (!canPerm(usuarioActivo, PERMISSIONS.CASH_MANAGE, { requireLogin })) {
+            showToast('No tienes permiso para registrar aportes de efectivo.', 'error');
             if (playError) playError();
             return false;
         }

@@ -4,6 +4,10 @@ import { Modal } from '../Modal';
 import ProductFormQuick from './ProductFormQuick';
 import ProductFormWizard from './ProductFormWizard';
 import { showToast } from '../Toast';
+import {
+    searchProductImages,
+    resolveImageChoiceToDataUri,
+} from '../../services/productImageSearchService';
 
 export default function ProductFormModal({
     isOpen,
@@ -59,36 +63,6 @@ export default function ProductFormModal({
     const [isSearchingImage, setIsSearchingImage] = useState(false);
     const [imageMatches, setImageMatches] = useState([]);
 
-    const compressBase64Image = (dataUri) => {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.src = dataUri;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_SIZE = 400;
-                let width = img.width, height = img.height;
-                if (width > height) {
-                    if (width > MAX_SIZE) {
-                        height *= MAX_SIZE / width;
-                        width = MAX_SIZE;
-                    }
-                } else {
-                    if (height > MAX_SIZE) {
-                        width *= MAX_SIZE / height;
-                        height = MAX_SIZE;
-                    }
-                }
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/webp', 0.7));
-            };
-            img.onerror = () => resolve(dataUri);
-        });
-    };
-
     const handleLoadImageFromUrl = async (url) => {
         if (!url || !url.trim().startsWith('http')) {
             showToast('Ingresa un enlace de imagen válido', 'warning');
@@ -96,18 +70,12 @@ export default function ProductFormModal({
         }
         setIsSearchingImage(true);
         try {
-            const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(url.trim())}`);
-            const data = await response.json();
-            if (data.success && data.dataUri) {
-                const compressed = await compressBase64Image(data.dataUri);
-                setImage(compressed);
-                showToast('¡Imagen web cargada con éxito!', 'success');
-            } else {
-                showToast(data.error || 'No se pudo descargar la imagen', 'error');
-            }
+            const compressed = await resolveImageChoiceToDataUri(url.trim());
+            setImage(compressed);
+            showToast('¡Imagen cargada y guardada para uso sin internet!', 'success');
         } catch (error) {
             console.error('[LoadImageFromUrl] Error:', error);
-            showToast('Error al conectar con el servidor para descargar la imagen', 'error');
+            showToast(error?.message || 'No se pudo descargar la imagen', 'error');
         } finally {
             setIsSearchingImage(false);
         }
@@ -121,18 +89,13 @@ export default function ProductFormModal({
         setIsSearchingImage(true);
 
         try {
-            const response = await fetch(`/api/search-image?q=${encodeURIComponent(productName.trim())}`);
-            if (!response.ok) {
-                throw new Error(`Servidor respondió con código ${response.status}`);
-            }
-
-            const data = await response.json();
-            if (data.success && data.matches && data.matches.length > 0) {
-                setImageMatches(data.matches);
-                showToast(`Se encontraron ${data.matches.length} opciones de imagen. Elige la correcta.`, 'info');
+            const matches = await searchProductImages(productName.trim());
+            if (matches.length > 0) {
+                setImageMatches(matches);
+                showToast(`Se encontraron ${matches.length} opciones de foto. Elige la correcta.`, 'info');
             } else {
                 setImageMatches([]);
-                showToast('No se encontró foto para este producto en el catálogo', 'info');
+                showToast('No encontramos foto para este nombre. Prueba con marca y tipo (ej: Harina Pan).', 'info');
             }
         } catch (error) {
             console.error('[AutoSearchImage] Error:', error);
@@ -142,16 +105,16 @@ export default function ProductFormModal({
         }
     };
 
-    const handleSelectImage = async (dataUri) => {
+    const handleSelectImage = async (rawChoice) => {
         setIsSearchingImage(true);
         try {
-            const compressed = await compressBase64Image(dataUri);
+            const compressed = await resolveImageChoiceToDataUri(rawChoice);
             setImage(compressed);
             setImageMatches([]);
-            showToast('¡Imagen seleccionada con éxito!', 'success');
+            showToast('¡Foto lista! Se verá en todas las cajas incluso sin internet.', 'success');
         } catch (err) {
             console.error('[SelectImage] Error:', err);
-            showToast('Error al procesar la imagen seleccionada', 'error');
+            showToast(err?.message || 'No se pudo cargar esa foto; elige otra opción.', 'error');
         } finally {
             setIsSearchingImage(false);
         }

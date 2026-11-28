@@ -199,18 +199,69 @@ export function mergeIntoLocal(key, localValue, rows) {
     const index = new Map(list.map((item, i) => [String(item?.id), i]));
     const removed = new Set();
     for (const row of rows) {
-        const at = index.get(row.id);
+        const dataId = row.data && typeof row.data === 'object' && row.data.id != null
+            ? String(row.data.id)
+            : null;
+        const lookupId = cfg.cash && dataId ? dataId : row.id;
+        const at = index.get(lookupId) ?? index.get(row.id);
         if (row.deleted_at) {
             if (at !== undefined) removed.add(at);
             continue;
         }
-        const merged = { ...row.data, ...pick(at !== undefined ? list[at] : null, cfg.keep) };
+        const prevItem = at !== undefined ? list[at] : null;
+        let merged = { ...row.data, ...pick(prevItem, cfg.keep) };
+        if (cfg.cash && prevItem) {
+            if (prevItem.cajaCerrada === true && merged.cajaCerrada !== true) {
+                merged = {
+                    ...merged,
+                    cajaCerrada: true,
+                    ...(prevItem.cierreId !== undefined ? { cierreId: prevItem.cierreId } : {}),
+                    ...(prevItem.shiftId && !merged.shiftId ? { shiftId: prevItem.shiftId } : {}),
+                };
+            }
+            if (prevItem.status === 'ANULADA' && merged.status !== 'ANULADA') {
+                merged = { ...merged, status: 'ANULADA' };
+            }
+        }
+        const canonicalId = merged?.id != null ? String(merged.id) : lookupId;
         if (at !== undefined) {
             removed.delete(at);
             list[at] = merged;
-        } else { index.set(row.id, list.length); list.push(merged); }
+            index.set(canonicalId, at);
+        } else {
+            index.set(canonicalId, list.length);
+            list.push(merged);
+        }
     }
-    const next = list.filter((_, i) => !removed.has(i));
+    let next = list.filter((_, i) => !removed.has(i));
+    if (cfg.cash && next.length > 1) {
+        const dedupIndex = new Map();
+        const deduped = [];
+        for (const item of next) {
+            const itemId = item?.id != null ? String(item.id) : null;
+            if (!itemId) {
+                deduped.push(item);
+                continue;
+            }
+            const prevIdx = dedupIndex.get(itemId);
+            if (prevIdx === undefined) {
+                dedupIndex.set(itemId, deduped.length);
+                deduped.push(item);
+            } else {
+                const prev = deduped[prevIdx];
+                deduped[prevIdx] = {
+                    ...prev,
+                    ...item,
+                    _deviceId: item._deviceId || prev._deviceId,
+                    cajaCerrada: Boolean(prev.cajaCerrada || item.cajaCerrada),
+                    cierreId: item.cierreId ?? prev.cierreId,
+                    shiftId: item.shiftId || prev.shiftId,
+                    status: (prev.status === 'ANULADA' || item.status === 'ANULADA') ? 'ANULADA' : (item.status || prev.status),
+                };
+            }
+        }
+        next = deduped;
+    }
     if (cfg.sortDescBy) {
         const field = cfg.sortDescBy;
         next.sort((a, b) => (Number(b?.[field]) || 0) - (Number(a?.[field]) || 0));
@@ -565,8 +616,16 @@ export function createRecordSync({
         // en la copia local: ese cambio sube después y gana, y la caja queda mostrando lo
         // mismo que la nube. Antes la pantalla tomaba lo bajado mientras la cola seguía
         // subiendo lo viejo, y la caja quedaba distinta de la nube para siempre (S1).
-        const pendingLocal = canPush(collection) ? new Set(state.queue.map((q) => q.id)) : new Set();
-        const toApply = fresh.filter((r) => !pendingLocal.has(r.id));
+        const pendingById = canPush(collection) ? new Map(state.queue.map((q) => [q.id, q])) : new Map();
+        const isSharedCashCloseOrVoid = (r) => {
+            if (collection !== 'cash' || !isSharedCashMode() || r.deleted_at) return false;
+            const queued = pendingById.get(r.id);
+            if (!queued) return true;
+            if (r.data?.status === 'ANULADA') return true;
+            if (r.data?.cajaCerrada === true && queued.data?.status !== 'ANULADA') return true;
+            return false;
+        };
+        const toApply = fresh.filter((r) => !pendingById.has(r.id) || isSharedCashCloseOrVoid(r));
         if (toApply.length) {
             const byKey = new Map();
             for (const r of toApply) {
@@ -591,9 +650,17 @@ export function createRecordSync({
         const skippedAny = toApply.length < fresh.length;
         const newest = rows.reduce((max, r) => (r.updated_at > max ? r.updated_at : max), state.lastPulled || '');
         if (newest && !skippedAny) state.lastPulled = newest;
-        // Lo bajado no debe quedar en la cola como si fuera un cambio local.
-        const appliedIds = new Set(toApply.map((r) => r.id));
-        state.queue = state.queue.filter((q) => !appliedIds.has(q.id) || q.h !== state.versions[q.id]?.h);
+        // Lo bajado no debe quedar en la cola como si fuera un cambio local (ni reabrir cierres remotos).
+        const appliedById = new Map(toApply.map((r) => [r.id, r]));
+        state.queue = state.queue.filter((q) => {
+            const applied = appliedById.get(q.id);
+            if (!applied) return true;
+            if (q.h === state.versions[q.id]?.h) return false;
+            if (collection === 'cash' && isSharedCashMode() && applied.data?.cajaCerrada === true && q.data?.status !== 'ANULADA') {
+                return false;
+            }
+            return true;
+        });
         await saveState(collection, state);
         if (toApply.length) {
             try { await onPulled(collection, toApply); } catch { /* nunca romper pull por un listener */ }

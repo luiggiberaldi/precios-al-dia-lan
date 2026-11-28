@@ -13,6 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createLanDb } from './lanDb.mjs';
 import { createCloudBridge } from './cloudBridge.mjs';
+import { searchProductImagesMultiTier, fetchExternalImageSafe } from './imageSearchEngine.mjs';
 
 export const LAN_PROTOCOL_VERSION = 1;
 export const DEFAULT_LAN_PORT = 47800;
@@ -127,6 +128,8 @@ export async function createLanServer({
     cloudAnonKey = process.env.PDN_CLOUD_BRIDGE_KEY || '',
     cloudPollMs = 4000,
     cloudRpcCaller = null,
+    enableWebImageFallback = true,
+    imageSearchFetch = undefined,
     localAdminSecret = crypto.randomBytes(24).toString('hex'),
 } = {}) {
     const lanDb = await createLanDb({ dataDir, migrationsDir });
@@ -666,6 +669,76 @@ export async function createLanServer({
                 if (req.method === 'POST' && pathname === '/lan/bridge/sync') {
                     const resSync = await cloudBridge.syncOnce();
                     sendJson(res, 200, { ok: true, ...resSync, status: cloudBridge.getPublicStatus() });
+                    return;
+                }
+            }
+
+            // ── Búsqueda automática de fotos de productos (Offline + Cloud + Web) ─
+            if (req.method === 'GET' && pathname === '/api/search-image') {
+                const query = urlObj.searchParams.get('q') || '';
+                if (query.trim().length < 3) {
+                    sendJson(res, 400, { error: "Falta el parámetro 'q' de búsqueda (mínimo 3 caracteres)." });
+                    return;
+                }
+                const matches = await searchProductImagesMultiTier(query, {
+                    staticDir,
+                    supabaseUrl: cloudUrl,
+                    supabaseKey: cloudAnonKey,
+                    enableWebFallback: enableWebImageFallback,
+                    fetchImpl: imageSearchFetch || globalThis.fetch,
+                });
+                sendJson(res, 200, { success: true, matches });
+                return;
+            }
+
+            if (req.method === 'GET' && pathname === '/api/image-proxy') {
+                const targetUrl = urlObj.searchParams.get('url') || '';
+                const format = urlObj.searchParams.get('format') || '';
+                if (!targetUrl) {
+                    sendJson(res, 400, { error: 'Falta el parámetro url.' });
+                    return;
+                }
+                try {
+                    const { buffer, contentType, dataUri } = await fetchExternalImageSafe(targetUrl, {
+                        fetchImpl: imageSearchFetch || globalThis.fetch,
+                    });
+                    if (format === 'json') {
+                        sendJson(res, 200, { success: true, contentType, dataUri });
+                        return;
+                    }
+                    res.writeHead(200, {
+                        'Content-Type': contentType,
+                        'Cache-Control': 'public, max-age=86400',
+                        'Content-Length': buffer.length,
+                    });
+                    res.end(buffer);
+                } catch (proxyErr) {
+                    sendJson(res, proxyErr?.status || 502, { error: proxyErr?.message || 'No se pudo descargar la imagen.' });
+                }
+                return;
+            }
+
+            // ── Catálogo local de imágenes cuando staticDir no está activo (dev LAN) ─
+            if (req.method === 'GET' && !staticDir && pathname.startsWith('/images/catalog/')) {
+                const relCatalog = pathname.replace(/^\/+/, '');
+                if (/(^|[\\/])\.\.([\\/]|$)/.test(relCatalog)) {
+                    sendJson(res, 403, { error: 'Ruta prohibida' });
+                    return;
+                }
+                const publicRoot = path.resolve(process.cwd(), 'public');
+                const fallbackTarget = path.resolve(publicRoot, relCatalog);
+                if (fallbackTarget.startsWith(publicRoot + path.sep) && fs.existsSync(fallbackTarget) && fs.statSync(fallbackTarget).isFile()) {
+                    const ext = path.extname(fallbackTarget).toLowerCase();
+                    const contentType = ext === '.json'
+                        ? 'application/json; charset=utf-8'
+                        : ext === '.png'
+                        ? 'image/png'
+                        : ext === '.jpg' || ext === '.jpeg'
+                        ? 'image/jpeg'
+                        : 'image/webp';
+                    const buf = fs.readFileSync(fallbackTarget);
+                    res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' });
+                    res.end(buf);
                     return;
                 }
             }

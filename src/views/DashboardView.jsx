@@ -27,7 +27,7 @@ import { usePermissions, PERMISSIONS } from '../hooks/usePermissions';
 import { readRbacConfig } from '../security/rbacConfig';
 import PermissionPinPrompt from '../components/security/PermissionPinPrompt';
 import { getLocalISODate } from '../utils/dateHelpers';
-import { CASH_SHIFT_TYPES, isRecordInOpenCashShift } from '../utils/cashShift';
+import { CASH_SHIFT_TYPES, findOpenCashShift, isRecordInOpenCashShift } from '../utils/cashShift';
 import { isSharedCashDrawerMode } from '../utils/cashDrawerMode';
 import { closeSharedShiftRemote, hasSharedCashShiftBridge } from '../nube/sharedCashShiftBridge';
 import Skeleton from '../components/Skeleton';
@@ -47,9 +47,7 @@ import { buildAporteCajaRecord } from '../utils/cajaAporte';
 import AporteCajaModal from '../components/Sales/AporteCajaModal';
 import DashboardPorCaja from '../components/Dashboard/DashboardPorCaja';
 import { isNubeSyncActive, useNubeSyncActive } from '../nube/localWriteHook';
-import { readMemberSession } from '../nube/memberSession';
 import { appendCustomerLocked } from '../utils/customerHistory';
-import { isNubeManagerRole } from '../nube/allCajasToday';
 import { onlySalesHistory } from '../nube/allCajasSales';
 import { useAllCajasDashboard } from '../nube/useAllCajasDashboard';
 
@@ -98,6 +96,11 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     const usuarioActivo = useAuthStore(s => s.usuarioActivo);
     const { can, isCajero, isManager } = usePermissions();
     const isAdmin = isManager;
+    const canManageCash = can(PERMISSIONS.CASH_MANAGE);
+    const canRegisterExpenses = can(PERMISSIONS.CASH_EXPENSES);
+    const canEditRate = can(PERMISSIONS.RATES_ADJUST);
+    const canViewProfit = can(PERMISSIONS.REPORTS_PROFIT);
+    const canViewAllCajas = can(PERMISSIONS.SALES_VIEW_ALL_CAJAS);
     const { log: auditLog } = useAudit();
     const { products, setProducts, isLoadingProducts, effectiveRate: bcvRate, copEnabled, copPrimary, tasaCop } = useProductContext();
     const { loadCart } = useCart();
@@ -202,7 +205,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     // (y «Por caja»). El cajero sigue viendo solo su turno. Cerrar caja y el efectivo esperado
     // de los controles siguen siendo de esta caja. Fuera de la nube no cambia nada.
     const nubeSyncActive = useNubeSyncActive();
-    const isNubeManager = !isCajero && nubeSyncActive && isNubeManagerRole(readMemberSession()?.role);
+    const isNubeManager = nubeSyncActive && canViewAllCajas;
     const allCajas = useAllCajasDashboard(isNubeManager, { localSales: sales, bcvRate, products, isActive });
     const cajasTotals = isNubeManager ? allCajas.summary?.totals ?? null : null;
     const effectiveWeekData = (isNubeManager && allCajas.weekData) ? allCajas.weekData : weekData;
@@ -248,8 +251,10 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
         try {
             await withLock('pos_write_lock', async () => {
                 const existingSales = await storageService.getItem(SALES_KEY, []);
-                await storageService.setItem(SALES_KEY, [...existingSales, record]);
-                setSales(prev => [record, ...prev]);
+                const openShift = findOpenCashShift(existingSales);
+                const stamped = openShift?.shiftId ? { ...record, shiftId: openShift.shiftId } : record;
+                await storageService.setItem(SALES_KEY, [...existingSales, stamped]);
+                setSales(prev => [stamped, ...prev]);
             });
             showToast('Aporte de efectivo registrado en caja', 'success');
             auditLog('CAJA', 'APORTE_CAJA', `Aporte de efectivo registrado: $${record.aporteUsd || 0} / Bs ${record.aporteBs || 0}`);
@@ -488,12 +493,44 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
             };
         }
 
+        let effectiveShiftId = todayApertura?.shiftId || '';
         if (sharedMode && hasSharedCashShiftBridge()) {
             try {
-                const remoteClose = await closeSharedShiftRemote(todayApertura?.shiftId || '', registroCierre);
-                if (remoteClose?.already_closed) {
-                    const refreshed = await storageService.getItem(SALES_KEY, []);
-                    setSales(Array.isArray(refreshed) ? refreshed : []);
+                const remoteClose = await closeSharedShiftRemote(effectiveShiftId, registroCierre);
+                if (remoteClose?.shift?.id) {
+                    effectiveShiftId = String(remoteClose.shift.id);
+                    if (registroCierre) {
+                        registroCierre = { ...registroCierre, shiftId: effectiveShiftId };
+                    }
+                }
+                if (remoteClose?.already_closed && remoteClose?.shift) {
+                    const closedShiftId = String(remoteClose.shift.id || '');
+                    const closedCierreId = remoteClose.shift.closed_at
+                        ? new Date(remoteClose.shift.closed_at).getTime()
+                        : currentCierreId;
+                    const reconciled = await withLock('pos_write_lock', async () => {
+                        const freshSales = await storageService.getItem(SALES_KEY, []);
+                        const list = Array.isArray(freshSales) ? freshSales : [];
+                        let dirty = false;
+                        const next = list.map((s) => {
+                            if (!s || s.cajaCerrada === true || !CASH_SHIFT_TYPES.has(s.tipo)) return s;
+                            const matchesClosedShift = (closedShiftId && String(s.shiftId || '') === closedShiftId)
+                                || isManualCloseRecord(s);
+                            if (!matchesClosedShift) return s;
+                            dirty = true;
+                            return {
+                                ...s,
+                                cajaCerrada: true,
+                                cierreId: s.cierreId ?? closedCierreId,
+                                ...(closedShiftId && !s.shiftId ? { shiftId: closedShiftId } : {}),
+                            };
+                        });
+                        if (dirty) {
+                            await storageService.setItem(SALES_KEY, next);
+                        }
+                        return next;
+                    });
+                    setSales(reconciled);
                     setIsCashReconOpen(false);
                     showToast('La caja compartida ya fue cerrada desde otro equipo.', 'info');
                     return;
@@ -513,7 +550,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                         ...s,
                         cajaCerrada: true,
                         cierreId: currentCierreId,
-                        ...(todayApertura?.shiftId && !s.shiftId ? { shiftId: todayApertura.shiftId } : {}),
+                        ...(effectiveShiftId && !s.shiftId ? { shiftId: effectiveShiftId } : {}),
                     };
                 }
                 return s;
@@ -614,7 +651,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                         todaySales={todaySales}
                         bcvRate={bcvRate}
                         totalSalesCount={sales.filter(s => s.tipo === 'VENTA' || s.tipo === 'VENTA_FIADA' || s.tipo === 'VENTA_CASHEA').length}
-                        isAdmin={!isCajero}
+                        isAdmin={!isCajero || canViewAllCajas}
                         onVoidSale={handleVoidSale}
                         onShareWhatsApp={handleShareWhatsApp}
                         onDownloadPDF={handleDownloadPDF}
@@ -654,23 +691,35 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                                     </p>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => { if (onNavigate) { triggerHaptic && triggerHaptic(); onNavigate('ventas'); } }}
-                                className="w-full sm:w-auto px-5 py-2.5 bg-[#01696f] hover:bg-[#00575d] dark:bg-[#1ce2ee] dark:hover:bg-[#0bc2cd] text-white dark:text-slate-950 font-extrabold text-sm rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
-                            >
-                                <ShoppingCart size={18} />
-                                <span>Ir a Caja / Vender</span>
-                            </button>
-                            {(todayCashFlow.length > 0 || todaySales.length > 0) && (
+                            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                                 <button
-                                    type="button"
-                                    onClick={handleDailyClose}
-                                    className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-extrabold text-sm rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    onClick={() => { if (onNavigate) { triggerHaptic && triggerHaptic(); onNavigate('ventas'); } }}
+                                    className="w-full sm:w-auto px-5 py-2.5 bg-[#01696f] hover:bg-[#00575d] dark:bg-[#1ce2ee] dark:hover:bg-[#0bc2cd] text-white dark:text-slate-950 font-extrabold text-sm rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
                                 >
-                                    <LockIcon size={18} />
-                                    <span>Cerrar Caja</span>
+                                    <ShoppingCart size={18} />
+                                    <span>Ir a Caja / Vender</span>
                                 </button>
-                            )}
+                                {canRegisterExpenses && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { triggerHaptic && triggerHaptic(); setIsAddGastoOpen(true); }}
+                                        className="w-full sm:w-auto px-4 py-2.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 dark:text-rose-400 border border-rose-200/70 dark:border-rose-900/50 font-extrabold text-sm rounded-xl shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <Wallet size={16} />
+                                        <span>Registrar Gasto</span>
+                                    </button>
+                                )}
+                                {(todayCashFlow.length > 0 || todaySales.length > 0) && (
+                                    <button
+                                        type="button"
+                                        onClick={handleDailyClose}
+                                        className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-extrabold text-sm rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <LockIcon size={18} />
+                                        <span>Cerrar Caja</span>
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {/* Resumen del Turno (Sin clase .reveal que causaba opacidad cero) */}
@@ -720,10 +769,14 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                     triggerHaptic={triggerHaptic}
                     copEnabled={copEnabled}
                     tasaCop={tasaCop}
+                    canViewProfit={canViewProfit}
                 />
 
                 <DashboardCashControls
                     isAdmin={isAdmin}
+                    canManageCash={canManageCash}
+                    canRegisterExpenses={canRegisterExpenses}
+                    canEditRate={canEditRate}
                     paymentBreakdown={paymentBreakdown}
                     fondoBreakdown={fondoBreakdown}
                     copEnabled={copEnabled}
@@ -736,8 +789,8 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                     todayTotalUsd={todayTotalUsd}
                     todayTotalCop={todayTotalCop}
                     onDailyClose={handleDailyClose}
-                    onOpenGasto={() => setIsAddGastoOpen(true)}
-                    onOpenAporte={isAdmin && todayApertura ? () => setIsAporteOpen(true) : null}
+                    onOpenGasto={canRegisterExpenses ? () => setIsAddGastoOpen(true) : null}
+                    onOpenAporte={canManageCash && todayApertura ? () => setIsAporteOpen(true) : null}
                     onTasaClick={() => setShowMonitor(true)}
                     triggerHaptic={triggerHaptic}
                 />
@@ -1020,7 +1073,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
                 isOpen={isCashReconOpen}
                 onClose={() => setIsCashReconOpen(false)}
                 onConfirm={handleConfirmCashRecon}
-                blindClose={isCajero}
+                blindClose={!canManageCash}
                 todaySales={todaySales}
                 todayTotalUsd={todayTotalUsd}
                 todayTotalBs={todayTotalBs}
@@ -1038,7 +1091,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
             />
             <CierreCajaSummaryModal
                 isOpen={showCierreSummary}
-                blindClose={isCajero}
+                blindClose={!canManageCash}
                 onClose={() => setShowCierreSummary(false)}
                 summaryData={cierreSummaryData}
                 onPrint={() => {

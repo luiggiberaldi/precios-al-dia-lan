@@ -156,10 +156,21 @@ export default function ProductIdentitySection({
                                 key={idx}
                                 type="button"
                                 onClick={() => handleSelectImage?.(m.dataUri)}
-                                className="flex-shrink-0 w-24 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-xl p-1.5 cursor-pointer hover:border-amber-500 transition-all flex flex-col items-center justify-between gap-1.5 text-center"
+                                className="flex-shrink-0 w-24 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-xl p-1.5 cursor-pointer hover:border-amber-500 transition-all flex flex-col items-center justify-between gap-1.5 text-center relative"
                             >
+                                {m.source === 'web' && (
+                                    <span className="absolute top-1 right-1 px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-[8px] font-black uppercase leading-none">
+                                        Web
+                                    </span>
+                                )}
                                 <div className="w-14 h-14 rounded-lg overflow-hidden bg-surface-50 dark:bg-surface-800 flex items-center justify-center shrink-0">
-                                    <img src={m.dataUri} className="w-full h-full object-cover" alt={m.title || 'Opción'} crossOrigin="anonymous" />
+                                    <img
+                                        src={m.previewUrl || m.dataUri}
+                                        className="w-full h-full object-cover"
+                                        alt={m.title || 'Opción'}
+                                        crossOrigin="anonymous"
+                                        loading="lazy"
+                                    />
                                 </div>
                                 <span className="text-[9px] font-bold text-surface-600 dark:text-surface-300 leading-tight uppercase line-clamp-2 w-full">
                                     {m.title}

@@ -45,7 +45,8 @@ export default function CheckoutModal({
     currentFloatBs = null,
     // Abre el registro de aporte (solo si el usuario puede registrarlo).
     onOpenAporte = null,
-    isProcessing = false
+    isProcessing = false,
+    allowCredit = true
 }) {
     const [confirmFiar, setConfirmFiar] = useState(false);
     const [changeConfirmation, setChangeConfirmation] = useState(null);
@@ -390,7 +391,7 @@ export default function CheckoutModal({
                 />
 
                 {/* FASE 3: CASHEA PANEL — secundario, colapsado por defecto */}
-                {casheaEnabled && (
+                {casheaEnabled && allowCredit && (
                     <div className="px-3 py-2">
                         <button
                             type="button"
@@ -780,17 +781,17 @@ export default function CheckoutModal({
                 <div className="px-4 py-3">
                     <button
                         onClick={() => {
-                            if (casheaActive) {
+                            if (casheaActive && allowCredit) {
                                 triggerHaptic && triggerHaptic();
                                 setConfirmFiar(true);
-                            } else if (!isPaid && selectedCustomerId && remainingUsd > 0.01) {
+                            } else if (!isPaid && allowCredit && selectedCustomerId && remainingUsd > 0.01) {
                                 triggerHaptic && triggerHaptic();
                                 setConfirmFiar(true);
                             } else {
                                 handleConfirm();
                             }
                         }}
-                        disabled={isProcessing || rateError || (copEnabled && copRateError) || (!isPaid && casheaActive) || (!selectedCustomerId && remainingUsd > 0.01) || (isPaid && !changeAllocationComplete)}
+                        disabled={isProcessing || rateError || (copEnabled && copRateError) || (!isPaid && casheaActive) || (!allowCredit && !isPaid && remainingUsd > 0.01) || (!selectedCustomerId && remainingUsd > 0.01) || (isPaid && !changeAllocationComplete)}
                         className={`w-full py-4 text-white font-black text-base rounded-2xl shadow-lg transition-all tracking-wide flex items-center justify-center gap-2 ${
                             isProcessing || rateError || (copEnabled && copRateError)
                                 ? 'bg-slate-300 dark:bg-slate-800 !text-slate-500 cursor-not-allowed shadow-none'                                    : isPaid
@@ -799,7 +800,7 @@ export default function CheckoutModal({
                                             : casheaActive
                                                 ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/25 active:scale-[0.98]'
                                                 : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25 active:scale-[0.98]'
-                                    : selectedCustomerId
+                                    : (selectedCustomerId && allowCredit)
                                         ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25 active:scale-[0.98]'
                                         : 'bg-slate-300 dark:bg-slate-800 !text-slate-500 shadow-none cursor-not-allowed'
                         }`}
@@ -818,6 +819,8 @@ export default function CheckoutModal({
                             )
                         ) : casheaActive ? (
                             <><Smartphone size={18} /> COMPLETAR CUOTA INICIAL</>
+                        ) : !allowCredit ? (
+                            <><Lock size={18} /> SOLO CONTADO (FALTA ${remainingUsd.toFixed(2)})</>
                         ) : selectedCustomerId ? (
                             <><Users size={18} /> FIAR RESTANTE ({copEnabled && tasaCop > 0 ? (copPrimary ? `${formatCop(remainingUsd * tasaCop)} COP / $${remainingUsd.toFixed(2)}` : `$${remainingUsd.toFixed(2)} / ${formatCop(remainingUsd * tasaCop)} COP`) : `$${remainingUsd.toFixed(2)}`})</>
                         ) : (

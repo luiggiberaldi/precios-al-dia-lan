@@ -48,14 +48,6 @@
     "source_store": "TuzonaMarket"
   },
   {
-    "name": "Harina Maiz Blanco Libre de Gluten Pan 1 Kg",
-    "slug": "harina-maiz-blanco-libre-de-gluten-pan-1-kg",
-    "price": 1.45,
-    "category": "Harinas",
-    "image_path": "/images/catalog/harina-maiz-blanco-libre-de-gluten-pan-1-kg.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
     "name": "Huevos Cartón 30 Und",
     "slug": "huevos-carton-30-und",
     "price": 4.68,
@@ -250,7 +242,7 @@
   {
     "name": "Caraota Negra Vicone 1Kg",
     "slug": "caraota-negra-vicone-1kg",
-    "price": 4.0,
+    "price": 4,
     "category": "Granos",
     "image_path": "/images/catalog/granos-pastas-y-harinas/caraota-negra-vicone-1kg.webp",
     "source_store": "TuzonaMarket"
@@ -730,7 +722,7 @@
   {
     "name": "Leche en Polvo Completa La Campesina 800g",
     "slug": "leche-en-polvo-completa-la-campesina-800g",
-    "price": 14.0,
+    "price": 14,
     "category": "Leches y Huevos",
     "image_path": "/images/catalog/lacteos-y-huevos/leche-en-polvo-completa-la-campesina-800g.webp",
     "source_store": "TuzonaMarket"
@@ -786,7 +778,7 @@
   {
     "name": "Bebidas Gaseosas",
     "slug": "bebidas-gaseosas",
-    "price": 1.0,
+    "price": 1,
     "category": "Víveres",
     "image_path": "/images/catalog/carnes-y-proteinas/bebidas-gaseosas.webp",
     "source_store": "TuzonaMarket"
@@ -1162,7 +1154,7 @@
   {
     "name": "Linterna Recargable con Panel Solar 3 en 1 F-926 Colores Variados",
     "slug": "linterna-recargable-con-panel-solar-3-en-1-f-926-colores-variados",
-    "price": 12.0,
+    "price": 12,
     "category": "Iluminación y Pilas",
     "image_path": "/images/catalog/electricidad-y-pilas/linterna-recargable-con-panel-solar-3-en-1-f-926-colores-variados.webp",
     "source_store": "TuzonaMarket"
@@ -1634,7 +1626,7 @@
   {
     "name": "Jabón Intimo con fragancia a Floral Intylact 220ml",
     "slug": "jabon-intimo-con-fragancia-a-floral-intylact-220ml",
-    "price": 12.0,
+    "price": 12,
     "category": "Jabón",
     "image_path": "/images/catalog/higiene-y-belleza/jabon-intimo-con-fragancia-a-floral-intylact-220ml.webp",
     "source_store": "TuzonaMarket"
@@ -1970,7 +1962,7 @@
   {
     "name": "Strogonoff Tipo A1 500g",
     "slug": "strogonoff-tipo-a1-500g",
-    "price": 6.0,
+    "price": 6,
     "category": "Res",
     "image_path": "/images/catalog/carnes-y-proteinas/strogonoff-tipo-a1-500g.webp",
     "source_store": "TuzonaMarket"
@@ -2018,7 +2010,7 @@
   {
     "name": "Cuero de Cerdo con Tocino para Chicharrón 500g",
     "slug": "cuero-de-cerdo-con-tocino-para-chicharron-500g",
-    "price": 2.0,
+    "price": 2,
     "category": "Cerdo",
     "image_path": "/images/catalog/carnes-y-proteinas/cuero-de-cerdo-con-tocino-para-chicharron-500g.webp",
     "source_store": "TuzonaMarket"
@@ -2106,7 +2098,7 @@
   {
     "name": "Rueda de Carite Bottega Di Mare 500g",
     "slug": "rueda-de-carite-bottega-di-mare-500g",
-    "price": 10.0,
+    "price": 10,
     "category": "Pescados y Mariscos",
     "image_path": "/images/catalog/carnes-y-proteinas/rueda-de-carite-bottega-di-mare-500g.webp",
     "source_store": "TuzonaMarket"
@@ -2514,7 +2506,7 @@
   {
     "name": "Mortadela Superior en Cuadritos 250g",
     "slug": "mortadela-superior-en-cuadritos-250g",
-    "price": 1.0,
+    "price": 1,
     "category": "Jamón y Tocinetas",
     "image_path": "/images/catalog/carnes-y-proteinas/mortadela-superior-en-cuadritos-250g.webp",
     "source_store": "TuzonaMarket"
@@ -2626,7 +2618,7 @@
   {
     "name": "Ajo Importado 90g a 100g Aprox",
     "slug": "ajo-importado-90g-a-100g-aprox",
-    "price": 1.0,
+    "price": 1,
     "category": "Vegetales y Verduras",
     "image_path": "/images/catalog/frutas-y-verduras/ajo-importado-90g-a-100g-aprox.webp",
     "source_store": "TuzonaMarket"
@@ -2850,7 +2842,7 @@
   {
     "name": "Cambur Manzano 1Kg",
     "slug": "cambur-manzano-1kg",
-    "price": 2.0,
+    "price": 2,
     "category": "Frutas",
     "image_path": "/images/catalog/frutas-y-verduras/cambur-manzano-1kg.webp",
     "source_store": "TuzonaMarket"
@@ -2882,7 +2874,7 @@
   {
     "name": "Cebolla Blanca Limpia Sin Conchas 300g a 400g",
     "slug": "cebolla-blanca-limpia-sin-conchas-300g-a-400g",
-    "price": 1.0,
+    "price": 1,
     "category": "Vegetales y Verduras",
     "image_path": "/images/catalog/frutas-y-verduras/cebolla-blanca-limpia-sin-conchas-300g-a-400g.webp",
     "source_store": "TuzonaMarket"
@@ -4568,156 +4560,12 @@
     "source_store": "Backup Storage"
   },
   {
-    "name": "TRIFOGON",
-    "slug": "trifogon",
-    "price": 0.0608,
-    "category": "Varios",
-    "image_path": "/images/catalog/trifogon.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "TOM  GUAYABANA",
-    "slug": "tom-guayabana",
-    "price": 0.133,
-    "category": "Varios",
-    "image_path": "/images/catalog/tom-guayabana.webp",
-    "source_store": "InstaMarket"
-  },
-  {
-    "name": "TOM  PLATANO",
-    "slug": "tom-platano",
-    "price": 0.133,
-    "category": "Varios",
-    "image_path": "/images/catalog/tom-platano.webp",
-    "source_store": "InstaMarket"
-  },
-  {
-    "name": "ALISOFT PAPEL",
-    "slug": "alisoft-papel",
-    "price": 0.9,
-    "category": "Varios",
-    "image_path": "/images/catalog/alisoft-papel.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "EURO",
-    "slug": "euro",
-    "price": 0.8458,
-    "category": "Varios",
-    "image_path": "/images/catalog/euro.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "BAMBOO 4 ROLLO",
-    "slug": "bamboo-4-rollo",
-    "price": 0.6907,
-    "category": "Varios",
-    "image_path": "/images/catalog/bamboo-4-rollo.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "BAMBOO UNIDA",
-    "slug": "bamboo-unida",
-    "price": 0.1465,
-    "category": "Varios",
-    "image_path": "/images/catalog/bamboo-unida.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "LA PAMPA",
-    "slug": "la-pampa",
-    "price": 2.9723,
-    "category": "Varios",
-    "image_path": "/images/catalog/la-pampa.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "AURORA SOYA",
-    "slug": "aurora-soya",
-    "price": 2.4722,
-    "category": "Víveres",
-    "image_path": "/images/catalog/aurora-soya.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "DOÑA TITA VINAGRE",
-    "slug": "dona-tita-vinagre",
-    "price": 0.8417,
-    "category": "Víveres",
-    "image_path": "/images/catalog/dona-tita-vinagre.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "CAPRI SALSA",
-    "slug": "capri-salsa",
-    "price": 1.9814,
-    "category": "Víveres",
-    "image_path": "/images/catalog/capri-salsa.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "KETCHUP",
-    "slug": "ketchup",
-    "price": 1.6629,
-    "category": "Víveres",
-    "image_path": "/images/catalog/ketchup.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "PAZCUM SALSA",
-    "slug": "pazcum-salsa",
-    "price": 1.6218,
-    "category": "Víveres",
-    "image_path": "/images/catalog/pazcum-salsa.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "SARDINES  OIL",
-    "slug": "sardines-oil",
-    "price": 0.702,
-    "category": "Víveres",
-    "image_path": "/images/catalog/sardines-oil.webp",
-    "source_store": "InstaMarket"
-  },
-  {
-    "name": "TWISTI",
-    "slug": "twisti",
-    "price": 4.3245,
-    "category": "Varios",
-    "image_path": "/images/catalog/twisti.webp",
-    "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "MARGARINA ATUN",
-    "slug": "margarina-atun",
-    "price": 3.4684,
-    "category": "Víveres",
-    "image_path": "/images/catalog/margarina-atun.webp",
-    "source_store": "InstaMarket"
-  },
-  {
     "name": "DIABLITO UNDER",
     "slug": "diablito-under",
     "price": 2.0363,
     "category": "Varios",
     "image_path": "/images/catalog/varios/diablito-under.webp",
     "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "BLANCA FLOR LEUDANTE",
-    "slug": "blanca-flor-leudante",
-    "price": 1.5937,
-    "category": "Varios",
-    "image_path": "/images/catalog/blanca-flor-leudante.webp",
-    "source_store": "Caraota Market"
-  },
-  {
-    "name": "BLANCA FLOR TODO",
-    "slug": "blanca-flor-todo",
-    "price": 1.4526,
-    "category": "Varios",
-    "image_path": "/images/catalog/blanca-flor-todo.webp",
-    "source_store": "InstaMarket"
   },
   {
     "name": "KONFIT AZUCAR",
@@ -4728,28 +4576,12 @@
     "source_store": "TuzonaMarket"
   },
   {
-    "name": "RONCO CORTA PLUMA 500 GR",
-    "slug": "ronco-corta-pluma-500-gr",
-    "price": 1.1917,
-    "category": "Víveres",
-    "image_path": "/images/catalog/ronco-corta-pluma-500-gr.webp",
-    "source_store": "InstaMarket"
-  },
-  {
     "name": "MARY PASTA PLUMA 500 GR",
     "slug": "mary-pasta-pluma-500-gr",
     "price": 1.6792,
     "category": "Víveres",
     "image_path": "/images/catalog/carnes-y-proteinas/mary-pasta-pluma-500-gr.webp",
     "source_store": "TuzonaMarket"
-  },
-  {
-    "name": "SAN SIMON LECHE 400GR",
-    "slug": "san-simon-leche-400gr",
-    "price": 3.5279,
-    "category": "Víveres",
-    "image_path": "/images/catalog/san-simon-leche-400gr.webp",
-    "source_store": "InstaMarket"
   },
   {
     "name": "ARROZ MARY SUPERIOR",
@@ -4768,35 +4600,4547 @@
     "source_store": "TuzonaMarket"
   },
   {
-    "name": "DOÑA BELEN",
-    "slug": "dona-belen",
-    "price": 1.1567,
-    "category": "Víveres",
-    "image_path": "/images/catalog/dona-belen.webp",
-    "source_store": "InstaMarket"
-  },
-  {
-    "name": "PRIMOR PASTA LARGA",
-    "slug": "primor-pasta-larga",
-    "price": 3.0983,
-    "category": "Víveres",
-    "image_path": "/images/catalog/primor-pasta-larga.webp",
-    "source_store": "InstaMarket"
-  },
-  {
-    "name": "MARY PASTA LARGA PREMIUM 500G",
-    "slug": "mary-pasta-larga-premium-500g",
-    "price": 1.5492,
-    "category": "Víveres",
-    "image_path": "/images/catalog/mary-pasta-larga-premium-500g.webp",
-    "source_store": "InstaMarket"
-  },
-  {
     "name": "Afeitadora Dorco 2 hojillas azul",
     "slug": "afeitadora-dorco-2-hojillas-azul",
-    "price": 0.0,
+    "price": 0,
     "category": "Aseo Personal",
     "image_path": "/images/catalog/higiene-y-belleza/afeitadora-dorco-2-hojillas-azul.webp",
     "source_store": "Coco Mercado"
+  },
+  {
+    "name": "Aceite de Soya Amanecer 500mL",
+    "slug": "aceite-de-soya-amanecer-500ml",
+    "price": 0,
+    "category": "Víveres y Despensa",
+    "image_path": "/images/catalog/viveres-y-despensa/aceite-de-soya-amanecer-500ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite de Soya Amanecer 850mL",
+    "slug": "aceite-de-soya-amanecer-850ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-de-soya-amanecer-850ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite de Soya la Dorada Gravenca 828mL",
+    "slug": "aceite-de-soya-la-dorada-gravenca-828ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-de-soya-la-dorada-gravenca-828ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite de Soya la Lucha 900mL",
+    "slug": "aceite-de-soya-la-lucha-900ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-de-soya-la-lucha-900ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite de Soya Naturoil 850mL",
+    "slug": "aceite-de-soya-naturoil-850ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-de-soya-naturoil-850ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite de Soya Vatel 1 Lt",
+    "slug": "aceite-de-soya-vatel-1-lt",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-de-soya-vatel-1-lt.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite de Soya Vatel 1L",
+    "slug": "aceite-de-soya-vatel-1l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-de-soya-vatel-1l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite de Vegetal Vatel 1 Lt",
+    "slug": "aceite-de-vegetal-vatel-1-lt",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-de-vegetal-vatel-1-lt.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite en Spray Sabor a Canola la Fragua 170g",
+    "slug": "aceite-en-spray-sabor-a-canola-la-fragua-170g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-en-spray-sabor-a-canola-la-fragua-170g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite en Spray Sabor a Coco la Fragua 170g",
+    "slug": "aceite-en-spray-sabor-a-coco-la-fragua-170g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-en-spray-sabor-a-coco-la-fragua-170g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Esencial Aromatico Esencia a Vainilla Kuxuan 10mL",
+    "slug": "aceite-esencial-aromatico-esencia-a-vainilla-kuxuan-10ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-esencial-aromatico-esencia-a-vainilla-kuxuan-10ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Esencial Dropper Be Focus Olivia 10mL",
+    "slug": "aceite-esencial-dropper-be-focus-olivia-10ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-esencial-dropper-be-focus-olivia-10ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Esencial Dropper Be Happy Olivia 10mL",
+    "slug": "aceite-esencial-dropper-be-happy-olivia-10ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-esencial-dropper-be-happy-olivia-10ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Esencial Dropper Be Relax Olivia 10mL",
+    "slug": "aceite-esencial-dropper-be-relax-olivia-10ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-esencial-dropper-be-relax-olivia-10ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Esencial Dropper Be Sleep Olivia 10mL",
+    "slug": "aceite-esencial-dropper-be-sleep-olivia-10ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-esencial-dropper-be-sleep-olivia-10ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Esencial Mist Be Relax Olivia 120mL",
+    "slug": "aceite-esencial-mist-be-relax-olivia-120ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-esencial-mist-be-relax-olivia-120ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Esencial Multiproposito de Camomila Sadoer 10mL",
+    "slug": "aceite-esencial-multiproposito-de-camomila-sadoer-10ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-esencial-multiproposito-de-camomila-sadoer-10ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Esencial Roll On Be Focus Olivia 10mL",
+    "slug": "aceite-esencial-roll-on-be-focus-olivia-10ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-esencial-roll-on-be-focus-olivia-10ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Esencial Roll On Be Happy Olivia 10mL",
+    "slug": "aceite-esencial-roll-on-be-happy-olivia-10ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-esencial-roll-on-be-happy-olivia-10ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Hidratante de Argan Brizna 200mL",
+    "slug": "aceite-hidratante-de-argan-brizna-200ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-hidratante-de-argan-brizna-200ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Hidratante de Macadamia Brizna 200mL",
+    "slug": "aceite-hidratante-de-macadamia-brizna-200ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-hidratante-de-macadamia-brizna-200ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Lubricante Multigrado 80w90 Chronus 946mL",
+    "slug": "aceite-lubricante-multigrado-80w90-chronus-946ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-lubricante-multigrado-80w90-chronus-946ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite para Motos 4 Tiempos Sae 20w50 Eco Cycle Chronus 946mL",
+    "slug": "aceite-para-motos-4-tiempos-sae-20w50-eco-cycle-chronus-946ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-para-motos-4-tiempos-sae-20w50-eco-cycle-chronus-946ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Puro de Aguacate Member S Mark 1 L",
+    "slug": "aceite-puro-de-aguacate-member-s-mark-1-l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-puro-de-aguacate-member-s-mark-1-l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Puro de Sesamo Haday 150mL",
+    "slug": "aceite-puro-de-sesamo-haday-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-puro-de-sesamo-haday-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Semi Sintetico Multigrado 20w50 Chronus 946mL",
+    "slug": "aceite-semi-sintetico-multigrado-20w50-chronus-946ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-semi-sintetico-multigrado-20w50-chronus-946ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Total Reparador Frenchs Gold 300mL",
+    "slug": "aceite-total-reparador-frenchs-gold-300ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-total-reparador-frenchs-gold-300ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aceite Vegetal Vatel 1L",
+    "slug": "aceite-vegetal-vatel-1l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aceite-vegetal-vatel-1l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Adobo Completo Mccormick 125g",
+    "slug": "adobo-completo-mccormick-125g",
+    "price": 0,
+    "category": "Víveres y Despensa",
+    "image_path": "/images/catalog/viveres-y-despensa/adobo-completo-mccormick-125g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Afrecho de Trigo Natural Plus 300g",
+    "slug": "afrecho-de-trigo-natural-plus-300g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/afrecho-de-trigo-natural-plus-300g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aguacate Grande 600g Aprox Unidad",
+    "slug": "aguacate-grande-600g-aprox-unidad",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/aguacate-grande-600g-aprox-unidad.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aguardiente de Cocuy 0 35 L Leal",
+    "slug": "aguardiente-de-cocuy-0-35-l-leal",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aguardiente-de-cocuy-0-35-l-leal.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aguardiente de Cocuy 0 70 L Leal",
+    "slug": "aguardiente-de-cocuy-0-70-l-leal",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aguardiente-de-cocuy-0-70-l-leal.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aguardiente de Cocuy 1 L Leal",
+    "slug": "aguardiente-de-cocuy-1-l-leal",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/aguardiente-de-cocuy-1-l-leal.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Aji Dulce 250g",
+    "slug": "aji-dulce-250g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/aji-dulce-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Ajinomoto All Taste 10g",
+    "slug": "ajinomoto-all-taste-10g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/ajinomoto-all-taste-10g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Ajo Entero 100g",
+    "slug": "ajo-entero-100g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/ajo-entero-100g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Ajo Molido Mccormick 92g",
+    "slug": "ajo-molido-mccormick-92g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/ajo-molido-mccormick-92g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Ajo Molido Tipo Crema 125g",
+    "slug": "ajo-molido-tipo-crema-125g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/ajo-molido-tipo-crema-125g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Cachorro Carne Cereales y Arroz K Nina Purina 1Kg",
+    "slug": "alimento-para-cachorro-carne-cereales-y-arroz-k-nina-purina-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-cachorro-carne-cereales-y-arroz-k-nina-purina-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Cachorro Carne Cereales y Arroz K Nina Purina 2 Kg",
+    "slug": "alimento-para-cachorro-carne-cereales-y-arroz-k-nina-purina-2-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-cachorro-carne-cereales-y-arroz-k-nina-purina-2-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Cachorros Carne Cereales y Arroz K Nina 18Kg",
+    "slug": "alimento-para-cachorros-carne-cereales-y-arroz-k-nina-18kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-cachorros-carne-cereales-y-arroz-k-nina-18kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Cachorros Carne Cereales y Arroz K Nina 4Kg",
+    "slug": "alimento-para-cachorros-carne-cereales-y-arroz-k-nina-4kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-cachorros-carne-cereales-y-arroz-k-nina-4kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Cachorros Pollo y Arroz Nutri Source 1 8Kg",
+    "slug": "alimento-para-cachorros-pollo-y-arroz-nutri-source-1-8kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-cachorros-pollo-y-arroz-nutri-source-1-8kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Gatos Adultos Carne Arroz y Maiz Gatsy Purina 1Kg",
+    "slug": "alimento-para-gatos-adultos-carne-arroz-y-maiz-gatsy-purina-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-gatos-adultos-carne-arroz-y-maiz-gatsy-purina-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Gatos Adultos Carne Arroz y Maiz Gatsy Purina 500g",
+    "slug": "alimento-para-gatos-adultos-carne-arroz-y-maiz-gatsy-purina-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-gatos-adultos-carne-arroz-y-maiz-gatsy-purina-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Gatos Adultos Carne con Arroz y Maiz Gatsy Purina 20 Kg",
+    "slug": "alimento-para-gatos-adultos-carne-con-arroz-y-maiz-gatsy-purina-20-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-gatos-adultos-carne-con-arroz-y-maiz-gatsy-purina-20-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Gatos Adultos Carne con Arroz y Maiz Gatsy Purina 8 Kg",
+    "slug": "alimento-para-gatos-adultos-carne-con-arroz-y-maiz-gatsy-purina-8-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-gatos-adultos-carne-con-arroz-y-maiz-gatsy-purina-8-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Gatos Adultos con Sabor a Pescado Arroz y Espinaca Gatsy Purina 20Kg",
+    "slug": "alimento-para-gatos-adultos-con-sabor-a-pescado-arroz-y-espinaca-gatsy-purina-20kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-gatos-adultos-con-sabor-a-pescado-arroz-y-espinaca-gatsy-purina-20kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Gatos Adultos con Sabor a Pescado Arroz y Espinaca Gatsy Purina 3Kg",
+    "slug": "alimento-para-gatos-adultos-con-sabor-a-pescado-arroz-y-espinaca-gatsy-purina-3kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-gatos-adultos-con-sabor-a-pescado-arroz-y-espinaca-gatsy-purina-3kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Gatos Adultos Pescado Arroz y Espinaca Gatsy Purina 500g",
+    "slug": "alimento-para-gatos-adultos-pescado-arroz-y-espinaca-gatsy-purina-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-gatos-adultos-pescado-arroz-y-espinaca-gatsy-purina-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Gatos Adultos Pescado Arroz y Espinaca Gatsy Purina 8Kg",
+    "slug": "alimento-para-gatos-adultos-pescado-arroz-y-espinaca-gatsy-purina-8kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-gatos-adultos-pescado-arroz-y-espinaca-gatsy-purina-8kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Gatos Salmon Arroz y Vegetales Friskies 156g",
+    "slug": "alimento-para-gatos-salmon-arroz-y-vegetales-friskies-156g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-gatos-salmon-arroz-y-vegetales-friskies-156g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Perro Adultos Pollo y Arroz Nutri Source 1 8Kg",
+    "slug": "alimento-para-perro-adultos-pollo-y-arroz-nutri-source-1-8kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-perro-adultos-pollo-y-arroz-nutri-source-1-8kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Perro Sabor a Pollo y Arroz Pedigree 375g",
+    "slug": "alimento-para-perro-sabor-a-pollo-y-arroz-pedigree-375g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-perro-sabor-a-pollo-y-arroz-pedigree-375g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Perro Senior Pollo y Arroz Nutri Source 1 8Kg",
+    "slug": "alimento-para-perro-senior-pollo-y-arroz-nutri-source-1-8kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-perro-senior-pollo-y-arroz-nutri-source-1-8kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Perros Adultos Carne Cereal y Arroz K Nina Purina 2Kg",
+    "slug": "alimento-para-perros-adultos-carne-cereal-y-arroz-k-nina-purina-2kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-perros-adultos-carne-cereal-y-arroz-k-nina-purina-2kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Perros Adultos Carne Cereales y Arroz K Nina Purina 4 Kg",
+    "slug": "alimento-para-perros-adultos-carne-cereales-y-arroz-k-nina-purina-4-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-perros-adultos-carne-cereales-y-arroz-k-nina-purina-4-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Perros Adultos Carne Cereales y Arroz K Nina Purina 8Kg",
+    "slug": "alimento-para-perros-adultos-carne-cereales-y-arroz-k-nina-purina-8kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-perros-adultos-carne-cereales-y-arroz-k-nina-purina-8kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Perros Adultos con Sabor a Cordero y Arroz Premium Pet Food Happy One 4Kg",
+    "slug": "alimento-para-perros-adultos-con-sabor-a-cordero-y-arroz-premium-pet-food-happy-one-4kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-perros-adultos-con-sabor-a-cordero-y-arroz-premium-pet-food-happy-one-4kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Perros Adultos con Salmon y Arroz Premium Happy One 4 Kg",
+    "slug": "alimento-para-perros-adultos-con-salmon-y-arroz-premium-happy-one-4-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-perros-adultos-con-salmon-y-arroz-premium-happy-one-4-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Alimento para Perros Adultos de Cordero Arroz y Salmon Chunky 1 5 Kg",
+    "slug": "alimento-para-perros-adultos-de-cordero-arroz-y-salmon-chunky-1-5-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/alimento-para-perros-adultos-de-cordero-arroz-y-salmon-chunky-1-5-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Apio Criollo 500g",
+    "slug": "apio-criollo-500g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/apio-criollo-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Apurenito",
+    "slug": "apurenito",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/apurenito.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arepa de Yuca Precocida Congelada Tu Verdura 1Kg",
+    "slug": "arepa-de-yuca-precocida-congelada-tu-verdura-1kg",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/arepa-de-yuca-precocida-congelada-tu-verdura-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arepitas de Yuca Polt 1Kg",
+    "slug": "arepitas-de-yuca-polt-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arepitas-de-yuca-polt-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Arborio para Risotto Artesano 1Kg",
+    "slug": "arroz-arborio-para-risotto-artesano-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-arborio-para-risotto-artesano-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Arborio Super Fino para Risotto Colavita 500g",
+    "slug": "arroz-arborio-super-fino-para-risotto-colavita-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-arborio-super-fino-para-risotto-colavita-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Blanco Superior Mary 900g",
+    "slug": "arroz-blanco-superior-mary-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-blanco-superior-mary-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Blanco Tipo 1 Canilla la Lucha 1Kg",
+    "slug": "arroz-blanco-tipo-1-canilla-la-lucha-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-blanco-tipo-1-canilla-la-lucha-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Blanco Tipo 1 Chaira 900g",
+    "slug": "arroz-blanco-tipo-1-chaira-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-blanco-tipo-1-chaira-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Blanco Tipo 1 Don Paco 900g",
+    "slug": "arroz-blanco-tipo-1-don-paco-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-blanco-tipo-1-don-paco-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Blanco Tipo 1 Premium Amanecer 900g",
+    "slug": "arroz-blanco-tipo-1-premium-amanecer-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-blanco-tipo-1-premium-amanecer-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Blanco Tipo 1 Tradicional Amanecer 900g",
+    "slug": "arroz-blanco-tipo-1-tradicional-amanecer-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-blanco-tipo-1-tradicional-amanecer-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Blanco Tipo I Canta Claro 1 Kg",
+    "slug": "arroz-blanco-tipo-i-canta-claro-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-blanco-tipo-i-canta-claro-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Blanco Tipo I Monica 900g",
+    "slug": "arroz-blanco-tipo-i-monica-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-blanco-tipo-i-monica-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Clasico Superior Primor 900g",
+    "slug": "arroz-clasico-superior-primor-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-clasico-superior-primor-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Delgado Jazmin 1 Kg",
+    "slug": "arroz-delgado-jazmin-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-delgado-jazmin-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Esmeralda Mary 900 Gr",
+    "slug": "arroz-esmeralda-mary-900-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-esmeralda-mary-900-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Esmeralda Mary 900g",
+    "slug": "arroz-esmeralda-mary-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-esmeralda-mary-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Extra Blanco Tipo 1 Marfil Amanecer 900g",
+    "slug": "arroz-extra-blanco-tipo-1-marfil-amanecer-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-extra-blanco-tipo-1-marfil-amanecer-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Gourmet Tipo 1 Gran Marques 900g",
+    "slug": "arroz-gourmet-tipo-1-gran-marques-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-gourmet-tipo-1-gran-marques-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Integral Basmati Gallo 500g",
+    "slug": "arroz-integral-basmati-gallo-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-integral-basmati-gallo-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Mary Dorado 800 Gr",
+    "slug": "arroz-mary-dorado-800-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-mary-dorado-800-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Mary Dorado 800g",
+    "slug": "arroz-mary-dorado-800g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-mary-dorado-800g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Mary Integral 800g",
+    "slug": "arroz-mary-integral-800g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-mary-integral-800g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Mary Premiun 900 Gr",
+    "slug": "arroz-mary-premiun-900-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-mary-premiun-900-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Mary Superior 900 Gr",
+    "slug": "arroz-mary-superior-900-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-mary-superior-900-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Mary Tradicional 900 Gr",
+    "slug": "arroz-mary-tradicional-900-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-mary-tradicional-900-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz para Sushi Visciano 1Kg",
+    "slug": "arroz-para-sushi-visciano-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-para-sushi-visciano-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Premium Mary 2 Kg",
+    "slug": "arroz-premium-mary-2-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-premium-mary-2-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Premium Santoni 900g",
+    "slug": "arroz-premium-santoni-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-premium-santoni-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Premium Tipo 1 Gran Marques 1 Kg",
+    "slug": "arroz-premium-tipo-1-gran-marques-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-premium-tipo-1-gran-marques-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Primor",
+    "slug": "arroz-primor",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-primor.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Selecto Tipo 1 Gran Marques 2 5 Kg",
+    "slug": "arroz-selecto-tipo-1-gran-marques-2-5-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-selecto-tipo-1-gran-marques-2-5-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Selecto Tipo 1 Gran Marques 850g",
+    "slug": "arroz-selecto-tipo-1-gran-marques-850g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-selecto-tipo-1-gran-marques-850g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Tipo 1 para Sushi 1Kg",
+    "slug": "arroz-tipo-1-para-sushi-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-tipo-1-para-sushi-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Tipo 2 Don Julian 900g",
+    "slug": "arroz-tipo-2-don-julian-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-tipo-2-don-julian-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Tipo I Favorito 1Kg",
+    "slug": "arroz-tipo-i-favorito-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-tipo-i-favorito-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Arroz Zafiro Santoni 800g",
+    "slug": "arroz-zafiro-santoni-800g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/arroz-zafiro-santoni-800g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Atun Solido en Aceite Robinson Crusoe 170 Gr",
+    "slug": "atun-solido-en-aceite-robinson-crusoe-170-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/atun-solido-en-aceite-robinson-crusoe-170-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Auyama 1Kg Picada",
+    "slug": "auyama-1kg-picada",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/auyama-1kg-picada.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Avila Ajo",
+    "slug": "avila-ajo",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/avila-ajo.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Avila Soya",
+    "slug": "avila-soya",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/avila-soya.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Avila Tripac",
+    "slug": "avila-tripac",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/avila-tripac.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Base Deshidratada Arroz Primavera Iberia 50g",
+    "slug": "base-deshidratada-arroz-primavera-iberia-50g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/base-deshidratada-arroz-primavera-iberia-50g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Base Deshidratada para Arroz con Pollo Maggi 35g",
+    "slug": "base-deshidratada-para-arroz-con-pollo-maggi-35g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/base-deshidratada-para-arroz-con-pollo-maggi-35g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Base Deshidratada para Preparar Arroz con Pollo Iberia 50g",
+    "slug": "base-deshidratada-para-preparar-arroz-con-pollo-iberia-50g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/base-deshidratada-para-preparar-arroz-con-pollo-iberia-50g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Batidora de Mano de 5 Velocidades Modelo Hm 750 Sankey",
+    "slug": "batidora-de-mano-de-5-velocidades-modelo-hm-750-sankey",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/batidora-de-mano-de-5-velocidades-modelo-hm-750-sankey.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Bebida en Polvo Sabor a Jamaica Clight 9g",
+    "slug": "bebida-en-polvo-sabor-a-jamaica-clight-9g",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/bebida-en-polvo-sabor-a-jamaica-clight-9g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Belmont",
+    "slug": "belmont",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/belmont.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Belmont Media",
+    "slug": "belmont-media",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/belmont-media.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Berenjena 500g",
+    "slug": "berenjena-500g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/berenjena-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Bistec Res 1era 1Kg Ganadera 13",
+    "slug": "bistec-res-1era-1kg-ganadera-13",
+    "price": 0,
+    "category": "Carnes y Proteínas",
+    "image_path": "/images/catalog/carnes-y-proteinas/bistec-res-1era-1kg-ganadera-13.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Bonbonbum",
+    "slug": "bonbonbum",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/bonbonbum.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Brandy Chemineaud 0 35 L",
+    "slug": "brandy-chemineaud-0-35-l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/brandy-chemineaud-0-35-l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Brandy Chemineaud 0 70 L",
+    "slug": "brandy-chemineaud-0-70-l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/brandy-chemineaud-0-70-l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Brandy Chemineaud 1 75 L",
+    "slug": "brandy-chemineaud-1-75-l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/brandy-chemineaud-1-75-l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Brandy Chemineaud Vsop",
+    "slug": "brandy-chemineaud-vsop",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/brandy-chemineaud-vsop.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Bulto de Harina de Maiz Blanco Precocida Mary 900g 20 Und",
+    "slug": "bulto-de-harina-de-maiz-blanco-precocida-mary-900g-20-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/bulto-de-harina-de-maiz-blanco-precocida-mary-900g-20-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Bulto de Harina de Trigo Leudante Mary 900g X 12 Und",
+    "slug": "bulto-de-harina-de-trigo-leudante-mary-900g-x-12-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/bulto-de-harina-de-trigo-leudante-mary-900g-x-12-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Calabacin 1Kg",
+    "slug": "calabacin-1kg",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/calabacin-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Carne Molida 8020 1Kg Ganadera 13",
+    "slug": "carne-molida-8020-1kg-ganadera-13",
+    "price": 0,
+    "category": "Carnes y Proteínas",
+    "image_path": "/images/catalog/carnes-y-proteinas/carne-molida-8020-1kg-ganadera-13.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Carorena Lata Pequena",
+    "slug": "carorena-lata-pequena",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/carorena-lata-pequena.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cebolla 500g",
+    "slug": "cebolla-500g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/cebolla-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cebollin Manojo",
+    "slug": "cebollin-manojo",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/cebollin-manojo.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cebollin Seleccionado Sin Raiz 300g",
+    "slug": "cebollin-seleccionado-sin-raiz-300g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/cebollin-seleccionado-sin-raiz-300g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cereal de Maiz y Arroz Sabor a Coco Mana la Integral 135g",
+    "slug": "cereal-de-maiz-y-arroz-sabor-a-coco-mana-la-integral-135g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/cereal-de-maiz-y-arroz-sabor-a-coco-mana-la-integral-135g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cerveza Polar Negrita",
+    "slug": "cerveza-polar-negrita",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/cerveza-polar-negrita.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cerveza Zulia",
+    "slug": "cerveza-zulia",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/cerveza-zulia.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cheese Trees Grande",
+    "slug": "cheese-trees-grande",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/cheese-trees-grande.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cheese Trees Pequeno",
+    "slug": "cheese-trees-pequeno",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/cheese-trees-pequeno.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Chetos Grande",
+    "slug": "chetos-grande",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/chetos-grande.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Chinotto 355mL",
+    "slug": "chinotto-355ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/chinotto-355ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Chinotto Sin Calorias 2L",
+    "slug": "chinotto-sin-calorias-2l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/chinotto-sin-calorias-2l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Chiquesesito Pequeno",
+    "slug": "chiquesesito-pequeno",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/chiquesesito-pequeno.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Chocolate Savoy Pequeno",
+    "slug": "chocolate-savoy-pequeno",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/chocolate-savoy-pequeno.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Chocolate Varios Pequeno",
+    "slug": "chocolate-varios-pequeno",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/chocolate-varios-pequeno.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cilantro Manojo",
+    "slug": "cilantro-manojo",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/cilantro-manojo.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Clavos de Especias Manantial 5g",
+    "slug": "clavos-de-especias-manantial-5g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/clavos-de-especias-manantial-5g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Club Social",
+    "slug": "club-social",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/club-social.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Coca Cola Lata",
+    "slug": "coca-cola-lata",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/coca-cola-lata.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Coca Cola Sabor Original 1L",
+    "slug": "coca-cola-sabor-original-1l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/coca-cola-sabor-original-1l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Coca Cola Sabor Original 355 Ml",
+    "slug": "coca-cola-sabor-original-355-ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/coca-cola-sabor-original-355-ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Coca Cola Sabor Original Menos Calorias 2L",
+    "slug": "coca-cola-sabor-original-menos-calorias-2l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/coca-cola-sabor-original-menos-calorias-2l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Coca Cola Sin Azucar 355mL",
+    "slug": "coca-cola-sin-azucar-355ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/coca-cola-sin-azucar-355ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cocoeste",
+    "slug": "cocoeste",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/cocoeste.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Consul",
+    "slug": "consul",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/consul.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Country Club Licor",
+    "slug": "country-club-licor",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/country-club-licor.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Antipanalitis para Piel Sensible Overskin 50g",
+    "slug": "crema-antipanalitis-para-piel-sensible-overskin-50g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-antipanalitis-para-piel-sensible-overskin-50g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Cero Original Cero 30g",
+    "slug": "crema-cero-original-cero-30g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-cero-original-cero-30g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Contorno de Ojos de Arroz Bioaqua 20g",
+    "slug": "crema-contorno-de-ojos-de-arroz-bioaqua-20g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-contorno-de-ojos-de-arroz-bioaqua-20g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Arroz Mary 450 Gr",
+    "slug": "crema-de-arroz-mary-450-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-arroz-mary-450-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Arroz Primor 450 Gr",
+    "slug": "crema-de-arroz-primor-450-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-arroz-primor-450-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Avellana Kaldini 350g",
+    "slug": "crema-de-avellana-kaldini-350g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-avellana-kaldini-350g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Coco Rica y Cremosa Bona Vina 400mL",
+    "slug": "crema-de-coco-rica-y-cremosa-bona-vina-400ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-coco-rica-y-cremosa-bona-vina-400ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Coco Sin Azucar Kaldini 400mL",
+    "slug": "crema-de-coco-sin-azucar-kaldini-400ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-coco-sin-azucar-kaldini-400ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Esparragos Iberia 55g",
+    "slug": "crema-de-esparragos-iberia-55g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-esparragos-iberia-55g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Jojoto Iberia 55g",
+    "slug": "crema-de-jojoto-iberia-55g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-jojoto-iberia-55g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Leche Di Fiore 170g",
+    "slug": "crema-de-leche-di-fiore-170g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-leche-di-fiore-170g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Leche Esterilizada Uht Natulac 946mL",
+    "slug": "crema-de-leche-esterilizada-uht-natulac-946ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-leche-esterilizada-uht-natulac-946ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Leche Kaldini 170g",
+    "slug": "crema-de-leche-kaldini-170g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-leche-kaldini-170g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Leche Natulac 473mL",
+    "slug": "crema-de-leche-natulac-473ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-leche-natulac-473ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Leche Nestle 300g",
+    "slug": "crema-de-leche-nestle-300g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-leche-nestle-300g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema de Leche Purisima 250g",
+    "slug": "crema-de-leche-purisima-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-de-leche-purisima-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental 3d White Oral B 70g",
+    "slug": "crema-dental-3d-white-oral-b-70g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-3d-white-oral-b-70g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Classic Ice Ultra Menta Galactic 100g",
+    "slug": "crema-dental-classic-ice-ultra-menta-galactic-100g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-classic-ice-ultra-menta-galactic-100g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental con Blanqueador Alident 100g",
+    "slug": "crema-dental-con-blanqueador-alident-100g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-con-blanqueador-alident-100g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Gel Verde Alident 100g",
+    "slug": "crema-dental-gel-verde-alident-100g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-gel-verde-alident-100g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Herbal White Colgate 100mL",
+    "slug": "crema-dental-herbal-white-colgate-100ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-herbal-white-colgate-100ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Ice Cold Mint Gel Azul Alident 100g",
+    "slug": "crema-dental-ice-cold-mint-gel-azul-alident-100g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-ice-cold-mint-gel-azul-alident-100g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Maxima Proteccion Anticaries Colgate 100mL",
+    "slug": "crema-dental-maxima-proteccion-anticaries-colgate-100ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-maxima-proteccion-anticaries-colgate-100ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Maxima Proteccion Menta Fresca Colgate 90mL",
+    "slug": "crema-dental-maxima-proteccion-menta-fresca-colgate-90ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-maxima-proteccion-menta-fresca-colgate-90ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Menta Refrescante Oral B 70g",
+    "slug": "crema-dental-menta-refrescante-oral-b-70g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-menta-refrescante-oral-b-70g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Prevencion Activa Total Colgate 75g",
+    "slug": "crema-dental-prevencion-activa-total-colgate-75g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-prevencion-activa-total-colgate-75g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Sensitive Colgate 140g",
+    "slug": "crema-dental-sensitive-colgate-140g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-sensitive-colgate-140g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Triple Accion Colgate 100mL",
+    "slug": "crema-dental-triple-accion-colgate-100ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-triple-accion-colgate-100ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Triple Accion Colgate 60mL",
+    "slug": "crema-dental-triple-accion-colgate-60ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-triple-accion-colgate-60ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Triple Accion Colgate 75mL",
+    "slug": "crema-dental-triple-accion-colgate-75ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-triple-accion-colgate-75ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Triple Accion Xtra Blancura Colgate 75mL",
+    "slug": "crema-dental-triple-accion-xtra-blancura-colgate-75ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-triple-accion-xtra-blancura-colgate-75ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Dental Triple Max Galactic 100g",
+    "slug": "crema-dental-triple-max-galactic-100g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-dental-triple-max-galactic-100g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema para Manos de Arroz 30g",
+    "slug": "crema-para-manos-de-arroz-30g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-para-manos-de-arroz-30g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema para Rizos Rolda 250g",
+    "slug": "crema-para-rizos-rolda-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-para-rizos-rolda-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Crema Saludable de Mani con Chocolate Pura Nuez 200g Obsequio",
+    "slug": "crema-saludable-de-mani-con-chocolate-pura-nuez-200g-obsequio",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/crema-saludable-de-mani-con-chocolate-pura-nuez-200g-obsequio.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Cubito para Arroz con Pollo Maggi 8 Und",
+    "slug": "cubito-para-arroz-con-pollo-maggi-8-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/cubito-para-arroz-con-pollo-maggi-8-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Deditos de Yuca Precocida Tu Verdura 1Kg",
+    "slug": "deditos-de-yuca-precocida-tu-verdura-1kg",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/deditos-de-yuca-precocida-tu-verdura-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Desodorante Nivea Men Roll On Black White Invisible 50mL",
+    "slug": "desodorante-nivea-men-roll-on-black-white-invisible-50ml",
+    "price": 0,
+    "category": "Víveres y Despensa",
+    "image_path": "/images/catalog/viveres-y-despensa/desodorante-nivea-men-roll-on-black-white-invisible-50ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Desodorante Spray Old Spice Lena 150mL",
+    "slug": "desodorante-spray-old-spice-lena-150ml",
+    "price": 0,
+    "category": "Víveres y Despensa",
+    "image_path": "/images/catalog/viveres-y-despensa/desodorante-spray-old-spice-lena-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Dogourmet Parrilla Mixta Adultos 4Kg",
+    "slug": "dogourmet-parrilla-mixta-adultos-4kg",
+    "price": 0,
+    "category": "Mascotas",
+    "image_path": "/images/catalog/mascotas/dogourmet-parrilla-mixta-adultos-4kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Doritos Dinamita Grande",
+    "slug": "doritos-dinamita-grande",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/doritos-dinamita-grande.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Doritos Grande",
+    "slug": "doritos-grande",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/doritos-grande.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Doritos Pequeno",
+    "slug": "doritos-pequeno",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/doritos-pequeno.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Ducha Femenina 4Und Island Splash Summers Eve",
+    "slug": "ducha-femenina-4und-island-splash-summers-eve",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/ducha-femenina-4und-island-splash-summers-eve.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Ducha Femenina 4Und Vinager Water Summers Eve",
+    "slug": "ducha-femenina-4und-vinager-water-summers-eve",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/ducha-femenina-4und-vinager-water-summers-eve.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Esponja Doble Uso Tapa Amarilla 1Und",
+    "slug": "esponja-doble-uso-tapa-amarilla-1und",
+    "price": 0,
+    "category": "Aseo del Hogar",
+    "image_path": "/images/catalog/aseo-del-hogar/esponja-doble-uso-tapa-amarilla-1und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Esponja Multiuso Tapa Amarilla 1Und",
+    "slug": "esponja-multiuso-tapa-amarilla-1und",
+    "price": 0,
+    "category": "Aseo del Hogar",
+    "image_path": "/images/catalog/aseo-del-hogar/esponja-multiuso-tapa-amarilla-1und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Flips Mediano",
+    "slug": "flips-mediano",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/flips-mediano.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Fororo Kel 450g",
+    "slug": "fororo-kel-450g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/fororo-kel-450g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Fororo Vicone 400g",
+    "slug": "fororo-vicone-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/fororo-vicone-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Frescolita Sin Calorias 2L",
+    "slug": "frescolita-sin-calorias-2l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/frescolita-sin-calorias-2l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Galleta Salada Saltix Renata 110g",
+    "slug": "galleta-salada-saltix-renata-110g",
+    "price": 0,
+    "category": "Lácteos y Huevos",
+    "image_path": "/images/catalog/lacteos-y-huevos/galleta-salada-saltix-renata-110g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Galletas Charmy Choco Mania 192g",
+    "slug": "galletas-charmy-choco-mania-192g",
+    "price": 0,
+    "category": "Víveres y Despensa",
+    "image_path": "/images/catalog/viveres-y-despensa/galletas-charmy-choco-mania-192g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Galletas de Chocolate con Chips de Chocolate Toma 2 Bimbo 45g",
+    "slug": "galletas-de-chocolate-con-chips-de-chocolate-toma-2-bimbo-45g",
+    "price": 0,
+    "category": "Víveres y Despensa",
+    "image_path": "/images/catalog/viveres-y-despensa/galletas-de-chocolate-con-chips-de-chocolate-toma-2-bimbo-45g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Gatarina para Gatos Adultos Pescado Arroz y Espinaca Gatsy Purina 1Kg",
+    "slug": "gatarina-para-gatos-adultos-pescado-arroz-y-espinaca-gatsy-purina-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/gatarina-para-gatos-adultos-pescado-arroz-y-espinaca-gatsy-purina-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Glup 1 Litro",
+    "slug": "glup-1-litro",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/glup-1-litro.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Glup Cola 2L",
+    "slug": "glup-cola-2l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/glup-cola-2l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Golden 2 Litros",
+    "slug": "golden-2-litros",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/golden-2-litros.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Granola",
+    "slug": "granola",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/granola.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Guayaba 500g",
+    "slug": "guayaba-500g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/guayaba-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Halls",
+    "slug": "halls",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/halls.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Arroz All Taste 500g",
+    "slug": "harina-de-arroz-all-taste-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-arroz-all-taste-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Arroz Glutinoso Erawan 500g",
+    "slug": "harina-de-arroz-glutinoso-erawan-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-arroz-glutinoso-erawan-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Avena Pantera 400g",
+    "slug": "harina-de-avena-pantera-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-avena-pantera-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Avena Quacker 400 Gr",
+    "slug": "harina-de-avena-quacker-400-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-avena-quacker-400-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Avena Quaker 400g",
+    "slug": "harina-de-avena-quaker-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-avena-quaker-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Avena Venela 400g",
+    "slug": "harina-de-avena-venela-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-avena-venela-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Cambur Verde Harinana 500g",
+    "slug": "harina-de-cambur-verde-harinana-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-cambur-verde-harinana-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Coco Organica Superfood Kaldini 500g",
+    "slug": "harina-de-coco-organica-superfood-kaldini-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-coco-organica-superfood-kaldini-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Blanco Budare 900g",
+    "slug": "harina-de-maiz-blanco-budare-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-blanco-budare-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Blanco el Maizal 1 Kg",
+    "slug": "harina-de-maiz-blanco-el-maizal-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-blanco-el-maizal-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Blanco Fina 1Kg",
+    "slug": "harina-de-maiz-blanco-fina-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-blanco-fina-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Blanco Lucharepa 1Kg",
+    "slug": "harina-de-maiz-blanco-lucharepa-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-blanco-lucharepa-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Blanco Mary 1 Kg",
+    "slug": "harina-de-maiz-blanco-mary-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-blanco-mary-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Blanco Milpa 1 Kg",
+    "slug": "harina-de-maiz-blanco-milpa-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-blanco-milpa-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Blanco Precocida Mary 900g",
+    "slug": "harina-de-maiz-blanco-precocida-mary-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-blanco-precocida-mary-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Blanco Santoni 900 G",
+    "slug": "harina-de-maiz-blanco-santoni-900-g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-blanco-santoni-900-g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Blanco Santoni 900g",
+    "slug": "harina-de-maiz-blanco-santoni-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-blanco-santoni-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Blanco y Arroz Pan 1Kg 20 Und",
+    "slug": "harina-de-maiz-blanco-y-arroz-pan-1kg-20-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-blanco-y-arroz-pan-1kg-20-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Dona Belen 900g",
+    "slug": "harina-de-maiz-dona-belen-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-dona-belen-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Flor de Auruaca",
+    "slug": "harina-de-maiz-flor-de-auruaca",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-flor-de-auruaca.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Pantera 900g",
+    "slug": "harina-de-maiz-pantera-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-pantera-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Maiz Tostado Fororo Venela 450g",
+    "slug": "harina-de-maiz-tostado-fororo-venela-450g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-maiz-tostado-fororo-venela-450g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Quinoa Kaldini 300g",
+    "slug": "harina-de-quinoa-kaldini-300g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-quinoa-kaldini-300g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Quinoa Sin Gluten Emana 336g",
+    "slug": "harina-de-quinoa-sin-gluten-emana-336g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-quinoa-sin-gluten-emana-336g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo de Cecco 1Kg",
+    "slug": "harina-de-trigo-de-cecco-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-de-cecco-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Integral Aveiro 1 Kg",
+    "slug": "harina-de-trigo-integral-aveiro-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-integral-aveiro-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Integral la Integral 1Kg",
+    "slug": "harina-de-trigo-integral-la-integral-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-integral-la-integral-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Integral la Integral 500g",
+    "slug": "harina-de-trigo-integral-la-integral-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-integral-la-integral-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Integral la Integral 800g",
+    "slug": "harina-de-trigo-integral-la-integral-800g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-integral-la-integral-800g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Leudante",
+    "slug": "harina-de-trigo-leudante",
+    "price": 0,
+    "category": "Granos, Pastas y Harinas",
+    "image_path": "/images/catalog/granos-pastas-y-harinas/harina-de-trigo-leudante.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Leudante Blancaflor 1Kg",
+    "slug": "harina-de-trigo-leudante-blancaflor-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-leudante-blancaflor-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Leudante Dulce Mar 1Kg",
+    "slug": "harina-de-trigo-leudante-dulce-mar-1kg",
+    "price": 0,
+    "category": "Granos, Pastas y Harinas",
+    "image_path": "/images/catalog/granos-pastas-y-harinas/harina-de-trigo-leudante-dulce-mar-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Leudante Enriquecida Dona Mara 900g",
+    "slug": "harina-de-trigo-leudante-enriquecida-dona-mara-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-leudante-enriquecida-dona-mara-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Leudante la Lucha 900g",
+    "slug": "harina-de-trigo-leudante-la-lucha-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-leudante-la-lucha-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Leudante la Pampa 920g",
+    "slug": "harina-de-trigo-leudante-la-pampa-920g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-leudante-la-pampa-920g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Leudante Mary 900g",
+    "slug": "harina-de-trigo-leudante-mary-900gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-leudante-mary-900gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Leudante Robin Hood 900g",
+    "slug": "harina-de-trigo-leudante-robin-hood-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-leudante-robin-hood-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Leudante Ronco 1 Kg",
+    "slug": "harina-de-trigo-leudante-ronco-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-leudante-ronco-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Panadera Aveiro 1 Kg",
+    "slug": "harina-de-trigo-panadera-aveiro-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-panadera-aveiro-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo para Pizza Aveiro 1 Kg",
+    "slug": "harina-de-trigo-para-pizza-aveiro-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-para-pizza-aveiro-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Repostera Aveiro 1 Kg",
+    "slug": "harina-de-trigo-repostera-aveiro-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-repostera-aveiro-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Sin Gluten Measure For Measure King Arthur 2 27 Kg",
+    "slug": "harina-de-trigo-sin-gluten-measure-for-measure-king-arthur-2-27-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-sin-gluten-measure-for-measure-king-arthur-2-27-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Tempura Oishi 1 Kg",
+    "slug": "harina-de-trigo-tempura-oishi-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-tempura-oishi-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Tempura Oishi 500g",
+    "slug": "harina-de-trigo-tempura-oishi-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-tempura-oishi-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Todo Uso Dona Mara 900g",
+    "slug": "harina-de-trigo-todo-uso-dona-mara-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-todo-uso-dona-mara-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Todo Uso la Lucha 900g",
+    "slug": "harina-de-trigo-todo-uso-la-lucha-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-todo-uso-la-lucha-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Todo Uso la Pampa 920g",
+    "slug": "harina-de-trigo-todo-uso-la-pampa-920g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-todo-uso-la-pampa-920g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Todo Uso Mary 900g de",
+    "slug": "harina-de-trigo-todo-uso-mary-900gr-de",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-todo-uso-mary-900gr-de.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Todo Uso Robin Hood 1 Kg",
+    "slug": "harina-de-trigo-todo-uso-robin-hood-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-todo-uso-robin-hood-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Todo Uso Robin Hood 900g",
+    "slug": "harina-de-trigo-todo-uso-robin-hood-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-todo-uso-robin-hood-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Trigo Todo Uso Sindoni 900g",
+    "slug": "harina-de-trigo-todo-uso-sindoni-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-trigo-todo-uso-sindoni-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina de Yuca Blanca Harinana 500g",
+    "slug": "harina-de-yuca-blanca-harinana-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-de-yuca-blanca-harinana-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Integral Alimentos Natural S 1 Kg",
+    "slug": "harina-integral-alimentos-natural-s-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-integral-alimentos-natural-s-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Integral con Harina de Arroz Sin Gluten Maizkel Kel 900g",
+    "slug": "harina-integral-con-harina-de-arroz-sin-gluten-maizkel-kel-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-integral-con-harina-de-arroz-sin-gluten-maizkel-kel-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Integral de Maiz Amarillo Maizkel 1Kg",
+    "slug": "harina-integral-de-maiz-amarillo-maizkel-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-integral-de-maiz-amarillo-maizkel-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Integral de Maiz Blanco Precocida Maizkel 1 Kg",
+    "slug": "harina-integral-de-maiz-blanco-precocida-maizkel-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-integral-de-maiz-blanco-precocida-maizkel-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Integral de Maiz Blanco Semillas Nutritivas Pan 500g",
+    "slug": "harina-integral-de-maiz-blanco-semillas-nutritivas-pan-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-integral-de-maiz-blanco-semillas-nutritivas-pan-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Lucharepa 1 Kg",
+    "slug": "harina-lucharepa-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-lucharepa-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Lucharepa 1Kg",
+    "slug": "harina-lucharepa-1kg",
+    "price": 0,
+    "category": "Granos, Pastas y Harinas",
+    "image_path": "/images/catalog/granos-pastas-y-harinas/harina-lucharepa-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Maiz Blanco pan 1 Kg",
+    "slug": "harina-maiz-blanco pan-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-maiz-blanco pan-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Multiuso Libre de Gluten Kelin 400g",
+    "slug": "harina-multiuso-libre-de-gluten-kelin-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-multiuso-libre-de-gluten-kelin-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Pan",
+    "slug": "harina-pan",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-pan.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Pan Amarilla Gluten",
+    "slug": "harina-pan-amarilla-gluten",
+    "price": 0,
+    "category": "Granos, Pastas y Harinas",
+    "image_path": "/images/catalog/granos-pastas-y-harinas/harina-pan-amarilla-gluten.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Pan de Maiz Blanco",
+    "slug": "harina-pan-de-maiz-blanco",
+    "price": 0,
+    "category": "Granos, Pastas y Harinas",
+    "image_path": "/images/catalog/granos-pastas-y-harinas/harina-pan-de-maiz-blanco.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Pan Maiz Blanco y Arroz 1 Kg",
+    "slug": "harina-pan-maiz-blanco-y-arroz-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-pan-maiz-blanco-y-arroz-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina para Cachapas Pan 500g",
+    "slug": "harina-para-cachapas-pan-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-para-cachapas-pan-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Precocida de Maiz Amarillo Sin Gluten Sensorial Fina Ideal 1Kg",
+    "slug": "harina-precocida-de-maiz-amarillo-sin-gluten-sensorial-fina-ideal-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-precocida-de-maiz-amarillo-sin-gluten-sensorial-fina-ideal-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Harina Precocida de Maiz Blanco Sin Gluten Inspiradora Fina Ideal 1Kg",
+    "slug": "harina-precocida-de-maiz-blanco-sin-gluten-inspiradora-fina-ideal-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/harina-precocida-de-maiz-blanco-sin-gluten-inspiradora-fina-ideal-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Hueso Rojo de Res 1Kg Ganadera 13",
+    "slug": "hueso-rojo-de-res-1kg-ganadera-13",
+    "price": 0,
+    "category": "Carnes y Proteínas",
+    "image_path": "/images/catalog/carnes-y-proteinas/hueso-rojo-de-res-1kg-ganadera-13.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Huevos Docena Ovocentro",
+    "slug": "huevos-docena-ovocentro",
+    "price": 0,
+    "category": "Lácteos y Huevos",
+    "image_path": "/images/catalog/lacteos-y-huevos/huevos-docena-ovocentro.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Jabon Antib Bamboo Aloe Rexona Tripack 330g",
+    "slug": "jabon-antib-bamboo-aloe-rexona-tripack-330g",
+    "price": 0,
+    "category": "Higiene y Belleza",
+    "image_path": "/images/catalog/higiene-y-belleza/jabon-antib-bamboo-aloe-rexona-tripack-330g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Jack Chicharron Grande",
+    "slug": "jack-chicharron-grande",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/jack-chicharron-grande.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Jack Chicharron Pequeno",
+    "slug": "jack-chicharron-pequeno",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/jack-chicharron-pequeno.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Jamon de Pierna Cocido",
+    "slug": "jamon-de-pierna-cocido",
+    "price": 0,
+    "category": "Carnes y Proteínas",
+    "image_path": "/images/catalog/carnes-y-proteinas/jamon-de-pierna-cocido.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Jamon de Pierna Cocido Superior 400g",
+    "slug": "jamon-de-pierna-cocido-superior-400gr",
+    "price": 0,
+    "category": "Carnes y Proteínas",
+    "image_path": "/images/catalog/carnes-y-proteinas/jamon-de-pierna-cocido-superior-400gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Jhon Master Licor",
+    "slug": "jhon-master-licor",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/jhon-master-licor.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Lavaplatos Liquido",
+    "slug": "lavaplatos-liquido",
+    "price": 0,
+    "category": "Aseo del Hogar",
+    "image_path": "/images/catalog/aseo-del-hogar/lavaplatos-liquido.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Lavaplatos Liquido Antibacterial las Llaves 500g",
+    "slug": "lavaplatos-liquido-antibacterial-las-llaves-500g",
+    "price": 0,
+    "category": "Aseo del Hogar",
+    "image_path": "/images/catalog/aseo-del-hogar/lavaplatos-liquido-antibacterial-las-llaves-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Lechosa 1Kg",
+    "slug": "lechosa-1kg",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/lechosa-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Levadura All Taste 10g",
+    "slug": "levadura-all-taste-10g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/levadura-all-taste-10g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Limon 500g",
+    "slug": "limon-500g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/limon-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Lucky",
+    "slug": "lucky",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/lucky.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Maizina Americana 200g",
+    "slug": "maizina-americana-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/maizina-americana-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Maizina Americana 400g",
+    "slug": "maizina-americana-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/maizina-americana-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Maizina Americana 90g",
+    "slug": "maizina-americana-90g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/maizina-americana-90g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Malta Grande",
+    "slug": "malta-grande",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/malta-grande.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Malta Lata",
+    "slug": "malta-lata",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/malta-lata.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Malta Retornable",
+    "slug": "malta-retornable",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/malta-retornable.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Manzana Gala Med Und",
+    "slug": "manzana-gala-med-und",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/manzana-gala-med-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Manzana Roja Med Und",
+    "slug": "manzana-roja-med-und",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/manzana-roja-med-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Manzana Verde Med Und",
+    "slug": "manzana-verde-med-und",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/manzana-verde-med-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Maquina de Mini Donas Crystal Cuisine",
+    "slug": "maquina-de-mini-donas-crystal-cuisine",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/maquina-de-mini-donas-crystal-cuisine.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Marcador",
+    "slug": "marcador",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/marcador.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mascarilla Facial Velo de Arroz Aichun Beauty 25mL",
+    "slug": "mascarilla-facial-velo-de-arroz-aichun-beauty-25ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mascarilla-facial-velo-de-arroz-aichun-beauty-25ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mezcla Deshidratada Pollo con Arroz Iberia 65g",
+    "slug": "mezcla-deshidratada-pollo-con-arroz-iberia-65g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mezcla-deshidratada-pollo-con-arroz-iberia-65g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mezcla para Arepa de Auyama Sin Gluten Miarepafit Saneta 800g",
+    "slug": "mezcla-para-arepa-de-auyama-sin-gluten-miarepafit-saneta-800g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mezcla-para-arepa-de-auyama-sin-gluten-miarepafit-saneta-800g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mezcla para Arepa de Remolacha Sin Gluten Miaepafit Saneta 800g",
+    "slug": "mezcla-para-arepa-de-remolacha-sin-gluten-miaepafit-saneta-800g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mezcla-para-arepa-de-remolacha-sin-gluten-miaepafit-saneta-800g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mezcla para Panquecas Nucita 500g",
+    "slug": "mezcla-para-panquecas-nucita-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mezcla-para-panquecas-nucita-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mezcla para Preparar Arepa Andinas Dona Mara 900g",
+    "slug": "mezcla-para-preparar-arepa-andinas-dona-mara-900g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mezcla-para-preparar-arepa-andinas-dona-mara-900g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mezcla para Preparar Arepitas Dulces Pan 500g",
+    "slug": "mezcla-para-preparar-arepitas-dulces-pan-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mezcla-para-preparar-arepitas-dulces-pan-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mezcla para Torta con Sabor a Brownie Tigo 400g",
+    "slug": "mezcla-para-torta-con-sabor-a-brownie-tigo-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mezcla-para-torta-con-sabor-a-brownie-tigo-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mezcla para Torta con Sabor a Chocolate Tigo 400g",
+    "slug": "mezcla-para-torta-con-sabor-a-chocolate-tigo-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mezcla-para-torta-con-sabor-a-chocolate-tigo-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mezcla para Torta con Sabor a Vainilla Tigo 400g",
+    "slug": "mezcla-para-torta-con-sabor-a-vainilla-tigo-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mezcla-para-torta-con-sabor-a-vainilla-tigo-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Moldes para Brownies Press 30cm",
+    "slug": "moldes-para-brownies-press-30cm",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/moldes-para-brownies-press-30cm.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Morcilla con Arroz y Cebolla la Montserratina 350g a 450g",
+    "slug": "morcilla-con-arroz-y-cebolla-la-montserratina-350g-a-450g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/morcilla-con-arroz-y-cebolla-la-montserratina-350g-a-450g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Morcilla con Arroz y Cebolla la Montserratina 460g a 560g",
+    "slug": "morcilla-con-arroz-y-cebolla-la-montserratina-460g-a-560g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/morcilla-con-arroz-y-cebolla-la-montserratina-460g-a-560g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mortadela de Pollo Tipo Especial del Arepero 650g Aprox",
+    "slug": "mortadela-de-pollo-tipo-especial-del-arepero-650g-aprox",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mortadela-de-pollo-tipo-especial-del-arepero-650g-aprox.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mortadela de Pollo Tipo Especial del Arepero 850g Aprox",
+    "slug": "mortadela-de-pollo-tipo-especial-del-arepero-850g-aprox",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/mortadela-de-pollo-tipo-especial-del-arepero-850g-aprox.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Mostaza Honey Mustard Dulce Mccormick 300 Gr",
+    "slug": "mostaza-honey-mustard-dulce-mccormick-300-gr",
+    "price": 0,
+    "category": "Víveres y Despensa",
+    "image_path": "/images/catalog/viveres-y-despensa/mostaza-honey-mustard-dulce-mccormick-300-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Natu Chips",
+    "slug": "natu-chips",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/natu-chips.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Nestum Arroz 225g",
+    "slug": "nestum-arroz-225g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/nestum-arroz-225g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Onoto Entero el Sasson 55g",
+    "slug": "onoto-entero-el-sasson-55g",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/onoto-entero-el-sasson-55g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Palillos de Bambu 1 Und",
+    "slug": "palillos-de-bambu-1-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/palillos-de-bambu-1-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pall Mall",
+    "slug": "pall-mall",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pall-mall.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pampero",
+    "slug": "pampero",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pampero.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pan Molido Bimbo 300g",
+    "slug": "pan-molido-bimbo-300g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pan-molido-bimbo-300g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pan Rallado la Panamericana 250g",
+    "slug": "pan-rallado-la-panamericana-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pan-rallado-la-panamericana-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Papa 500g",
+    "slug": "papa-500g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/papa-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Papel de Arroz 22cm Sui Ma Ma 500g",
+    "slug": "papel-de-arroz-22cm-sui-ma-ma-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/papel-de-arroz-22cm-sui-ma-ma-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Papel Facial Absorbente de Grasa Arroz Karite 100 Und",
+    "slug": "papel-facial-absorbente-de-grasa-arroz-karite-100-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/papel-facial-absorbente-de-grasa-arroz-karite-100-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Papel Rosal Plus 215 Hojas 4 Rollos",
+    "slug": "papel-rosal-plus-215-hojas-4-rollos",
+    "price": 0,
+    "category": "Víveres y Despensa",
+    "image_path": "/images/catalog/viveres-y-despensa/papel-rosal-plus-215-hojas-4-rollos.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta al Huevo Estrellas Eduardo 250g",
+    "slug": "pasta-al-huevo-estrellas-eduardo-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-al-huevo-estrellas-eduardo-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta al Huevo Letras Eduardo 250g",
+    "slug": "pasta-al-huevo-letras-eduardo-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-al-huevo-letras-eduardo-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Capri Premium Codito 500g",
+    "slug": "pasta-capri-premium-codito-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-capri-premium-codito-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta con Espinaca Cinta Chebell 250g",
+    "slug": "pasta-con-espinaca-cinta-chebell-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-con-espinaca-cinta-chebell-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Corta Allegri 1Kg",
+    "slug": "pasta-corta-allegri-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-corta-allegri-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Corta Tornillo 1Kg Della Nonna",
+    "slug": "pasta-corta-tornillo-1kg-della-nonna",
+    "price": 0,
+    "category": "Granos, Pastas y Harinas",
+    "image_path": "/images/catalog/granos-pastas-y-harinas/pasta-corta-tornillo-1kg-della-nonna.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Ajo Heinz 195g",
+    "slug": "pasta-de-ajo-heinz-195g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-ajo-heinz-195g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Fideos Eduardo 250g",
+    "slug": "pasta-de-fideos-eduardo-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-fideos-eduardo-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Higado Oscar Mayer 226g",
+    "slug": "pasta-de-higado-oscar-mayer-226g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-higado-oscar-mayer-226g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Higado Ricci 290g Aprox",
+    "slug": "pasta-de-higado-ricci-290g-aprox",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-higado-ricci-290g-aprox.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Maiz Tornillitos Gisela 250g",
+    "slug": "pasta-de-maiz-tornillitos-gisela-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-maiz-tornillitos-gisela-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Tomate Concentrado Kaldini 400g",
+    "slug": "pasta-de-tomate-concentrado-kaldini-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-tomate-concentrado-kaldini-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Tomate Doble Concentrada Capri 490g",
+    "slug": "pasta-de-tomate-doble-concentrada-capri-490g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-tomate-doble-concentrada-capri-490g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Tomate Doble Concentrada Kiero 200g",
+    "slug": "pasta-de-tomate-doble-concentrada-kiero-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-tomate-doble-concentrada-kiero-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Tomate Happy Harvest 170g",
+    "slug": "pasta-de-tomate-happy-harvest-170g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-tomate-happy-harvest-170g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Tomate Heinz 511 Gr",
+    "slug": "pasta-de-tomate-heinz-511-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-tomate-heinz-511-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Tomate Iberia 200g",
+    "slug": "pasta-de-tomate-iberia-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-tomate-iberia-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Tomate Kaldini 400g",
+    "slug": "pasta-de-tomate-kaldini-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-tomate-kaldini-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Tomate Pomi 700g",
+    "slug": "pasta-de-tomate-pomi-700g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-tomate-pomi-700g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Tomate Rustica Pomi 700g",
+    "slug": "pasta-de-tomate-rustica-pomi-700g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-tomate-rustica-pomi-700g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta de Tomate Tigo 350g",
+    "slug": "pasta-de-tomate-tigo-350g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-de-tomate-tigo-350g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Dedal Allegri 1 Kg",
+    "slug": "pasta-dedal-allegri-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-dedal-allegri-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Dedal con 3 Vegetales Capri 500g",
+    "slug": "pasta-dedal-con-3-vegetales-capri-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-dedal-con-3-vegetales-capri-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Dedal Premium Mary 500g",
+    "slug": "pasta-dedal-premium-mary-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-dedal-premium-mary-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Dedales Primor 500g",
+    "slug": "pasta-dedales-primor-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-dedales-primor-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Dental Anticaries con Fluor Galactic Classic 100g",
+    "slug": "pasta-dental-anticaries-con-fluor-galactic-classic-100g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-dental-anticaries-con-fluor-galactic-classic-100g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Dental Luminous White Colgate 75mL",
+    "slug": "pasta-dental-luminous-white-colgate-75ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-dental-luminous-white-colgate-75ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Especial para Ensaladas Capri 500g",
+    "slug": "pasta-especial-para-ensaladas-capri-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-especial-para-ensaladas-capri-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Espirales Allegri 1 Kg",
+    "slug": "pasta-espirales-allegri-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-espirales-allegri-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Fetuccini Capri 500g",
+    "slug": "pasta-fetuccini-capri-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-fetuccini-capri-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Fideo Capri 250g",
+    "slug": "pasta-fideo-capri-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-fideo-capri-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Fusilli Andina America Organica 227g",
+    "slug": "pasta-fusilli-andina-america-organica-227g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-fusilli-andina-america-organica-227g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Fusilli N 28 Gluten Free la Molisana 400g",
+    "slug": "pasta-fusilli-n-28-gluten-free-la-molisana-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-fusilli-n-28-gluten-free-la-molisana-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Fusilli N 28 la Molisana 500g",
+    "slug": "pasta-fusilli-n-28-la-molisana-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-fusilli-n-28-la-molisana-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Fusilli No 58 Pantanella 500g",
+    "slug": "pasta-fusilli-no-58-pantanella-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-fusilli-no-58-pantanella-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Integral Fettuccine N 104 la Molisana 500g",
+    "slug": "pasta-integral-fettuccine-n-104-la-molisana-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-integral-fettuccine-n-104-la-molisana-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Integral Penne Rigate N 41 de Cecco 500g",
+    "slug": "pasta-integral-penne-rigate-n-41-de-cecco-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-integral-penne-rigate-n-41-de-cecco-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Integral Plumas Eduardo 500g",
+    "slug": "pasta-integral-plumas-eduardo-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-integral-plumas-eduardo-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Larga Mary Superior 500 Gr",
+    "slug": "pasta-larga-mary-superior-500-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-larga-mary-superior-500-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Larga Vermicelli Fino Extra Especial Capri 500g",
+    "slug": "pasta-larga-vermicelli-fino-extra-especial-capri-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-larga-vermicelli-fino-extra-especial-capri-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Larga Vermicelli Veneciana 1Kg",
+    "slug": "pasta-larga-vermicelli-veneciana-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-larga-vermicelli-veneciana-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Lasagna Galo 200g",
+    "slug": "pasta-lasagna-galo-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-lasagna-galo-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Linguine N 6 la Molisana 500g",
+    "slug": "pasta-linguine-n-6-la-molisana-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-linguine-n-6-la-molisana-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Linguini Primor 1Kg",
+    "slug": "pasta-linguini-primor-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-linguini-primor-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Macarron Premium Mary 500g",
+    "slug": "pasta-macarron-premium-mary-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-macarron-premium-mary-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta para Pasticho al Huevo Eduardo 250g",
+    "slug": "pasta-para-pasticho-al-huevo-eduardo-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-para-pasticho-al-huevo-eduardo-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta para Pasticho Directo al Horno Capri 250g",
+    "slug": "pasta-para-pasticho-directo-al-horno-capri-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-para-pasticho-directo-al-horno-capri-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta para Pasticho Napoli 250g",
+    "slug": "pasta-para-pasticho-napoli-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-para-pasticho-napoli-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta para Pasticho Tradicional Capri 250g",
+    "slug": "pasta-para-pasticho-tradicional-capri-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-para-pasticho-tradicional-capri-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Parafuso Galo 500g",
+    "slug": "pasta-parafuso-galo-500g",
+    "price": 0,
+    "category": "Granos, Pastas y Harinas",
+    "image_path": "/images/catalog/granos-pastas-y-harinas/pasta-parafuso-galo-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Penne Andina America Organica 227g",
+    "slug": "pasta-penne-andina-america-organica-227g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-penne-andina-america-organica-227g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Penne Galo 500g",
+    "slug": "pasta-penne-galo-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-penne-galo-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Penne Maiz y Arroz Barilla 340g",
+    "slug": "pasta-penne-maiz-y-arroz-barilla-340g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-penne-maiz-y-arroz-barilla-340g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Penne Rigate Maiz y Arroz Barilla 400g",
+    "slug": "pasta-penne-rigate-maiz-y-arroz-barilla-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-penne-rigate-maiz-y-arroz-barilla-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Penne Rigate N 20 Gluten Free la Molisana 400g",
+    "slug": "pasta-penne-rigate-n-20-gluten-free-la-molisana-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-penne-rigate-n-20-gluten-free-la-molisana-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Penne Rigate N 20 la Molisana 500g",
+    "slug": "pasta-penne-rigate-n-20-la-molisana-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-penne-rigate-n-20-la-molisana-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Penne Rigate N 26 Granoro 500g",
+    "slug": "pasta-penne-rigate-n-26-granoro-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-penne-rigate-n-26-granoro-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Penne Rigate Sin Gluten No 41 de Cecco 400g",
+    "slug": "pasta-penne-rigate-sin-gluten-no-41-de-cecco-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-penne-rigate-sin-gluten-no-41-de-cecco-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Pluma Premium Mary 500g",
+    "slug": "pasta-pluma-premium-mary-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-pluma-premium-mary-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Pluma Premium Ronco 1Kg",
+    "slug": "pasta-pluma-premium-ronco-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-pluma-premium-ronco-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Pluma Superior Mary 1Kg",
+    "slug": "pasta-pluma-superior-mary-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-pluma-superior-mary-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Pluma Superior Mary 500g",
+    "slug": "pasta-pluma-superior-mary-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-pluma-superior-mary-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Pluma Tradicional Mary 500g",
+    "slug": "pasta-pluma-tradicional-mary-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-pluma-tradicional-mary-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Plumitas Primor 1 Kg",
+    "slug": "pasta-plumitas-primor-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-plumitas-primor-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Premium Ditali Sindoni 1Kg",
+    "slug": "pasta-premium-ditali-sindoni-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-premium-ditali-sindoni-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Premium Espaguettini Capri 1Kg",
+    "slug": "pasta-premium-espaguettini-capri-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-premium-espaguettini-capri-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Premium Linguinni Ronco 1Kg",
+    "slug": "pasta-premium-linguinni-ronco-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-premium-linguinni-ronco-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Premiun Vermicelli Ronco 500 Gr",
+    "slug": "pasta-premiun-vermicelli-ronco-500-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-premiun-vermicelli-ronco-500-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Primor Dedales 1 Kg",
+    "slug": "pasta-primor-dedales-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-primor-dedales-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Primor Larga",
+    "slug": "pasta-primor-larga",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-primor-larga.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Rigatoni Extra Especial Capri 500g",
+    "slug": "pasta-rigatoni-extra-especial-capri-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-rigatoni-extra-especial-capri-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Rigatoni N 24 de Cecco 500g",
+    "slug": "pasta-rigatoni-n-24-de-cecco-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-rigatoni-n-24-de-cecco-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Rigatoni Premium Capri 1Kg",
+    "slug": "pasta-rigatoni-premium-capri-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-rigatoni-premium-capri-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Rigatoni Sindoni 500g",
+    "slug": "pasta-rigatoni-sindoni-500gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-rigatoni-sindoni-500gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Seca con Lluvia de Colores la Selva 24 Und",
+    "slug": "pasta-seca-con-lluvia-de-colores-la-selva-24-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-seca-con-lluvia-de-colores-la-selva-24-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Seca Punto Rojo la Selva 24 Und",
+    "slug": "pasta-seca-punto-rojo-la-selva-24-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-seca-punto-rojo-la-selva-24-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Spaghetti 8 Galo 500g",
+    "slug": "pasta-spaghetti-8-galo-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-spaghetti-8-galo-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Spaghetti Integral N 15 la Molisana 500g",
+    "slug": "pasta-spaghetti-integral-n-15-la-molisana-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-spaghetti-integral-n-15-la-molisana-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Spaghetti Maiz y Arroz Barilla 340g",
+    "slug": "pasta-spaghetti-maiz-y-arroz-barilla-340g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-spaghetti-maiz-y-arroz-barilla-340g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Spaghetti Maiz y Arroz Barilla 400g",
+    "slug": "pasta-spaghetti-maiz-y-arroz-barilla-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-spaghetti-maiz-y-arroz-barilla-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Spaghetti No 5 Pantanella 500g",
+    "slug": "pasta-spaghetti-no-5-pantanella-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-spaghetti-no-5-pantanella-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tagliatelle N 14 Colavita 500g",
+    "slug": "pasta-tagliatelle-n-14-colavita-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tagliatelle-n-14-colavita-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tallarin Largo Capri 500g",
+    "slug": "pasta-tallarin-largo-capri-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tallarin-largo-capri-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tipo Pluma Enriquecida Ronco 500g",
+    "slug": "pasta-tipo-pluma-enriquecida-ronco-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tipo-pluma-enriquecida-ronco-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tipo Plumita Premium Capri 500g",
+    "slug": "pasta-tipo-plumita-premium-capri-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tipo-plumita-premium-capri-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tipo Plumita Primor 500g",
+    "slug": "pasta-tipo-plumita-primor-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tipo-plumita-primor-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tipo Spaguetti Tradicional Mary 1 Kg",
+    "slug": "pasta-tipo-spaguetti-tradicional-mary-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tipo-spaguetti-tradicional-mary-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tipo Tornillo Premium Capri 1Kg",
+    "slug": "pasta-tipo-tornillo-premium-capri-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tipo-tornillo-premium-capri-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tipo Tornillos Extra Especial Primor 1 Kg",
+    "slug": "pasta-tipo-tornillos-extra-especial-primor-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tipo-tornillos-extra-especial-primor-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tornillo Premium Capri 500g",
+    "slug": "pasta-tornillo-premium-capri-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tornillo-premium-capri-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tornillo Ronco 500g",
+    "slug": "pasta-tornillo-ronco-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tornillo-ronco-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tornillos Superior Mary 1Kg",
+    "slug": "pasta-tornillos-superior-mary-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tornillos-superior-mary-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Tortiglioni N 23 Libre de Gluten de Cecco 400g",
+    "slug": "pasta-tortiglioni-n-23-libre-de-gluten-de-cecco-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-tortiglioni-n-23-libre-de-gluten-de-cecco-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Vermicelli Allegri 1 Kg",
+    "slug": "pasta-vermicelli-allegri-1-kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-vermicelli-allegri-1-kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Vermicelli Extra Especial Primor 1Kg",
+    "slug": "pasta-vermicelli-extra-especial-primor-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-vermicelli-extra-especial-primor-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Vermicelli Premium Capri 1Kg",
+    "slug": "pasta-vermicelli-premium-capri-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-vermicelli-premium-capri-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Vermicelli Premium Della Nonna 1Kg",
+    "slug": "pasta-vermicelli-premium-della-nonna-1kg",
+    "price": 0,
+    "category": "Granos, Pastas y Harinas",
+    "image_path": "/images/catalog/granos-pastas-y-harinas/pasta-vermicelli-premium-della-nonna-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Vermicelli Premium Sindoni 1Kg",
+    "slug": "pasta-vermicelli-premium-sindoni-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-vermicelli-premium-sindoni-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Vermicelli Primor 500g",
+    "slug": "pasta-vermicelli-primor-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-vermicelli-primor-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pasta Vermicelli Tradicional Mary 500g",
+    "slug": "pasta-vermicelli-tradicional-mary-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pasta-vermicelli-tradicional-mary-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pastas para Pasticho Sindoni 250g",
+    "slug": "pastas-para-pasticho-sindoni-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pastas-para-pasticho-sindoni-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pechuga Cocida de Pavo",
+    "slug": "pechuga-cocida-de-pavo",
+    "price": 0,
+    "category": "Carnes y Proteínas",
+    "image_path": "/images/catalog/carnes-y-proteinas/pechuga-cocida-de-pavo.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pechuga Cocida de Pavo Superior Ligth Punta de Monte 400g",
+    "slug": "pechuga-cocida-de-pavo-superior-ligth-punta-de-monte-400gr",
+    "price": 0,
+    "category": "Carnes y Proteínas",
+    "image_path": "/images/catalog/carnes-y-proteinas/pechuga-cocida-de-pavo-superior-ligth-punta-de-monte-400gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pechuga de Pollo Ligth",
+    "slug": "pechuga-de-pollo-ligth",
+    "price": 0,
+    "category": "Carnes y Proteínas",
+    "image_path": "/images/catalog/carnes-y-proteinas/pechuga-de-pollo-ligth.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pechuga de Pollo Ligth Punta de Monte 400g",
+    "slug": "pechuga-de-pollo-ligth-punta-de-monte-400gr",
+    "price": 0,
+    "category": "Carnes y Proteínas",
+    "image_path": "/images/catalog/carnes-y-proteinas/pechuga-de-pollo-ligth-punta-de-monte-400gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pepito Pequeno",
+    "slug": "pepito-pequeno",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pepito-pequeno.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pepsi 1 Lt",
+    "slug": "pepsi-1-lt",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pepsi-1-lt.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pepsi 2 Litros",
+    "slug": "pepsi-2-litros",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pepsi-2-litros.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pepsi Cola 1L",
+    "slug": "pepsi-cola-1l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pepsi-cola-1l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pepsi Cola 2L",
+    "slug": "pepsi-cola-2l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pepsi-cola-2l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pepsi Cola Lata 355mL",
+    "slug": "pepsi-cola-lata-355ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pepsi-cola-lata-355ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pepsi Light 2L",
+    "slug": "pepsi-light-2l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pepsi-light-2l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pepsi Light Lata 355mL",
+    "slug": "pepsi-light-lata-355ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pepsi-light-lata-355ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pepsi Zero Azucar 2L",
+    "slug": "pepsi-zero-azucar-2l",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/pepsi-zero-azucar-2l.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Peras Verdes X Und",
+    "slug": "peras-verdes-x-und",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/peras-verdes-x-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Platano Amarillo Und",
+    "slug": "platano-amarillo-und",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/platano-amarillo-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Platano Maduro 900g a 1 1Kg",
+    "slug": "platano-maduro-900g-a-1-1kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/platano-maduro-900g-a-1-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Platano Verde Und",
+    "slug": "platano-verde-und",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/platano-verde-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Polar Light Lata Grande",
+    "slug": "polar-light-lata-grande",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/polar-light-lata-grande.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Polar Light Lata Pequena",
+    "slug": "polar-light-lata-pequena",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/polar-light-lata-pequena.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Polar Light Pilsen",
+    "slug": "polar-light-pilsen",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/polar-light-pilsen.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Polar Pilsen Lata Grande",
+    "slug": "polar-pilsen-lata-grande",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/polar-pilsen-lata-grande.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Polar Pilsen Lata Pequena",
+    "slug": "polar-pilsen-lata-pequena",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/polar-pilsen-lata-pequena.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Polvo de Hornear All Taste 10g",
+    "slug": "polvo-de-hornear-all-taste-10g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/polvo-de-hornear-all-taste-10g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Polvo de Hornear Dulces Coloridos 100g",
+    "slug": "polvo-de-hornear-dulces-coloridos-100g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/polvo-de-hornear-dulces-coloridos-100g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Porta Bolsa para Mascotas Diseno de Refresco Poop Bags 2 Und",
+    "slug": "porta-bolsa-para-mascotas-diseno-de-refresco-poop-bags-2-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/porta-bolsa-para-mascotas-diseno-de-refresco-poop-bags-2-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pride Limpiador Aerosol",
+    "slug": "pride-limpiador-aerosol",
+    "price": 0,
+    "category": "Aseo del Hogar",
+    "image_path": "/images/catalog/aseo-del-hogar/pride-limpiador-aerosol.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Pride Limpiador Aerosol Limon 360mL",
+    "slug": "pride-limpiador-aerosol-limon-360ml",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/pride-limpiador-aerosol-limon-360ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Queso Crema Dona Flora 250g",
+    "slug": "queso-crema-dona-flora-250g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/queso-crema-dona-flora-250g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Queso Llanero 500g Entero",
+    "slug": "queso-llanero-500g-entero",
+    "price": 0,
+    "category": "Lácteos y Huevos",
+    "image_path": "/images/catalog/lacteos-y-huevos/queso-llanero-500g-entero.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Quinoa Tricolor Emana 350g",
+    "slug": "quinoa-tricolor-emana-350g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/quinoa-tricolor-emana-350g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Raqueti",
+    "slug": "raqueti",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/raqueti.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Refresco Glup Sabores Cola Fresh 400 Ml 15 Unidades",
+    "slug": "refresco-glup-sabores-cola-fresh-400-ml-15-unidades",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/refresco-glup-sabores-cola-fresh-400-ml-15-unidades.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Remolacha 500g",
+    "slug": "remolacha-500g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/remolacha-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Sal Mia",
+    "slug": "sal-mia",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/sal-mia.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa 57 Heinz 194g",
+    "slug": "salsa-57-heinz-194g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-57-heinz-194g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Amatriciana con Tocineta Osole 200g",
+    "slug": "salsa-amatriciana-con-tocineta-osole-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-amatriciana-con-tocineta-osole-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Amatriciana con Tocineta Osole 340g",
+    "slug": "salsa-amatriciana-con-tocineta-osole-340g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-amatriciana-con-tocineta-osole-340g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Bbq con Mostaza Miel Mccormick 230mL",
+    "slug": "salsa-bbq-con-mostaza-miel-mccormick-230ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-bbq-con-mostaza-miel-mccormick-230ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Bbq Kiero 230g",
+    "slug": "salsa-bbq-kiero-230g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-bbq-kiero-230g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Bbq la Montserratina 370g",
+    "slug": "salsa-bbq-la-montserratina-370g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-bbq-la-montserratina-370g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Bbq Original Mccormick 230mL",
+    "slug": "salsa-bbq-original-mccormick-230ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-bbq-original-mccormick-230ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Bologna Capri 190g",
+    "slug": "salsa-bologna-capri-190g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-bologna-capri-190g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Bolognesa Kiero 340g",
+    "slug": "salsa-bolognesa-kiero-340g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-bolognesa-kiero-340g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Bolonesa a la Crema Osole 200g",
+    "slug": "salsa-bolonesa-a-la-crema-osole-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-bolonesa-a-la-crema-osole-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Bolonesa Osole 200g",
+    "slug": "salsa-bolonesa-osole-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-bolonesa-osole-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Bolonesa Sin Gluten Osole 340g",
+    "slug": "salsa-bolonesa-sin-gluten-osole-340g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-bolonesa-sin-gluten-osole-340g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa con Sabor Queso Cheddar Add 240g",
+    "slug": "salsa-con-sabor-queso-cheddar-add-240g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-con-sabor-queso-cheddar-add-240g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Aceitunas Sin Gluten Osole 200g",
+    "slug": "salsa-de-aceitunas-sin-gluten-osole-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-aceitunas-sin-gluten-osole-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Ajo Cremosa 200g",
+    "slug": "salsa-de-ajo-cremosa-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-ajo-cremosa-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Ajo Iberia 150 Ml",
+    "slug": "salsa-de-ajo-iberia-150-ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-ajo-iberia-150-ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Ajo Iberia 150mL",
+    "slug": "salsa-de-ajo-iberia-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-ajo-iberia-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Ajo Iberia 300mL",
+    "slug": "salsa-de-ajo-iberia-300ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-ajo-iberia-300ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Ajo Kampist 150 Ml",
+    "slug": "salsa-de-ajo-kampist-150-ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-ajo-kampist-150-ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Ajo Ole 150mL",
+    "slug": "salsa-de-ajo-ole-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-ajo-ole-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Ajo Porro con Pimenton Cremosa",
+    "slug": "salsa-de-ajo-porro-con-pimenton-cremosa",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-ajo-porro-con-pimenton-cremosa.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Ajo Raquel 150mL",
+    "slug": "salsa-de-ajo-raquel-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-ajo-raquel-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Ajo Raquel 300mL",
+    "slug": "salsa-de-ajo-raquel-300ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-ajo-raquel-300ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Bolonesa Ole 200g",
+    "slug": "salsa-de-bolonesa-ole-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-bolonesa-ole-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Ostra Oishi 280g",
+    "slug": "salsa-de-ostra-oishi-280g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-ostra-oishi-280g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Soja Oscura Yinjiang 150mL",
+    "slug": "salsa-de-soja-oscura-yinjiang-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-soja-oscura-yinjiang-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Soya Add 150mL",
+    "slug": "salsa-de-soya-add-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-soya-add-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Soya Iberia 150 Ml",
+    "slug": "salsa-de-soya-iberia-150-ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-soya-iberia-150-ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Soya Iberia 150mL",
+    "slug": "salsa-de-soya-iberia-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-soya-iberia-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Soya Kampist 150 Ml",
+    "slug": "salsa-de-soya-kampist-150-ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-soya-kampist-150-ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Soya Ligera Mccormick 150mL",
+    "slug": "salsa-de-soya-ligera-mccormick-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-soya-ligera-mccormick-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Soya Mccormick 150mL",
+    "slug": "salsa-de-soya-mccormick-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-soya-mccormick-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Soya Raquel 150mL",
+    "slug": "salsa-de-soya-raquel-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-soya-raquel-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate con Aceituna Ole 300g",
+    "slug": "salsa-de-tomate-con-aceituna-ole-300g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-con-aceituna-ole-300g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Heinz 397g",
+    "slug": "salsa-de-tomate-heinz-397g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-heinz-397g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Ketchup Don Antonio 397g",
+    "slug": "salsa-de-tomate-ketchup-don-antonio-397g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-ketchup-don-antonio-397g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Ketchup Envase de Vidrio Heinz 567g",
+    "slug": "salsa-de-tomate-ketchup-envase-de-vidrio-heinz-567g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-ketchup-envase-de-vidrio-heinz-567g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Ketchup Heinz 198g",
+    "slug": "salsa-de-tomate-ketchup-heinz-198g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-ketchup-heinz-198g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Ketchup Heinz 397g",
+    "slug": "salsa-de-tomate-ketchup-heinz-397g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-ketchup-heinz-397g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Ketchup Pampero 198g",
+    "slug": "salsa-de-tomate-ketchup-pampero-198g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-ketchup-pampero-198g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Ketchup Pampero 397g",
+    "slug": "salsa-de-tomate-ketchup-pampero-397g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-ketchup-pampero-397g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Ketchup Salsabor el Maizal 397g 2 Muestras de 100g Gratis",
+    "slug": "salsa-de-tomate-ketchup-salsabor-el-maizal-397g-2-muestras-de-100g-gratis",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-ketchup-salsabor-el-maizal-397g-2-muestras-de-100g-gratis.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Napolitana con Tocineta Ole 300g",
+    "slug": "salsa-de-tomate-napolitana-con-tocineta-ole-300g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-napolitana-con-tocineta-ole-300g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Napolitana Ole 200g",
+    "slug": "salsa-de-tomate-napolitana-ole-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-napolitana-ole-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Napolitana Ole 300g",
+    "slug": "salsa-de-tomate-napolitana-ole-300g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-napolitana-ole-300g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate para Pizza Ole 200g",
+    "slug": "salsa-de-tomate-para-pizza-ole-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-para-pizza-ole-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Pizza con Pepperoni Ole 200g",
+    "slug": "salsa-de-tomate-pizza-con-pepperoni-ole-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-pizza-con-pepperoni-ole-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa de Tomate Sin Azucar Heinz 367g",
+    "slug": "salsa-de-tomate-sin-azucar-heinz-367g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-de-tomate-sin-azucar-heinz-367g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Finas Hierbas Sin Gluten Osole 200g",
+    "slug": "salsa-finas-hierbas-sin-gluten-osole-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-finas-hierbas-sin-gluten-osole-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Inglesa Heinz 300 Ml",
+    "slug": "salsa-inglesa-heinz-300-ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-inglesa-heinz-300-ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Inglesa Mccormick 150mL",
+    "slug": "salsa-inglesa-mccormick-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-inglesa-mccormick-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Inglesa Mccormick 300mL",
+    "slug": "salsa-inglesa-mccormick-300ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-inglesa-mccormick-300ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Inglesa Ole 150mL",
+    "slug": "salsa-inglesa-ole-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-inglesa-ole-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Inglesa Tiquire Flores 150mL",
+    "slug": "salsa-inglesa-tiquire-flores-150ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-inglesa-tiquire-flores-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Napolitana Heinz 195 Gr",
+    "slug": "salsa-napolitana-heinz-195-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-napolitana-heinz-195-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Napolitana Sin Gluten Osole 340g",
+    "slug": "salsa-napolitana-sin-gluten-osole-340g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-napolitana-sin-gluten-osole-340g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa para Pasta de Albahaca Osole 200g",
+    "slug": "salsa-para-pasta-de-albahaca-osole-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-para-pasta-de-albahaca-osole-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa para Pasta Tomate Albahaca Frescarini 490g",
+    "slug": "salsa-para-pasta-tomate-albahaca-frescarini-490g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-para-pasta-tomate-albahaca-frescarini-490g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa para Pastas Diablitos Underwood 490g",
+    "slug": "salsa-para-pastas-diablitos-underwood-490g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-para-pastas-diablitos-underwood-490g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa para Pastas Ragu 1 27Kg",
+    "slug": "salsa-para-pastas-ragu-1-27kg",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-para-pastas-ragu-1-27kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa para Pizza Frescarini 190g",
+    "slug": "salsa-para-pizza-frescarini-190g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-para-pizza-frescarini-190g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa para Pizza Kiero 340g",
+    "slug": "salsa-para-pizza-kiero-340g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-para-pizza-kiero-340g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Picante Tabasco Jalapeno 148mL 5oz",
+    "slug": "salsa-picante-tabasco-jalapeno-148ml-5oz",
+    "price": 0,
+    "category": "Víveres y Despensa",
+    "image_path": "/images/catalog/viveres-y-despensa/salsa-picante-tabasco-jalapeno-148ml-5oz.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Sabor a Maiz Fritz 240g",
+    "slug": "salsa-sabor-a-maiz-fritz-240g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-sabor-a-maiz-fritz-240g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Soya Heinz 300mL",
+    "slug": "salsa-soya-heinz-300ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-soya-heinz-300ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Sriracha Oishi 445mL",
+    "slug": "salsa-sriracha-oishi-445ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-sriracha-oishi-445ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Salsa Tartara Cremosa 200g",
+    "slug": "salsa-tartara-cremosa-200g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/salsa-tartara-cremosa-200g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Samba",
+    "slug": "samba",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/samba.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Sangria la Diosa",
+    "slug": "sangria-la-diosa",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/sangria-la-diosa.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Sardina en Aceite Vegetal Kaldini 125 Gr",
+    "slug": "sardina-en-aceite-vegetal-kaldini-125-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/sardina-en-aceite-vegetal-kaldini-125-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Sardina Mar Bonita",
+    "slug": "sardina-mar-bonita",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/sardina-mar-bonita.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Sardinas en Aceite Mision Mar 170 Gr",
+    "slug": "sardinas-en-aceite-mision-mar-170-gr",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/sardinas-en-aceite-mision-mar-170-gr.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Semola de Maiz Amarillo Polenta Kel 400g",
+    "slug": "semola-de-maiz-amarillo-polenta-kel-400g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/semola-de-maiz-amarillo-polenta-kel-400g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Set de Collar de Corazones Czarcillo de Acero Inoxidable",
+    "slug": "set-de-collar-de-corazones-czarcillo-de-acero-inoxidable",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/set-de-collar-de-corazones-czarcillo-de-acero-inoxidable.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Set de Collar de Cruz Czarcillos de Acero Inoxidable",
+    "slug": "set-de-collar-de-cruz-czarcillos-de-acero-inoxidable",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/set-de-collar-de-cruz-czarcillos-de-acero-inoxidable.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Set de Moldes para Galletas Press 6 Und",
+    "slug": "set-de-moldes-para-galletas-press-6-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/set-de-moldes-para-galletas-press-6-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Shampoo Anti Resequedad Head Shoulders 180mL",
+    "slug": "shampoo-anti-resequedad-head-shoulders-180ml",
+    "price": 0,
+    "category": "Higiene y Belleza",
+    "image_path": "/images/catalog/higiene-y-belleza/shampoo-anti-resequedad-head-shoulders-180ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Shampoo Head Shoulders Anti Comezon 180mL",
+    "slug": "shampoo-head-shoulders-anti-comezon-180ml",
+    "price": 0,
+    "category": "Higiene y Belleza",
+    "image_path": "/images/catalog/higiene-y-belleza/shampoo-head-shoulders-anti-comezon-180ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Shampoo No Mas Nudos Johnson S 500mL",
+    "slug": "shampoo-no-mas-nudos-johnson-s-500ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/shampoo-no-mas-nudos-johnson-s-500ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Six Pack Sangria en Lata la Que Manda Tinta 250mL",
+    "slug": "six-pack-sangria-en-lata-la-que-manda-tinta-250ml",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/six-pack-sangria-en-lata-la-que-manda-tinta-250ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Soda Milnava Lata",
+    "slug": "soda-milnava-lata",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/soda-milnava-lata.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Solera Lata",
+    "slug": "solera-lata",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/solera-lata.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Sopa de Pollo con Arroz Maggi 62g",
+    "slug": "sopa-de-pollo-con-arroz-maggi-62g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/sopa-de-pollo-con-arroz-maggi-62g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Spaghetti N 16 la Molisana 500g",
+    "slug": "spaghetti-n-16-la-molisana-500g",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/spaghetti-n-16-la-molisana-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Suavizante Floral Downy 360mL",
+    "slug": "suavizante-floral-downy-360ml",
+    "price": 0,
+    "category": "Víveres y Despensa",
+    "image_path": "/images/catalog/viveres-y-despensa/suavizante-floral-downy-360ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Suplemento 5 Htp 100 Mg 30 Capsulas Spring Valley",
+    "slug": "suplemento-5-htp-100-mg-30-capsulas-spring-valley",
+    "price": 0,
+    "category": "Higiene y Belleza",
+    "image_path": "/images/catalog/higiene-y-belleza/suplemento-5-htp-100-mg-30-capsulas-spring-valley.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Tercio Polar",
+    "slug": "tercio-polar",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/tercio-polar.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Tom Mediano",
+    "slug": "tom-mediano",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/tom-mediano.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Tomate Perita 500g",
+    "slug": "tomate-perita-500g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/tomate-perita-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Tortillas de Yuca Precocida Tu Verdura 500g",
+    "slug": "tortillas-de-yuca-precocida-tu-verdura-500g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/tortillas-de-yuca-precocida-tu-verdura-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Tostadas de Quinua Arroz Integral y Chia Emana 84g 14 Und",
+    "slug": "tostadas-de-quinua-arroz-integral-y-chia-emana-84g-14-und",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/tostadas-de-quinua-arroz-integral-y-chia-emana-84g-14-und.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Tosti Arepa 6p Colores Variados Crystal Cuicine",
+    "slug": "tosti-arepa-6p-colores-variados-crystal-cuicine",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/tosti-arepa-6p-colores-variados-crystal-cuicine.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Toston Tom",
+    "slug": "toston-tom",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/toston-tom.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Tripack de Salsas Ajo Soya Inglesa Ole 150mL",
+    "slug": "tripack-de-salsas-ajo-soya-inglesa-ole-150ml",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/tripack-de-salsas-ajo-soya-inglesa-ole-150ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Tucacas Licor",
+    "slug": "tucacas-licor",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/tucacas-licor.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Uvas Rojas Importadas 500g",
+    "slug": "uvas-rojas-importadas-500g",
+    "price": 0,
+    "category": "Varios",
+    "image_path": "/images/catalog/varios/uvas-rojas-importadas-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Viceroy",
+    "slug": "viceroy",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/viceroy.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Vinagre de Arroz 620mL",
+    "slug": "vinagre-de-arroz-620ml",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/vinagre-de-arroz-620ml.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Yuca 1Kg",
+    "slug": "yuca-1kg",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/yuca-1kg.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Zanahoria 500g",
+    "slug": "zanahoria-500g",
+    "price": 0,
+    "category": "Frutas y Verduras",
+    "image_path": "/images/catalog/frutas-y-verduras/zanahoria-500g.webp",
+    "source_store": "Catálogo Local"
+  },
+  {
+    "name": "Zulia Lata",
+    "slug": "zulia-lata",
+    "price": 0,
+    "category": "General",
+    "image_path": "/images/catalog/zulia-lata.webp",
+    "source_store": "Catálogo Local"
   }
 ]

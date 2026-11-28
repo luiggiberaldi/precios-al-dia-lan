@@ -113,6 +113,36 @@ export async function flushNubeStockNow() {
     }
 }
 
+// ─── Subir todas las colas antes de cerrar sesión de empleado ─────────────────
+let allFlusher = null;
+
+export function setNubeAllFlusher(fn) {
+    allFlusher = typeof fn === 'function' ? fn : null;
+}
+
+/**
+ * Espera escrituras locales en vuelo y fuerza subida de colas pendientes (caja, ventas,
+ * stock, cartera) antes de invalidar el token de sesión al salir a «¿Quién está operando?».
+ * Con tope de tiempo para no bloquear nunca la interfaz si no hay red.
+ */
+export async function flushNubeBeforeLogout(timeoutMs = 2500) {
+    if (!handler && !allFlusher && inFlight.size === 0) return false;
+    const run = async () => {
+        if (inFlight.size > 0) await Promise.allSettled([...inFlight]);
+        if (allFlusher) await allFlusher();
+    };
+    try {
+        await Promise.race([
+            run(),
+            new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+        ]);
+        return true;
+    } catch (e) {
+        console.warn('[nube] no se pudo completar flush previo al cierre de sesión:', e?.message || e);
+        return false;
+    }
+}
+
 // ─── Restaurar un respaldo con la nube activa ────────────────────────────────
 // Ajustes → Importar respaldo escribe directo en el equipo. Con la nube activa eso no
 // basta: el stock y los saldos viajan por sus libros, no dentro de los productos. La

@@ -6,6 +6,7 @@ import { CurrencyService } from '../services/CurrencyService.js';
 import { useAuthStore } from '../hooks/store/useAuthStore.js';
 import { applyCustomerMovementsWithinLock } from '../services/customerWalletService.js';
 import { CUSTOMER_MOVEMENT_TYPES, normalizeCustomer } from './customerLedger.js';
+import { findOpenCashShift } from './cashShift.js';
 
 const SALES_KEY = 'bodega_sales_v1';
 const CUSTOMERS_KEY = 'bodega_customers_v1';
@@ -150,12 +151,17 @@ export async function processCustomerTransaction({
             }],
         });
 
-        await storageService.setItem(SALES_KEY, [record, ...sales]);
+        const openShift = findOpenCashShift(sales);
+        const stampedRecord = (openShift?.shiftId && !record.shiftId)
+            ? { ...record, shiftId: openShift.shiftId }
+            : record;
+
+        await storageService.setItem(SALES_KEY, [stampedRecord, ...sales]);
         deepFreeze(walletResult.updatedCustomers);
         return {
             updatedCustomer: walletResult.updatedCustomer,
             newCustomers: walletResult.updatedCustomers,
-            sale: record,
+            sale: stampedRecord,
         };
     });
 }

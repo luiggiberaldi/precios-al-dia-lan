@@ -79,7 +79,11 @@ export const PERMISSIONS = Object.freeze({
     SALES_VOID: 'sales.void',
     SALES_DISCOUNT: 'sales.discount',
     SALES_VIEW_ALL_CAJAS: 'sales.view_all_cajas',
+    SALES_STAFF_GOODS: 'sales.staff_goods',
+    SALES_FREE_AMOUNT: 'sales.free_amount',
+    SALES_CASH_ADVANCE: 'sales.cash_advance',
     CASH_MANAGE: 'cash.manage',
+    CASH_EXPENSES: 'cash.expenses',
     RATES_ADJUST: 'rates.adjust',
 
     // Inventario y Productos
@@ -118,7 +122,11 @@ export const ROLE_PERMISSIONS = Object.freeze({
         PERMISSIONS.SALES_VOID,
         PERMISSIONS.SALES_DISCOUNT,
         PERMISSIONS.SALES_VIEW_ALL_CAJAS,
+        PERMISSIONS.SALES_STAFF_GOODS,
+        PERMISSIONS.SALES_FREE_AMOUNT,
+        PERMISSIONS.SALES_CASH_ADVANCE,
         PERMISSIONS.CASH_MANAGE,
+        PERMISSIONS.CASH_EXPENSES,
         PERMISSIONS.RATES_ADJUST,
         PERMISSIONS.PRODUCTS_EDIT,
         PERMISSIONS.PRODUCTS_DELETE,
@@ -142,6 +150,9 @@ export const ROLE_PERMISSIONS = Object.freeze({
         PERMISSIONS.TAB_PRODUCTS,
         PERMISSIONS.TAB_CUSTOMERS,
         PERMISSIONS.SALES_CREATE,
+        PERMISSIONS.SALES_STAFF_GOODS,
+        PERMISSIONS.SALES_FREE_AMOUNT,
+        PERMISSIONS.SALES_CASH_ADVANCE,
         PERMISSIONS.CUSTOMERS_CREDIT,
     ])),
 });
@@ -292,10 +303,14 @@ export const PERMISSION_GROUPS = Object.freeze([
         title: 'Ventas y Caja',
         items: [
             { key: PERMISSIONS.SALES_CREATE, label: 'Cobrar ventas', description: 'Registrar ventas en caja.' },
+            { key: PERMISSIONS.SALES_STAFF_GOODS, label: 'Ventas al personal en caja', description: 'Registrar mercancía a empleados con cargo a su sueldo.' },
+            { key: PERMISSIONS.SALES_FREE_AMOUNT, label: 'Monto libre en caja', description: 'Cobrar montos manuales fuera del catálogo (Venta Libre).' },
+            { key: PERMISSIONS.SALES_CASH_ADVANCE, label: 'Avances de efectivo', description: 'Entregar avances de efectivo desde la caja.' },
             { key: PERMISSIONS.SALES_VOID, label: 'Anular ventas', description: 'Anular tickets sin pedir PIN o carnet.' },
             { key: PERMISSIONS.SALES_DISCOUNT, label: 'Aplicar descuentos', description: 'Dar rebajas al cobrar.' },
             { key: PERMISSIONS.SALES_VIEW_ALL_CAJAS, label: 'Ver ventas de todas las cajas', description: 'Consultar historial consolidado.' },
-            { key: PERMISSIONS.CASH_MANAGE, label: 'Abrir / cerrar caja y aportes', description: 'Apertura, arqueo, gastos internos y cierre.' },
+            { key: PERMISSIONS.CASH_MANAGE, label: 'Abrir / cerrar caja y aportes', description: 'Arqueo completo, aportes de efectivo y anular gastos.' },
+            { key: PERMISSIONS.CASH_EXPENSES, label: 'Registrar gastos y retiros', description: 'Anotar gastos internos o autoconsumo desde Inicio.' },
             { key: PERMISSIONS.RATES_ADJUST, label: 'Ajustar tasa manual', description: 'Cambiar la tasa de cambio en caja.' },
         ],
     },
@@ -375,6 +390,16 @@ export function assignableAppRoles(actorRole, { allowOwnerCreation = false } = {
  */
 export const OVERRIDABLE_PERMISSIONS = Object.freeze([
     Object.freeze({
+        key: PERMISSIONS.SALES_STAFF_GOODS,
+        label: 'Ventas al personal en caja',
+        description: 'Puede registrar mercancía a empleados con cargo a su sueldo.',
+    }),
+    Object.freeze({
+        key: PERMISSIONS.SALES_FREE_AMOUNT,
+        label: 'Monto libre en caja',
+        description: 'Puede cobrar montos manuales fuera del catálogo.',
+    }),
+    Object.freeze({
         key: PERMISSIONS.SALES_DISCOUNT,
         label: 'Aplicar descuentos',
         description: 'Puede dar rebajas al momento de cobrar.',
@@ -396,8 +421,13 @@ export const OVERRIDABLE_PERMISSIONS = Object.freeze([
     }),
     Object.freeze({
         key: PERMISSIONS.CASH_MANAGE,
-        label: 'Abrir / cerrar caja',
-        description: 'Puede hacer apertura, arqueo, aportes y cierre de caja.',
+        label: 'Arqueo completo y aportes',
+        description: 'Puede ver arqueo esperado, hacer aportes y anular gastos.',
+    }),
+    Object.freeze({
+        key: PERMISSIONS.CASH_EXPENSES,
+        label: 'Registrar gastos internos',
+        description: 'Puede anotar gastos o retiros de caja desde Inicio.',
     }),
 ]);
 

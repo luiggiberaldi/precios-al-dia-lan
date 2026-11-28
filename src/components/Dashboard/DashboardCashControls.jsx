@@ -6,6 +6,9 @@ import TasaOficialCard from './TasaOficialCard';
 
 export default function DashboardCashControls({
     isAdmin,
+    canManageCash = isAdmin,
+    canRegisterExpenses = true,
+    canEditRate = isAdmin,
     paymentBreakdown,
     fondoBreakdown,
     copEnabled,
@@ -27,8 +30,8 @@ export default function DashboardCashControls({
     return (
         <section className="space-y-3.5 mb-5" aria-label="Resumen y controles de caja">
             {/* Fila 1: Métricas de Caja (Efectivo Esperado y Tasa Oficial en ancho completo ~440px en laptop) */}
-            <div className={`grid grid-cols-1 ${isAdmin ? 'sm:grid-cols-2' : ''} gap-3.5`}>
-                {isAdmin && (
+            <div className={`grid grid-cols-1 ${canManageCash ? 'sm:grid-cols-2' : ''} gap-3.5`}>
+                {canManageCash && (
                     <EfectivoEsperadoCard
                         paymentBreakdown={paymentBreakdown}
                         fondoBreakdown={fondoBreakdown}
@@ -39,7 +42,7 @@ export default function DashboardCashControls({
                     />
                 )}
                 <TasaOficialCard
-                    canEditRate={isAdmin}
+                    canEditRate={canEditRate}
                     bcvRate={bcvRate}
                     copEnabled={copEnabled}
                     tasaCop={tasaCop}
@@ -85,7 +88,9 @@ export default function DashboardCashControls({
                     </div>
                 )}
 
-                <div className={`grid grid-cols-1 ${isAdmin && todayApertura && (onOpenAporte || onGoVentas) ? 'grid-cols-2' : ''} gap-3`}>
+                {(canRegisterExpenses || (canManageCash && todayApertura && (onOpenAporte || onGoVentas))) && (
+                <div className={`grid grid-cols-1 ${canRegisterExpenses && canManageCash && todayApertura && (onOpenAporte || onGoVentas) ? 'grid-cols-2' : ''} gap-3`}>
+                    {canRegisterExpenses && (
                     <button
                         type="button"
                         onClick={() => { triggerHaptic && triggerHaptic(); onOpenGasto && onOpenGasto(); }}
@@ -104,7 +109,8 @@ export default function DashboardCashControls({
                             <span className="block text-[10px] text-rose-500/80 font-bold truncate">Compras, insumos</span>
                         </div>
                     </button>
-                    {isAdmin && todayApertura && (onOpenAporte || onGoVentas) && (
+                    )}
+                    {canManageCash && todayApertura && (onOpenAporte || onGoVentas) && (
                         <button
                             type="button"
                             onClick={() => {
@@ -129,6 +135,7 @@ export default function DashboardCashControls({
                         </button>
                     )}
                 </div>
+                )}
             </div>
         </section>
     );

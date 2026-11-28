@@ -66,8 +66,19 @@ export function getProductImageCandidates(imageOrProduct) {
     }
 
     const candidates = [];
+    const isFileProto = typeof window !== 'undefined' && window.location?.protocol === 'file:';
+    const lanBase = isFileProto ? (getLanServerUrl() || '').replace(/\/+$/, '') : '';
     const add = (value) => {
-        if (typeof value === 'string' && value && !candidates.includes(value)) candidates.push(value);
+        if (typeof value !== 'string' || !value) return;
+        if (isFileProto && value.startsWith('/images/catalog/')) {
+            if (lanBase) {
+                const viaLan = `${lanBase}${value}`;
+                if (!candidates.includes(viaLan)) candidates.push(viaLan);
+            }
+            const relFile = `.${value}`;
+            if (!candidates.includes(relFile)) candidates.push(relFile);
+        }
+        if (!candidates.includes(value)) candidates.push(value);
     };
     const addLocalVariants = (value) => {
         if (typeof value !== 'string') return;

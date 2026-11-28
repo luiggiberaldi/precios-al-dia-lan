@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { getLocalISODate } from '../../utils/dateHelpers';
 import { useAuthStore } from '../../hooks/store/useAuthStore';
+import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
 
 // Map GASTO_CATEGORIES identifiers to professional styling
 const CATEGORY_META = {
@@ -101,9 +102,9 @@ export default function GastosInternosModal({
     anularGasto,
     triggerHaptic
 }) {
-    const { usuarioActivo, requireLogin } = useAuthStore();
-    const isCajero = requireLogin && usuarioActivo?.rol === 'CAJERO';
-    const canDeleteGasto = !isCajero;
+    useAuthStore();
+    const { can } = usePermissions();
+    const canDeleteGasto = can(PERMISSIONS.CASH_MANAGE);
 
     const [activeTab, setActiveTab]           = useState('registrar');
     // ── Campos de gasto normal ──

@@ -5,6 +5,7 @@ import { withLock } from './withLock';
 import { deepFreeze } from './deepFreeze';
 import { CurrencyService } from '../services/CurrencyService';
 import { appendCasheaMovementWithinLock } from './casheaLedger';
+import { findOpenCashShift } from './cashShift';
 
 /**
  * Registra una REMESA DE CASHEA hacia la bodega.
@@ -99,7 +100,11 @@ export async function processCasheaRemittance({
             customerName: customer.name,
             items: [{ name: `Remesa Cashea: ${customer.name}`, qty: 1, priceUsd: aplicado, costBs: 0 }],
         };
-        sales.unshift(remesaRecord);
+        const openShift = findOpenCashShift(sales);
+        const stampedRemesa = openShift?.shiftId
+            ? { ...remesaRecord, shiftId: openShift.shiftId }
+            : remesaRecord;
+        sales.unshift(stampedRemesa);
         await storageService.setItem('bodega_sales_v1', sales);
         await appendCasheaMovementWithinLock({
             storage: storageService,

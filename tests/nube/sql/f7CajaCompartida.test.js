@@ -168,4 +168,68 @@ describe('Fase 2 · migración 023 — caja compartida / gaveta única', () => {
         );
         expect(openLeft).toHaveLength(0);
     });
+
+    it('migración 025: destraba cierre cuando no hay fila en shared_cash_shifts (apertura previa, gasto sin shiftId o sufijo @deviceId) y evita que push rezagado reabra caja', async () => {
+        const { accountId, cajas: [a, b] } = await setup(db, { shared: true });
+
+        // Simular turno abierto previo sin fila en shared_cash_shifts + venta ($0.70) + gasto (-$3.00 sin shiftId)
+        // incluyendo un registro con sufijo @device heredado del modo independiente.
+        await q(
+            db,
+            a.user,
+            "select * from public.push_records_v2($1, 'cash', $2::jsonb)",
+            [a.session, JSON.stringify([
+                { id: `ap_legacy@${a.row.id}`, data: { id: 'ap_legacy', tipo: 'APERTURA_CAJA', openingUsd: 0, openingBs: 0, cajaCerrada: false, timestamp: now() } },
+                { id: 'v_070', data: { id: 'v_070', tipo: 'VENTA', totalUsd: 0.70, totalBs: 648.45, cajaCerrada: false, timestamp: now() } },
+            ])],
+        );
+        await q(
+            db,
+            b.user,
+            "select * from public.push_records_v2($1, 'cash', $2::jsonb)",
+            [b.session, JSON.stringify([
+                { id: 'g_300', data: { id: 'g_300', tipo: 'GASTO_INTERNO', totalUsd: -3, cajaCerrada: false, timestamp: now() } },
+            ])],
+        );
+
+        // Caja A cierra sin shiftId → NO debe devolver already_closed: true, sino cerrar los 3 registros
+        const [closeA] = await q(
+            db,
+            a.user,
+            'select public.close_shared_cash_shift($1, $2, $3::jsonb) as res',
+            [a.session, '', JSON.stringify({ id: 'cierre_fix_1', cierreId: 999001, summary: { todayTotalUsd: 0.70 } })],
+        );
+        expect(closeA.res.already_closed).toBe(false);
+        expect(closeA.res.closed_records).toBe(3);
+        expect(closeA.res.shift?.status).toBe('closed');
+
+        // Ahora sí: si Caja B intenta volver a cerrar sin movimientos abiertos, recibe already_closed: true
+        const [closeB] = await q(
+            db,
+            b.user,
+            'select public.close_shared_cash_shift($1, $2, $3::jsonb) as res',
+            [b.session, '', JSON.stringify({ id: 'cierre_fix_2', cierreId: 999002 })],
+        );
+        expect(closeB.res.already_closed).toBe(true);
+
+        // Si Caja B empuja una cola rezagada con cajaCerrada: false sobre v_070, push_records_v2 conserva cajaCerrada: true
+        const [pushedStale] = await q(
+            db,
+            b.user,
+            "select * from public.push_records_v2($1, 'cash', $2::jsonb)",
+            [b.session, JSON.stringify([
+                { id: 'v_070', data: { id: 'v_070', tipo: 'VENTA', totalUsd: 0.70, totalBs: 648.45, cajaCerrada: false, timestamp: now() } },
+            ])],
+        );
+        expect(pushedStale.merged).toBe(true);
+        expect(pushedStale.data?.cajaCerrada).toBe(true);
+
+        const openLeft = await q(
+            db,
+            'service',
+            "select id from public.account_records where account_id = $1 and collection = 'cash' and coalesce((data ->> 'cajaCerrada')::boolean, false) = false",
+            [accountId],
+        );
+        expect(openLeft).toHaveLength(0);
+    });
 });

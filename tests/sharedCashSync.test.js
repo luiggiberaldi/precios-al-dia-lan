@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createRecordSync } from '../src/nube/recordSync';
+import { createRecordSync, mergeIntoLocal } from '../src/nube/recordSync';
 import { buildAllCajasSummary } from '../src/nube/allCajasToday';
 
 function makeStore() {
@@ -130,5 +130,54 @@ describe('Fase 3 — sync bidireccional de cash y deduplicación en allCajasToda
         const caja2 = summary.cajas.find((c) => c.deviceId === 'DEV-B');
         expect(caja1?.totalUsd).toBe(20);
         expect(caja2?.totalUsd).toBe(15);
+    });
+
+    it('mergeIntoLocal y applyPulled reconcilian cierres con sufijo @deviceId y colas locales rezagadas sin dejar copias abiertas', async () => {
+        // 1. Si el servidor cierra una fila con id heredado `ap_1@DEV-A`, actualiza `ap_1` local y elimina duplicados
+        const localBefore = [
+            { id: 'ap_1', tipo: 'APERTURA_CAJA', openingUsd: 0, cajaCerrada: false },
+            { id: 'ap_1', tipo: 'APERTURA_CAJA', openingUsd: 0, cajaCerrada: false, _deviceId: 'DEV-A' },
+        ];
+        const merged = mergeIntoLocal('bodega_sales_v1', localBefore, [
+            {
+                id: 'ap_1@DEV-A',
+                data: { id: 'ap_1', tipo: 'APERTURA_CAJA', openingUsd: 0, cajaCerrada: true, shiftId: 'shift_fix' },
+                deleted_at: null,
+            },
+        ]);
+        expect(merged).toHaveLength(1);
+        expect(merged[0]).toMatchObject({ id: 'ap_1', cajaCerrada: true, shiftId: 'shift_fix' });
+
+        // 2. Si esta PC tenía `v_pend` en cola local con cajaCerrada: false y llega el cierre remoto desde la otra PC,
+        // applyPulled aplica el cierre inmediatamente y limpia la entrada obsoleta de la cola.
+        const local = new Map([
+            ['bodega_sales_v1', [{ id: 'v_pend', tipo: 'VENTA', totalUsd: 0.70, cajaCerrada: false, timestamp: '2026-11-28T12:00:00.000Z' }]],
+        ]);
+        const client = makeFakeClient({
+            cash: [{
+                id: 'v_pend',
+                data: { id: 'v_pend', tipo: 'VENTA', totalUsd: 0.70, cajaCerrada: true, shiftId: 's_closed', timestamp: '2026-11-28T12:00:00.000Z' },
+                version: 2,
+                deleted_at: null,
+                updated_at: '2026-11-28T12:15:00.000Z',
+                updated_by_device: 'DEV-PC2',
+            }],
+        });
+        const sync = createRecordSync({
+            client,
+            getSession: () => 'tok',
+            store: makeStore(),
+            cashIdSuffix: 'DEV-PC1',
+            readLocal: async (k) => local.get(k) || [],
+            writeLocal: async (k, v) => local.set(k, v),
+            isSharedCashMode: () => true,
+        });
+        await sync.onLocalWrite('bodega_sales_v1', local.get('bodega_sales_v1'));
+        expect(await sync.pendingCount()).toBe(1);
+
+        const applied = await sync.pull(['cash']);
+        expect(applied).toBe(1);
+        expect(local.get('bodega_sales_v1')[0]?.cajaCerrada).toBe(true);
+        expect(await sync.pendingCount()).toBe(0);
     });
 });

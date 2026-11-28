@@ -617,6 +617,26 @@ export async function createLanDb({
                 });
             }
         }
+        if (
+            (safeFn === 'open_shared_cash_shift' || safeFn === 'close_shared_cash_shift')
+            && data
+            && !syncRows.some((r) => r.collection === 'cash')
+        ) {
+            const fallbackCashSync = (
+                await db.query(
+                    "select account_id, collection, changed_at from public.account_sync_state where collection = 'cash' order by changed_at desc limit 1",
+                    [],
+                    { parsers: TIMESTAMP_AS_TEXT },
+                )
+            ).rows[0];
+            if (fallbackCashSync) {
+                events.push({
+                    table: 'account_sync_state',
+                    account_id: fallbackCashSync.account_id,
+                    new: fallbackCashSync,
+                });
+            }
+        }
 
         const stockRows = (
             await db.query(
@@ -1053,6 +1073,7 @@ export async function createLanDb({
                 'customer_balances',
                 'supplier_movements',
                 'supplier_balances',
+                'shared_cash_shifts',
                 'nube_settings',
             ];
             const data = {};
@@ -1141,6 +1162,7 @@ export async function createLanDb({
                     'customer_balances',
                     'supplier_movements',
                     'supplier_balances',
+                    'shared_cash_shifts',
                     'nube_settings',
                 ];
                 for (const table of insertOrder) {

@@ -74,9 +74,10 @@ describe('Supervisor responsive controls', () => {
     });
 
     it('permite buscar y seleccionar fotos sin mezclar el flujo de egreso', () => {
-        expect(remoteProductModal).toContain('/api/search-image');
-        expect(remoteProductModal).toContain('setImageMatches(data.matches)');
-        expect(remoteProductModal).toContain('setImage(imageUrl)');
+        expect(remoteProductModal).toContain('searchProductImages');
+        expect(remoteProductModal).toContain('setImageMatches(matches)');
+        expect(remoteProductModal).toContain('resolveImageChoiceToDataUri');
+        expect(remoteProductModal).toContain('setImage(compressed)');
         expect(remoteProductModal).not.toContain("direction: 'egreso'");
     });
 

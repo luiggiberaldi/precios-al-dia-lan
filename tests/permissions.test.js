@@ -99,6 +99,9 @@ describe('RBAC permissions engine', () => {
             expect(can(cajero, PERMISSIONS.TAB_PRODUCTS)).toBe(true);
             expect(can(cajero, PERMISSIONS.TAB_CUSTOMERS)).toBe(true);
             expect(can(cajero, PERMISSIONS.SALES_CREATE)).toBe(true);
+            expect(can(cajero, PERMISSIONS.SALES_STAFF_GOODS)).toBe(true);
+            expect(can(cajero, PERMISSIONS.SALES_FREE_AMOUNT)).toBe(true);
+            expect(can(cajero, PERMISSIONS.SALES_CASH_ADVANCE)).toBe(true);
             expect(can(cajero, PERMISSIONS.CUSTOMERS_CREDIT)).toBe(true);
 
             expect(can(cajero, PERMISSIONS.TAB_REPORTS)).toBe(false);
@@ -108,6 +111,22 @@ describe('RBAC permissions engine', () => {
             expect(can(cajero, PERMISSIONS.SALES_VOID)).toBe(false);
             expect(can(cajero, PERMISSIONS.PRODUCTS_EDIT)).toBe(false);
             expect(can(cajero, PERMISSIONS.CASH_MANAGE)).toBe(false);
+            expect(can(cajero, PERMISSIONS.CASH_EXPENSES)).toBe(false);
+        });
+
+        it('allows disabling staff goods and free amount per user or role via overrides', () => {
+            const cajeroSinPersonal = {
+                rol: 'CAJERO',
+                permisos: { deny: [PERMISSIONS.SALES_STAFF_GOODS, PERMISSIONS.SALES_FREE_AMOUNT] },
+            };
+            expect(can(cajeroSinPersonal, PERMISSIONS.SALES_STAFF_GOODS)).toBe(false);
+            expect(can(cajeroSinPersonal, PERMISSIONS.SALES_FREE_AMOUNT)).toBe(false);
+
+            const cajeroConGastos = {
+                rol: 'CAJERO',
+                permisos: { allow: [PERMISSIONS.CASH_EXPENSES] },
+            };
+            expect(can(cajeroConGastos, PERMISSIONS.CASH_EXPENSES)).toBe(true);
         });
 
         it('grants all permissions when requireLogin is false', () => {

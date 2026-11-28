@@ -16,7 +16,8 @@ import { rebuildAllCustomersFromLedger } from '../services/customerWalletService
 import { reconcileCustomersWithLedger } from '../utils/pocketReconciliation';
 import { logEvent } from '../services/auditService';
 import { useAuthStore } from '../hooks/store/useAuthStore';
-import { can as canPerm, PERMISSIONS } from '../security/permissions';
+import { usePermissions, PERMISSIONS } from '../hooks/usePermissions';
+import { can as canPerm } from '../security/permissions';
 import ReconciliationNotice from '../components/Reports/ReconciliationNotice';
 import { useReportExport } from '../hooks/useReportExport';
 import ReportsMetricsTab from '../components/Reports/ReportsMetricsTab';
@@ -27,10 +28,9 @@ import { useMerchandisePurchases } from '../hooks/useMerchandisePurchases';
 import { printThermalTicket } from '../utils/ticketGenerator';
 import { showToast } from '../components/Toast';
 import { isNubeSyncActive, useNubeSyncActive } from '../nube/localWriteHook';
-import { readMemberSession } from '../nube/memberSession';
 import { getDeviceClient } from '../nube/nubeSupabase';
 import { loadAllCajasSalesRange } from '../nube/allCajasSales';
-import { isNubeManagerRole, mergeAllCajasRecords, readDeviceMeta } from '../nube/allCajasToday';
+import { mergeAllCajasRecords, readDeviceMeta } from '../nube/allCajasToday';
 
 const SALES_KEY = 'bodega_sales_v1';
 
@@ -68,9 +68,11 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
     const [historySearch, setHistorySearch] = useState('');
     const [historyFilter, setHistoryFilter] = useState('all'); // all, completed, voided
     const [voidSaleTarget, setVoidSaleTarget] = useState(null);
-    // T23: selector «Todas las cajas» vs «Esta caja» para dueño/administrador en modo multi-caja.
+    // T23: selector «Todas las cajas» vs «Esta caja» según permiso RBAC `sales.view_all_cajas`.
+    const { can } = usePermissions();
+    const canViewProfit = can(PERMISSIONS.REPORTS_PROFIT);
     const nubeSyncActive = useNubeSyncActive();
-    const isNubeManager = nubeSyncActive && isNubeManagerRole(readMemberSession()?.role);
+    const isNubeManager = nubeSyncActive && can(PERMISSIONS.SALES_VIEW_ALL_CAJAS);
     const [reportsScope, setReportsScope] = useState('all'); // 'all' | 'local'
     const [remoteCajasState, setRemoteCajasState] = useState({ sales: [], labels: {}, localDeviceId: null, loading: false, error: null });
     const [remoteRefreshTick, setRemoteRefreshTick] = useState(0);
@@ -482,6 +484,7 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
                     setRecycleOffer={setRecycleOffer}
                     hideHistory={true}
                     onPrintTicket={handlePrintTicket}
+                    canViewProfit={canViewProfit}
                 />
             )}
 

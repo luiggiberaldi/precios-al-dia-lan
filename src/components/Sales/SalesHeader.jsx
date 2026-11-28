@@ -3,6 +3,7 @@ import { RefreshCw, ShoppingCart, Keyboard, LogOut, Wallet, ShoppingBag } from '
 import Tooltip from '../Tooltip';
 import { pushLocalSync } from '../../hooks/useCloudSync';
 import { useAuthStore } from '../../hooks/store/useAuthStore';
+import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
 
 const formatBs = (n) => new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
@@ -83,8 +84,8 @@ export default function SalesHeader({
     };
 
     const { usuarioActivo, requireLogin, logout } = useAuthStore();
-    // Solo administradores pueden cambiar la tasa; los cajeros la ven pero no la editan.
-    const canEditRate = !requireLogin || usuarioActivo?.rol === 'ADMIN';
+    const { can } = usePermissions();
+    const canEditRate = can(PERMISSIONS.RATES_ADJUST);
 
     return (
         <div className={`shrink-0 ${showRateConfig ? 'mb-3 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3 sm:p-4 shadow-sm border border-slate-100 dark:border-slate-800' : 'bg-transparent border-transparent shadow-none p-0'}`}>

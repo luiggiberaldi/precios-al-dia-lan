@@ -22,6 +22,7 @@ Cada error encontrado va aquí, con su solución. Reglas en [LEY-DOCUMENTACION.m
 | ERR-014 | Vender mostraba el saldo del cliente de antes de la última venta | 2026-11-14 | Resuelto | — |
 | ERR-015 | El cierre contaba como «saldo a favor generado» solo el sobrante de abonos | 2026-11-14 | Resuelto | — |
 | ERR-016 | «Reparar cartera» guardaba la lista de clientes que tenía la pantalla | 2026-11-14 | Resuelto | — |
+| ERR-017 | En modo «Caja compartida» ninguna de las dos cajas podía cerrar turno (bloqueo mutuo) | 2026-11-28 | Resuelto | CASO-008 |
 
 ERR-004 a ERR-006 se reconstruyeron desde informes ya existentes; el detalle completo está en esos informes. ERR-001 a ERR-003 se arreglaron y guardaron el 2026-11-13 (commit «fix(caja): …», ver CASO-002).
 
@@ -200,3 +201,14 @@ ERR-004 a ERR-006 se reconstruyeron desde informes ya existentes; el detalle com
 - **Solución:** la reparación lee clientes y ledger de nuevo dentro del candado y solo reescribe a los clientes descuadrados. También: anular desde Reportes ahora actualiza los clientes en pantalla.
 - **Cómo comprobarlo:** `tests/ledgerRepairFresh.test.js` (5, incluida la que muestra el comportamiento viejo) y la prueba «Reconstruir…» de `tests/e2e/reportes-fiado.e2e.spec.js`.
 - **Relacionados:** PLAN-FIXEO-CLIENTES-BILLETERA, fase F1.
+
+## ERR-017 — En modo «Caja compartida» ninguna de las dos cajas podía cerrar turno (bloqueo mutuo)
+
+- **Fecha:** 2026-11-28
+- **Estado:** Resuelto
+- **Dónde:** `supabase/nube/migrations/025_fix_cierre_caja_compartida.sql`, `src/views/DashboardView.jsx`, `src/nube/recordSync.js`, `src/nube/useNubeSync.js` y procesadores de movimientos de caja (`gastosInternosService.js`, `customerTransactionProcessor.js`, `casheaRemittanceProcessor.js`, `useSupplierManagement.js`).
+- **Síntoma:** con 2 PCs operando en «Caja compartida (Gaveta única)», al pulsar «Cerrar Caja» en cualquiera de los dos equipos aparecía el aviso «La caja compartida ya fue cerrada desde otro equipo.» y el botón naranja «Cerrar Caja» seguía abierto en ambas PCs sin permitir cerrar ni volver al modo de cajas independientes.
+- **Causa:** (1) `close_shared_cash_shift` devolvía `already_closed: true` cuando `shared_cash_shifts` no tenía fila abierta (aperturas previas al cambio de modo, aperturas locales en reconexión o movimientos sin `shiftId` como gastos de caja chica), y `DashboardView` abortaba el cierre local al recibir esa marca; (2) `mergeIntoLocal` en `recordSync.js` no emparejaba registros heredados con sufijo `@deviceId` contra `data.id`, dejando copias abiertas; (3) cerrar sin vaciar antes la cola local permitía que una subida atrasada reescribiera `cajaCerrada: false` en el servidor.
+- **Solución:** migración `025` que cierra atómicamente movimientos abiertos aunque no exista fila abierta en `shared_cash_shifts`, reconcilia residuales cuando el turno ya estaba cerrado e impide en `push_records_v2` reabrir registros ya cerrados; subida previa (`flush`) antes del cierre en `useNubeSync.js`; reconciliación por `data.id` y deduplicación en `recordSync.js`; validación de `remoteClose.shift` y cierre local garantizado en `DashboardView.jsx`; y sellado de `shiftId` en gastos internos, aportes desde Inicio, abonos/créditos, remesas Cashea y pagos a proveedores.
+- **Cómo comprobarlo:** `tests/nube/sql/f7CajaCompartida.test.js`, `tests/sharedCashSync.test.js` y `tests/lan/lanSharedCashDrawer.test.js`.
+- **Relacionados:** CASO-008.

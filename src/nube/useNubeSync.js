@@ -17,6 +17,7 @@ import {
     setNubeStockFlusher,
     setNubeStockBaselineAdjuster,
     setNubeStockCountSubmitter,
+    setNubeAllFlusher,
 } from './localWriteHook';
 import { createBackupRestorer } from './backupRestore';
 import { readMemberSession } from './memberSession';
@@ -227,6 +228,15 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             setStatus((s) => ({ ...s, salesRejected: list.length, salesRejectedError: last ? last.error : null }));
         };
         setNubeSaleSubmitter(sales);
+        setNubeAllFlusher(async () => {
+            await Promise.allSettled([
+                engine.flush(),
+                sales.replay(),
+                watcher.flushNow(),
+                ledger.flush(),
+                supplierLedger.flush(),
+            ]);
+        });
         sales.pending().then((n) => { if (!disposed) setStatus((s) => ({ ...s, salesPending: n })); });
         refreshRejected();
         setStatus((s) => ({
@@ -286,7 +296,9 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
                         return { ...s, status: 'ANULADA', voidedAt: match.voidedAt, voidReason: match.voidReason };
                     });
                     if (changed) {
-                        await storageService.setItem('bodega_sales_v1', updated, { skipSyncPush: true, fromCloud: true });
+                        // Subir también a account_records(cash) sin skipSyncPush para que
+                        // reportes y cash_day_summary vean status='ANULADA' en el servidor.
+                        await storageService.setItem('bodega_sales_v1', updated);
                     }
                 });
             } catch (e) {
@@ -346,8 +358,15 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             await supplierLedger.pull();
         })();
 
+        const emitRemoteCashUpdate = (collection) => {
+            if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('pdn_remote_cash_updated', { detail: { collection } }));
+            }
+        };
+
         setSharedCashShiftBridge({
             openShift: async (shiftId, openingRecord) => {
+                await engine.flush().catch(() => {});
                 const session = readMemberSession()?.token ?? null;
                 const { data, error } = await client.rpc('open_shared_cash_shift', {
                     p_session: session,
@@ -356,9 +375,16 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
                 });
                 if (error) throw error;
                 await engine.pull(['cash']).catch(() => {});
+                emitRemoteCashUpdate('cash');
                 return data;
             },
             closeShift: async (shiftId, closeRecord) => {
+                // Asegurar que la última venta, gasto, aporte o apertura local haya subido antes de cerrar en servidor
+                const localSales = await storageService.getItem('bodega_sales_v1', null);
+                if (localSales !== null) {
+                    await engine.onLocalWrite('bodega_sales_v1', localSales).catch(() => {});
+                }
+                await engine.flush().catch(() => {});
                 const session = readMemberSession()?.token ?? null;
                 const { data, error } = await client.rpc('close_shared_cash_shift', {
                     p_session: session,
@@ -367,6 +393,7 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
                 });
                 if (error) throw error;
                 await engine.pull(['cash']).catch(() => {});
+                emitRemoteCashUpdate('cash');
                 return data;
             },
             getActiveShift: async () => {
@@ -377,12 +404,6 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
             },
             pullCash: () => engine.pull(['cash']),
         });
-
-        const emitRemoteCashUpdate = (collection) => {
-            if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('pdn_remote_cash_updated', { detail: { collection } }));
-            }
-        };
 
         // Canales en vivo que se reabren solos si Supabase los corta; al volver se baja
         // lo que pasó mientras estuvieron caídos.
@@ -465,6 +486,7 @@ export function useNubeSync({ client, accountId, sedeId, deviceId, enabled, onAc
         return () => {
             disposed = true;
             setNubeLocalWriteHandler(null);
+            setNubeAllFlusher(null);
             setNubeStockFlusher(null);
             setNubeStockBaselineAdjuster(null);
             setNubeStockCountSubmitter(null);

@@ -1,3 +1,5 @@
+import { fetchExternalImageSafe } from '../desktop/server/imageSearchEngine.mjs';
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -7,24 +9,23 @@ export default async function handler(req, res) {
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const targetUrl = req.query.url;
+        const targetUrl = req.query?.url || '';
+        const format = req.query?.format || '';
         if (!targetUrl) {
             return res.status(400).json({ error: 'Falta el parámetro url.' });
         }
 
-        const response = await fetch(targetUrl);
-        if (!response.ok) {
-            return res.status(response.status).json({ error: `Error fetching target image: ${response.statusText}` });
-        }
+        const { buffer, contentType, dataUri } = await fetchExternalImageSafe(targetUrl);
 
-        const contentType = response.headers.get('Content-Type') || 'image/png';
-        const buffer = await response.arrayBuffer();
+        if (format === 'json') {
+            return res.status(200).json({ success: true, contentType, dataUri });
+        }
 
         res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=86400');
-        return res.status(200).send(Buffer.from(buffer));
+        return res.status(200).send(buffer);
     } catch (err) {
         console.error('[ImageProxy] Error:', err);
-        return res.status(500).json({ error: err.message });
+        return res.status(err?.status || 500).json({ error: err?.message || 'No se pudo descargar la imagen.' });
     }
 }
