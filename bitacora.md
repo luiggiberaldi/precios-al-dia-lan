@@ -573,3 +573,13 @@ mostraba $0 aunque la caja había confirmado las 8 compras: invitaba a cargarlas
 - **Gastos y Cierre Diario (`ReportsExpensesTab.jsx`, `dailyCloseGenerator.js`, `dailyCloseHtmlTemplate.js`):** separación explícita entre Consumo Personal (nómina), Autoconsumo de Bodega y Egresos de Caja en filtros, búsqueda, ticket térmico y PDF de cierre.
 - **Avatares RBAC (`LoginAvatar.jsx`, `UserCard.jsx`):** colores y etiquetas propios para los 4 roles (`DUENO`, `ENCARGADO`, `INVENTARIO`, `CAJERO`) con corona exclusiva del dueño.
 **Verificación:** `lanSecurityAndReset.test.js` `5/5`, `lanUiFlujos.test.jsx` `11/11`, `nubeGate.test.jsx` `11/11`, `nubeTeamScreens.test.jsx` `12/12`, `payrollService.test.js` `14/14`, `payrollGoods.test.js` `20/20`, `payrollUi.test.js` `4/4`, ESLint `0` errores, `npm run typecheck` `0` errores y release `v1.6.0` compilado.
+
+
+## 2026-11-28 — Pulido visual en modales de Clave Maestra, tarjeta de Nómina y columnas sin huecos en Ajustes → Sistema (v1.6.1)
+
+**Contexto:** El token `rounded-xl` (`28px`) del design system convertía inputs, tarjetas de opciones pequeñas y botones sin relleno horizontal en cápsulas ovaladas donde íconos y textos rozaban las esquinas curvas; además, el grid plano de `SettingsTabSistema.jsx` dejaba huecos verticales debajo de *Apariencia* y *Respaldo local*.
+**Cambios:**
+- **Modales de equipo y Clave Maestra (`NubeTeamUI.jsx`):** uso de radio estándar `rounded` (`13.6px`), relleno `px-4` + `whitespace-nowrap` en botones primarios, centrado simétrico `px-12` en campos de PIN y ancho de modal `420px`.
+- **Tarjeta de Nómina y Etiquetas (`PayrollSettingsCard.jsx`, `SettingsTabNegocio.jsx`):** tarjetas de valoración con `p-3.5`, radio `13.6px` e indicador de selección.
+- **Ajustes → Sistema sin huecos (`SettingsTabSistema.jsx`, `SystemHealthPanel.jsx`, `NubeAccountReset.jsx`):** distribución en 3 columnas verticales equilibradas (`Respaldo local + Reiniciar la cuenta`, `Apariencia + Salud del sistema`, y `Dispositivo` con QR integrado junto al ID de instalación).
+**Verificación:** `6/6` suites de UI (`37/37` tests en verde), ESLint `0` errores, `npm run typecheck` `0` errores y release `v1.6.1` publicado en GitHub Releases.

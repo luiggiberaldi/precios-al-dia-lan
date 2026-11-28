@@ -266,7 +266,7 @@ export default function SettingsTabNegocio({
                                         triggerHaptic?.();
                                         showToast(`Moneda de etiqueta cambiada a ${opt.label}`, 'success');
                                     }}
-                                    className={`py-2.5 px-2 text-xs font-bold rounded-xl transition-all border text-center ${labelCurrencyMode === opt.val
+                                    className={`py-2.5 px-3 text-xs font-bold rounded transition-all border text-center ${labelCurrencyMode === opt.val
                                         ? 'bg-brand-light dark:bg-brand/10 border-brand text-brand-dark dark:text-brand shadow-sm'
                                         : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                                     }`}

@@ -73,12 +73,12 @@ export default function SystemHealthPanel({ triggerHaptic, measureImpl = measure
         <SectionCard icon={Activity} title="Salud del sistema" subtitle="Reloj del equipo, sincronización y último comando" iconColor="text-teal-500">
             <div className="space-y-3">
                 {/* Desfase de reloj local vs servidor (semáforo) */}
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-                    <div className="flex min-w-0 items-start gap-2">
+                <div className="flex items-center justify-between gap-3 rounded border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
+                    <div className="flex min-w-0 items-start gap-2.5">
                         <Clock size={15} className="mt-0.5 shrink-0 text-slate-400" />
                         <div className="min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Reloj del equipo</p>
-                            <p data-testid="clock-skew-state" data-level={clock.level} className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                            <p data-testid="clock-skew-state" data-level={clock.level} className="text-xs font-bold text-slate-700 dark:text-slate-200 mt-0.5">
                                 <span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${LEVEL_DOT[clock.level] || LEVEL_DOT.unknown}`} />
                                 {clock.text}
                             </p>
@@ -88,19 +88,19 @@ export default function SystemHealthPanel({ triggerHaptic, measureImpl = measure
                         type="button"
                         onClick={() => { triggerHaptic?.(); check(); }}
                         disabled={isChecking}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 min-h-[40px] text-[11px] font-black text-slate-600 transition hover:bg-slate-100 hover:text-slate-800 active:scale-95 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-2 min-h-[38px] text-[11px] font-black text-slate-600 transition hover:bg-slate-100 hover:text-slate-800 active:scale-95 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 whitespace-nowrap"
                     >
-                        {isChecking ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                        {isChecking ? <Loader2 size={13} className="animate-spin shrink-0" /> : <RefreshCw size={13} className="shrink-0" />}
                         Revisar ahora
                     </button>
                 </div>
 
                 {/* Último comando del Supervisor con su resultado real (Fase 2) */}
-                <div className="flex items-start gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
+                <div className="flex items-start gap-2.5 rounded border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
                     <Terminal size={15} className="mt-0.5 shrink-0 text-slate-400" />
                     <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Último comando enviado</p>
-                        <p className="break-words text-xs font-bold text-slate-700 dark:text-slate-200">
+                        <p className="break-words text-xs font-bold text-slate-700 dark:text-slate-200 mt-0.5">
                             {lastCommand
                                 ? `${commandTypeLabel(lastCommand.type)} → ${statusChipLabel(lastCommand.status)}${lastCommand.error ? ` (${lastCommand.error})` : ''}`
                                 : 'Sin datos'}
@@ -109,11 +109,11 @@ export default function SystemHealthPanel({ triggerHaptic, measureImpl = measure
                 </div>
 
                 {/* Última sincronización exitosa */}
-                <div className="flex items-start gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
+                <div className="flex items-start gap-2.5 rounded border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
                     <Cloud size={15} className="mt-0.5 shrink-0 text-slate-400" />
                     <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Última sincronización</p>
-                        <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{syncText}</p>
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-200 mt-0.5">{syncText}</p>
                     </div>
                 </div>
             </div>

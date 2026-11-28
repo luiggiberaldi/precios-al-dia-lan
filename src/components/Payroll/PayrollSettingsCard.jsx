@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Wallet } from 'lucide-react';
+import { Wallet, Check } from 'lucide-react';
 import { SectionCard } from '../SettingsShared';
 import { showToast } from '../Toast';
 import { GOODS_VALUATION_KEY, GOODS_VALUATIONS, GOODS_VALUATION_LABELS, readGoodsValuation } from '../../utils/payrollModel';
@@ -39,28 +39,38 @@ export default function PayrollSettingsCard({ triggerHaptic }) {
 
     return (
         <SectionCard icon={Wallet} title="Nómina" subtitle="Mercancía que se lleva un empleado" iconColor="text-brand">
-            <div className="space-y-2">
+            <div className="space-y-3">
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                     Cuando un empleado se lleva productos, se restan de su sueldo a este precio:
                 </p>
-                <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Precio de la mercancía de empleados">
-                    {GOODS_VALUATIONS.map(v => (
-                        <button
-                            key={v}
-                            type="button"
-                            role="radio"
-                            aria-checked={valuation === v}
-                            data-testid={`payroll-valuation-${v}`}
-                            onClick={() => choose(v)}
-                            className={`py-2.5 px-2 text-left rounded-xl transition-all border ${valuation === v
-                                ? 'bg-brand-light dark:bg-brand/10 border-brand text-brand-dark dark:text-brand shadow-sm'
-                                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
-                            }`}
-                        >
-                            <span className="block text-xs font-black">{GOODS_VALUATION_LABELS[v]}</span>
-                            <span className="block text-[10px] mt-0.5 opacity-80">{DESCRIPTIONS[v]}</span>
-                        </button>
-                    ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" role="radiogroup" aria-label="Precio de la mercancía de empleados">
+                    {GOODS_VALUATIONS.map(v => {
+                        const selected = valuation === v;
+                        return (
+                            <button
+                                key={v}
+                                type="button"
+                                role="radio"
+                                aria-checked={selected}
+                                data-testid={`payroll-valuation-${v}`}
+                                onClick={() => choose(v)}
+                                className={`p-3.5 text-left rounded transition-all border flex flex-col justify-between gap-1 cursor-pointer active:scale-[0.98] ${selected
+                                    ? 'bg-brand-light dark:bg-brand/15 border-brand text-brand-dark dark:text-brand shadow-xs ring-1 ring-brand/25'
+                                    : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-black text-slate-800 dark:text-white">{GOODS_VALUATION_LABELS[v]}</span>
+                                    {selected && (
+                                        <span className="w-4 h-4 rounded-full bg-brand text-white flex items-center justify-center shrink-0">
+                                            <Check size={10} strokeWidth={3} />
+                                        </span>
+                                    )}
+                                </div>
+                                <span className="block text-[11px] leading-snug opacity-85">{DESCRIPTIONS[v]}</span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
         </SectionCard>

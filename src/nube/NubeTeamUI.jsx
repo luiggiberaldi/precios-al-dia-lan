@@ -8,11 +8,11 @@ import { X, Loader2, KeyRound, UserPlus, Save, Eye, EyeOff, ShieldCheck } from '
 import { validatePin, validateMemberName, onlyPinDigits, roleLabel, roleDescription, pinHint } from './teamRules';
 import { isLanModeEnabled } from '../lan/lanConfig';
 
-const FIELD = 'w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 min-h-[48px] text-slate-800 dark:text-white outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition-colors';
+const FIELD = 'w-full rounded border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 min-h-[48px] text-slate-800 dark:text-white outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition-colors';
 const PIN_FIELD = `${FIELD} text-center text-lg font-black tracking-[0.4em] placeholder:tracking-normal placeholder:font-medium placeholder:text-sm`;
 const LABEL = 'text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400 block mb-1.5';
-const BTN_PRIMARY = 'flex-1 py-3 min-h-[48px] rounded-xl bg-brand hover:bg-brand-dark text-white font-bold text-sm active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 transition-colors';
-const BTN_SECONDARY = 'flex-1 py-3 min-h-[48px] rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-sm active:scale-[0.98]';
+const BTN_PRIMARY = 'flex-1 px-4 py-3 min-h-[48px] rounded bg-brand hover:bg-brand-dark text-white font-bold text-sm whitespace-nowrap active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 transition-colors';
+const BTN_SECONDARY = 'px-5 py-3 min-h-[48px] rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm whitespace-nowrap active:scale-[0.98] transition-colors';
 
 export function NubeModal({ title, subtitle, onClose, children, testId }) {
     useEffect(() => {
@@ -24,17 +24,17 @@ export function NubeModal({ title, subtitle, onClose, children, testId }) {
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-3 sm:p-4" data-testid={testId}>
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
             <div role="dialog" aria-modal="true" aria-label={title}
-                className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 fade-in duration-150">
+                className="relative w-full max-w-[420px] bg-white dark:bg-slate-900 rounded-lg shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 fade-in duration-150">
                 <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3 bg-slate-50/60 dark:bg-slate-800/40">
                     <div className="min-w-0">
                         <h3 className="font-black text-slate-800 dark:text-white text-base tracking-tight">{title}</h3>
-                        {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
+                        {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">{subtitle}</p>}
                     </div>
-                    <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1.5 -mr-1 rounded-full text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700">
+                    <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1.5 -mr-1 rounded-full text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700 shrink-0">
                         <X size={18} />
                     </button>
                 </div>
-                <div className="p-5 max-h-[80vh] overflow-y-auto">{children}</div>
+                <div className="p-5 max-h-[82vh] overflow-y-auto">{children}</div>
             </div>
         </div>
     );
@@ -42,7 +42,7 @@ export function NubeModal({ title, subtitle, onClose, children, testId }) {
 
 function FormError({ message }) {
     if (!message) return null;
-    return <p role="alert" className="text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 rounded-lg px-3 py-2">{message}</p>;
+    return <p role="alert" className="text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 rounded px-3.5 py-2.5">{message}</p>;
 }
 
 export function PinInput({ value, onChange, placeholder, autoFocus, testId, onEnter, maxLength = undefined }) {
@@ -56,9 +56,9 @@ export function PinInput({ value, onChange, placeholder, autoFocus, testId, onEn
                     onChange(maxLength ? digits.slice(0, maxLength) : digits);
                 }}
                 onKeyDown={(e) => { if (e.key === 'Enter') onEnter?.(); }}
-                className={`${PIN_FIELD} pr-12`} />
+                className={`${PIN_FIELD} px-12`} />
             <button type="button" tabIndex={-1} onClick={() => setShow((s) => !s)} aria-label={show ? 'Ocultar PIN' : 'Ver PIN'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
                 {show ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
         </div>
@@ -121,9 +121,9 @@ export function MemberFormModal({ member = null, roles, onSubmit, onClose }) {
                         <div className="grid grid-cols-2 gap-2">
                             {roles.map((r) => (
                                 <button key={r} type="button" onClick={() => setRole(r)} data-testid={`nube-member-role-${r}`}
-                                    className={`rounded-xl border-2 px-3 py-2.5 text-left transition-colors ${role === r ? 'border-brand bg-brand-light' : 'border-slate-200 dark:border-slate-700'}`}>
+                                    className={`rounded border-2 p-3 text-left transition-colors ${role === r ? 'border-brand bg-brand-light' : 'border-slate-200 dark:border-slate-700'}`}>
                                     <p className="text-sm font-black text-slate-800 dark:text-white">{roleLabel(r)}</p>
-                                    <p className="text-[11px] text-slate-500 leading-snug">{roleDescription(r)}</p>
+                                    <p className="text-[11px] text-slate-500 leading-snug mt-0.5">{roleDescription(r)}</p>
                                 </button>
                             ))}
                         </div>
@@ -132,14 +132,14 @@ export function MemberFormModal({ member = null, roles, onSubmit, onClose }) {
                     <p className="text-xs text-slate-500 dark:text-slate-400">Rol: <strong>{roleLabel(role)}</strong></p>
                 )}
                 {role === 'cajero' && (
-                    <label className="flex items-center justify-between gap-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 px-4 py-3 cursor-pointer">
+                    <label className="flex items-center justify-between gap-3 rounded border-2 border-slate-200 dark:border-slate-700 px-4 py-3 cursor-pointer">
                         <span>
                             <span className="block text-sm font-black text-slate-800 dark:text-white">Entrar sin PIN</span>
                             <span className="block text-[11px] text-slate-500 leading-snug">Entra con solo tocar su nombre</span>
                         </span>
                         <input type="checkbox" checked={sinPin} data-testid="nube-member-sin-pin"
                             onChange={(e) => { setSinPin(e.target.checked); setError(null); }}
-                            className="w-5 h-5 accent-[#2b59c3]" />
+                            className="w-5 h-5 shrink-0 accent-[#2b59c3]" />
                     </label>
                 )}
                 {!noPin && (
@@ -356,17 +356,17 @@ export function MasterKeyAccessModal({ ownerName = 'Dueño', purpose = 'login', 
                     />
                 </div>
 
-                <label className="flex items-center justify-between gap-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 px-3.5 py-2.5 cursor-pointer">
-                    <span>
+                <label className="flex items-center justify-between gap-3 rounded border-2 border-slate-200 dark:border-slate-700 px-4 py-3 cursor-pointer">
+                    <span className="min-w-0">
                         <span className="block text-xs font-black text-slate-800 dark:text-white">Cambiar mi PIN de dueño ahora</span>
-                        <span className="block text-[11px] text-slate-500 leading-snug">Opcional: si no lo marcas, solo entras con la Clave Maestra</span>
+                        <span className="block text-[11px] text-slate-500 leading-snug mt-0.5">Opcional: si no lo marcas, solo entras con la Clave Maestra</span>
                     </span>
                     <input
                         type="checkbox"
                         checked={changePin}
                         data-testid="master-key-change-pin-toggle"
                         onChange={(e) => { setChangePin(e.target.checked); setError(null); }}
-                        className="w-5 h-5 accent-[#2b59c3]"
+                        className="w-5 h-5 shrink-0 accent-[#2b59c3]"
                     />
                 </label>
 
@@ -393,11 +393,11 @@ export function MasterKeyAccessModal({ ownerName = 'Dueño', purpose = 'login', 
 
                 <FormError message={error} />
 
-                <div className="flex gap-2 pt-1">
+                <div className="flex items-center gap-2.5 pt-1">
                     <button type="button" onClick={onClose} className={BTN_SECONDARY}>Cancelar</button>
                     <button type="submit" disabled={saving} className={BTN_PRIMARY} data-testid="master-key-login-submit">
-                        {saving ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
-                        {saving ? 'Verificando…' : (changePin ? 'Guardar PIN y entrar' : 'Entrar ahora')}
+                        {saving ? <Loader2 size={16} className="animate-spin shrink-0" /> : <ShieldCheck size={16} className="shrink-0" />}
+                        <span>{saving ? 'Verificando…' : (changePin ? 'Guardar PIN y entrar' : 'Entrar ahora')}</span>
                     </button>
                 </div>
             </form>
@@ -485,11 +485,11 @@ export function MasterKeyConfigModal({ isCustom = false, onSubmit, onClose }) {
                     />
                 </div>
                 <FormError message={error} />
-                <div className="flex gap-2 pt-1">
+                <div className="flex items-center gap-2.5 pt-1">
                     <button type="button" onClick={onClose} className={BTN_SECONDARY}>Cancelar</button>
                     <button type="submit" disabled={saving} className={BTN_PRIMARY} data-testid="master-key-config-save">
-                        {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                        {saving ? 'Guardando…' : 'Guardar Clave Maestra'}
+                        {saving ? <Loader2 size={16} className="animate-spin shrink-0" /> : <Save size={16} className="shrink-0" />}
+                        <span>{saving ? 'Guardando…' : 'Guardar Clave Maestra'}</span>
                     </button>
                 </div>
             </form>

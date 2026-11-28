@@ -213,8 +213,8 @@ export default function SettingsTabSistema({
                 qrCanvasRef.current,
                 deviceId,
                 {
-                    width: 140,
-                    margin: 1.5,
+                    width: 112,
+                    margin: 1,
                     color: {
                         dark: '#1e293b', // slate-800
                         light: '#ffffff'
@@ -242,407 +242,419 @@ export default function SettingsTabSistema({
 
     return (
         <div className="cq-grid cq-3 items-start">
-            {/* Respaldo local */}
-            <SectionCard icon={HardDrive} title="Respaldo local" subtitle="Exportar, importar y compartir" iconColor="text-cyan-500">
-                <div
-                    data-testid="backup-age"
-                    className={`p-2.5 rounded-xl flex gap-2.5 border ${backupStale ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/40' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/30'}`}
-                >
-                    {backupStale
-                        ? <AlertTriangle size={18} className="text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
-                        : <Check size={18} className="text-emerald-600 dark:text-emerald-500 shrink-0 mt-0.5" />}
-                    <div className="min-w-0">
-                        <p className={`text-xs font-bold ${backupStale ? 'text-amber-800 dark:text-amber-400' : 'text-emerald-800 dark:text-emerald-400'}`}>
-                            {describeBackupAge(lastBackupAt)}
-                        </p>
-                        {backupStale && (
-                            <p className="text-[11px] text-amber-700 dark:text-amber-500/90 leading-relaxed mt-0.5">
-                                Exporta un respaldo al menos una vez por semana para no perder tus datos.
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                {/* Exportar, importar (reemplaza todo) y compartir son del Administrador. */}
-                {!isAdmin && (
-                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Solo el Administrador puede exportar, importar o compartir datos.</p>
-                )}
-                {isAdmin && <div className="space-y-2">
-                    <button onClick={handleExport} className="w-full flex items-center gap-3 p-3 min-h-[56px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group active:scale-[0.98]">
-                        <div className="p-2 bg-brand-light dark:bg-surface-800/30 rounded-lg"><Download size={18} className="text-brand" /></div>
-                        <div className="text-left flex-1 min-w-0">
-                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Exportar respaldo</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Descargar archivo .json</p>
-                        </div>
-                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
-                    </button>
-
-                    <button onClick={handleImportClick} className="w-full flex items-center gap-3 p-3 min-h-[56px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group active:scale-[0.98]">
-                        <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg"><Upload size={18} className="text-emerald-500" /></div>
-                        <div className="text-left flex-1 min-w-0">
-                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Importar respaldo</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Restaurar desde archivo (reemplaza todo)</p>
-                        </div>
-                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
-                    </button>
-
-                    <button onClick={() => setIsShareOpen(true)} className="w-full flex items-center gap-3 p-3 min-h-[56px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group active:scale-[0.98]">
-                        <div className="p-2 bg-brand-light dark:bg-surface-800/30 rounded-lg"><Share2 size={18} className="text-brand" /></div>
-                        <div className="text-left flex-1 min-w-0">
-                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Compartir inventario</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Código de 6 dígitos, válido 24 h</p>
-                        </div>
-                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
-                    </button>
-                </div>}
-
-                <p className="text-[11px] text-amber-800 dark:text-amber-400 leading-relaxed font-bold">
-                    PRECAUCIÓN: al restaurar un respaldo se sobrescribirá por completo todo el historial de ventas, inventario, deudores y configuraciones de este dispositivo.
-                </p>
-
-                {importStatus && (
-                    <div className={`p-2.5 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-2 ${importStatus === 'success' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                        {importStatus === 'success' ? <Check size={14} /> : <AlertTriangle size={14} />}
-                        {statusMessage}
-                    </div>
-                )}
-            </SectionCard>
-
-            {/* Nube (respaldo de Bodega). En Precios al Día Nube los datos ya viven en el servidor. */}
-            {!isNubeAccountsEnabled() && (
-            <SectionCard icon={Cloud} title="Nube" subtitle="Copia en línea de tus datos" iconColor="text-sky-500">
-                <button
-                    onClick={() => {
-                        if (!isLicensedCloud) {
-                            showToast('La sincronización con la nube requiere licencia completa', 'error');
-                            return;
-                        }
-                        handleSyncCloud?.();
-                    }}
-                    aria-disabled={!isLicensedCloud}
-                    title={!isLicensedCloud ? 'Disponible con licencia permanente activa' : undefined}
-                    className={`w-full flex items-center gap-3 p-3 min-h-[56px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl transition-colors group active:scale-[0.98] ${isLicensedCloud ? 'hover:bg-slate-100 dark:hover:bg-slate-800' : 'opacity-50 cursor-not-allowed'}`}
-                >
-                    <div className="p-2 bg-sky-50 dark:bg-sky-900/30 rounded-lg"><Cloud size={18} className="text-sky-500" /></div>
-                    <div className="text-left flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Sincronizar con la Nube</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Disponible solo con licencia permanente activa</p>
-                        {/* La etiqueta va debajo del texto para que el título no se parta en columnas angostas. */}
-                        {!isLicensedCloud && (
-                            <span className="inline-block mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 uppercase tracking-wide">Solo permanente</span>
-                        )}
-                    </div>
-                    <ChevronRight size={16} className="text-slate-300 shrink-0" />
-                </button>
-
-                {lastError && (
-                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-xl space-y-1.5" role="alert">
-                        <div className="flex items-start justify-between gap-2">
-                            <p className="text-xs font-bold text-red-700 dark:text-red-400 flex items-center gap-1.5">
-                                <AlertTriangle size={14} className="shrink-0 mt-0.5" /> {lastError.title}
-                            </p>
-                            <button
-                                onClick={onDismissError}
-                                className="text-red-400 hover:text-red-600 dark:hover:text-red-300 text-xs font-bold px-1"
-                                aria-label="Descartar error"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <p className="text-[11px] text-red-600 dark:text-red-500/90 leading-relaxed">{lastError.detail}</p>
-                        <p className="text-[11px] text-red-700 dark:text-red-400 font-medium leading-relaxed">💡 {lastError.hint}</p>
-                        {lastError.technical && (
-                            <p className="text-[9px] text-red-400/70 font-mono break-all pt-1 border-t border-red-100 dark:border-red-800/30">
-                                {lastError.technical}
-                            </p>
-                        )}
-                    </div>
-                )}
-
-                {dataConflictPending && (
-                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl space-y-2">
-                        <p className="text-xs font-bold text-amber-800 dark:text-amber-400 flex items-center gap-1.5">
-                            <AlertTriangle size={14} /> Conflicto de datos detectado
-                        </p>
-                        <p className="text-[11px] text-amber-700 dark:text-amber-500/90 leading-relaxed">
-                            Hay datos tanto en este dispositivo como en la nube. Elige qué versión conservar:
-                        </p>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => handleDataConflictChoice('cloud')}
-                                className="flex-1 py-2.5 text-xs font-bold text-white bg-sky-500 hover:bg-sky-600 rounded-xl active:scale-95 transition-all"
-                            >
-                                Usar los de la Nube
-                            </button>
-                            <button
-                                onClick={() => handleDataConflictChoice('local')}
-                                className="flex-1 py-2.5 text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl active:scale-95 transition-all"
-                            >
-                                Subir los de este Equipo
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-            </SectionCard>
-            )}
-
-            {/* Apariencia */}
-            <SectionCard icon={Palette} title="Apariencia" subtitle="Estilo visual de la app" iconColor="text-pink-500">
-                {/* Zoom / Escala de pantalla */}
-                <div>
-                    <div className="flex items-center gap-3 mb-3">
-                        <ZoomIn size={18} className="text-brand" />
-                        <div>
-                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Tamaño de Pantalla</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Ajusta si la interfaz se ve muy grande o muy pequeña</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => adjustScale(-5)}
-                            disabled={uiScale <= 60}
-                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-light hover:text-brand-dark dark:hover:bg-surface-800/20 dark:hover:text-brand transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                            <ZoomOut size={16} />
-                        </button>
-                        <div className="flex-1 relative">
-                            <input
-                                type="range"
-                                min="60"
-                                max="140"
-                                step="5"
-                                value={uiScale}
-                                onChange={e => { setUiScale(parseInt(e.target.value)); triggerHaptic?.(); }}
-                                className="w-full h-2 rounded-full appearance-none cursor-pointer bg-slate-200 dark:bg-slate-700 accent-brand"
-                            />
-                            <div className="flex justify-between mt-1 px-0.5">
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">60%</span>
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">100%</span>
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">140%</span>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => adjustScale(5)}
-                            disabled={uiScale >= 140}
-                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-light hover:text-brand-dark dark:hover:bg-surface-800/20 dark:hover:text-brand transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                            <ZoomIn size={16} />
-                        </button>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs font-black text-brand-dark dark:text-brand bg-brand-light dark:bg-surface-800/20 px-2.5 py-1 rounded-lg">{uiScale}%</span>
-                        {uiScale !== 100 && (
-                            <button
-                                onClick={() => { setUiScale(100); triggerHaptic?.(); }}
-                                className="text-xs font-bold text-slate-550 hover:text-brand flex items-center gap-1 transition-colors"
-                            >
-                                <RotateCcw size={12} /> Restablecer
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </SectionCard>
-
-            {/* Dispositivo */}
-            <SectionCard icon={Fingerprint} title="Dispositivo" subtitle="Información técnica" iconColor="text-slate-500">
-                <div className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-950 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 shadow-inner w-fit mx-auto mb-4">
-                    <canvas ref={qrCanvasRef} className="w-[140px] h-[140px] rounded-lg" />
-                </div>
-                <div className="flex items-start justify-between gap-2 p-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl">
-                    <div className="min-w-0 flex-1">
-                        <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400 mb-1">ID de instalación</p>
-                        <p className="font-mono text-xs font-black text-slate-700 dark:text-slate-200 select-all break-all leading-relaxed">{deviceId || '...'}</p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (!deviceId) return;
-                            navigator.clipboard.writeText(deviceId).then(() => {
-                                setIdCopied(true);
-                                setTimeout(() => setIdCopied(false), 2000);
-                            });
-                        }}
-                        className="shrink-0 p-2.5 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-slate-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all"
-                        title={idCopied ? '¡Copiado!' : 'Copiar ID completo'}
-                        aria-label="Copiar ID de instalación"
+            {/* COLUMNA 1: Respaldo local + Nube (si aplica) + Reinicio de cuenta (solo dueño) */}
+            <div className="space-y-4 min-w-0">
+                <SectionCard icon={HardDrive} title="Respaldo local" subtitle="Exportar, importar y compartir" iconColor="text-cyan-500">
+                    <div
+                        data-testid="backup-age"
+                        className={`p-3 rounded flex gap-2.5 border ${backupStale ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/40' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/30'}`}
                     >
-                        {idCopied ? <Check size={14} className="text-emerald-500" /> : <Fingerprint size={14} />}
+                        {backupStale
+                            ? <AlertTriangle size={18} className="text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                            : <Check size={18} className="text-emerald-600 dark:text-emerald-500 shrink-0 mt-0.5" />}
+                        <div className="min-w-0">
+                            <p className={`text-xs font-bold ${backupStale ? 'text-amber-800 dark:text-amber-400' : 'text-emerald-800 dark:text-emerald-400'}`}>
+                                {describeBackupAge(lastBackupAt)}
+                            </p>
+                            {backupStale && (
+                                <p className="text-[11px] text-amber-700 dark:text-amber-500/90 leading-relaxed mt-0.5">
+                                    Exporta un respaldo al menos una vez por semana para no perder tus datos.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Exportar, importar (reemplaza todo) y compartir son del Administrador. */}
+                    {!isAdmin && (
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Solo el Administrador puede exportar, importar o compartir datos.</p>
+                    )}
+                    {isAdmin && <div className="space-y-2">
+                        <button onClick={handleExport} className="w-full flex items-center gap-3 p-3.5 min-h-[54px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group active:scale-[0.98]">
+                            <div className="p-2 bg-brand-light dark:bg-surface-800/30 rounded-sm shrink-0"><Download size={18} className="text-brand" /></div>
+                            <div className="text-left flex-1 min-w-0">
+                                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Exportar respaldo</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Descargar archivo .json</p>
+                            </div>
+                            <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                        </button>
+
+                        <button onClick={handleImportClick} className="w-full flex items-center gap-3 p-3.5 min-h-[54px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group active:scale-[0.98]">
+                            <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-sm shrink-0"><Upload size={18} className="text-emerald-500" /></div>
+                            <div className="text-left flex-1 min-w-0">
+                                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Importar respaldo</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Restaurar desde archivo (reemplaza todo)</p>
+                            </div>
+                            <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                        </button>
+
+                        <button onClick={() => setIsShareOpen(true)} className="w-full flex items-center gap-3 p-3.5 min-h-[54px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group active:scale-[0.98]">
+                            <div className="p-2 bg-brand-light dark:bg-surface-800/30 rounded-sm shrink-0"><Share2 size={18} className="text-brand" /></div>
+                            <div className="text-left flex-1 min-w-0">
+                                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Compartir inventario</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Código de 6 dígitos, válido 24 h</p>
+                            </div>
+                            <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                        </button>
+                    </div>}
+
+                    <p className="text-[11px] text-amber-800 dark:text-amber-400 leading-relaxed font-bold">
+                        PRECAUCIÓN: al restaurar un respaldo se sobrescribirá por completo todo el historial de ventas, inventario, deudores y configuraciones de este dispositivo.
+                    </p>
+
+                    {importStatus && (
+                        <div className={`p-2.5 rounded text-xs font-bold text-center flex items-center justify-center gap-2 ${importStatus === 'success' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                            {importStatus === 'success' ? <Check size={14} /> : <AlertTriangle size={14} />}
+                            {statusMessage}
+                        </div>
+                    )}
+                </SectionCard>
+
+                {/* Nube (respaldo de Bodega). En Precios al Día Nube los datos ya viven en el servidor. */}
+                {!isNubeAccountsEnabled() && (
+                <SectionCard icon={Cloud} title="Nube" subtitle="Copia en línea de tus datos" iconColor="text-sky-500">
+                    <button
+                        onClick={() => {
+                            if (!isLicensedCloud) {
+                                showToast('La sincronización con la nube requiere licencia completa', 'error');
+                                return;
+                            }
+                            handleSyncCloud?.();
+                        }}
+                        aria-disabled={!isLicensedCloud}
+                        title={!isLicensedCloud ? 'Disponible con licencia permanente activa' : undefined}
+                        className={`w-full flex items-center gap-3 p-3.5 min-h-[54px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded transition-colors group active:scale-[0.98] ${isLicensedCloud ? 'hover:bg-slate-100 dark:hover:bg-slate-800' : 'opacity-50 cursor-not-allowed'}`}
+                    >
+                        <div className="p-2 bg-sky-50 dark:bg-sky-900/30 rounded-sm shrink-0"><Cloud size={18} className="text-sky-500" /></div>
+                        <div className="text-left flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Sincronizar con la Nube</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Disponible solo con licencia permanente activa</p>
+                            {!isLicensedCloud && (
+                                <span className="inline-block mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 uppercase tracking-wide">Solo permanente</span>
+                            )}
+                        </div>
+                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
                     </button>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">Comparte este ID o escanea su código QR si necesitas soporte técnico o activación de licencia.</p>
 
-                {electronUpdater ? (() => {
-                    const st = desktopUpdateState;
-                    const displayVersion = st?.currentVersion || import.meta.env.VITE_APP_VERSION;
-                    const isBusy = checkingUpdate || st?.status === 'checking';
-                    const isDownloading = st?.status === 'downloading' || st?.status === 'available';
-                    const isDownloaded = st?.status === 'downloaded' && st?.downloaded;
-                    const badge = DESKTOP_UPDATE_BADGES[st?.status] || null;
-                    const lastCheckLabel = formatCheckTime(st?.lastCheckedAt);
-                    const pct = Math.min(100, Math.max(0, Number(st?.progressPercent || 0)));
+                    {lastError && (
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded space-y-1.5" role="alert">
+                            <div className="flex items-start justify-between gap-2">
+                                <p className="text-xs font-bold text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                                    <AlertTriangle size={14} className="shrink-0 mt-0.5" /> {lastError.title}
+                                </p>
+                                <button
+                                    onClick={onDismissError}
+                                    className="text-red-400 hover:text-red-600 dark:hover:text-red-300 text-xs font-bold px-1"
+                                    aria-label="Descartar error"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                            <p className="text-[11px] text-red-600 dark:text-red-500/90 leading-relaxed">{lastError.detail}</p>
+                            <p className="text-[11px] text-red-700 dark:text-red-400 font-medium leading-relaxed">💡 {lastError.hint}</p>
+                            {lastError.technical && (
+                                <p className="text-[9px] text-red-400/70 font-mono break-all pt-1 border-t border-red-100 dark:border-red-800/30">
+                                    {lastError.technical}
+                                </p>
+                            )}
+                        </div>
+                    )}
 
-                    return (
-                        <div
-                            data-testid="lan-settings-updates"
-                            className="mt-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50/90 dark:bg-slate-800/50 p-3.5 space-y-3"
-                        >
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400">
-                                            Actualizaciones del sistema
-                                        </p>
-                                        {badge && (
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-wider ${badge.cls}`}>
-                                                {isDownloading ? `Descargando ${pct}%` : badge.label}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                                        <p data-testid="app-version" className="font-mono text-xs font-black text-slate-800 dark:text-slate-100">
-                                            v{displayVersion}
-                                        </p>
-                                        {lastCheckLabel && (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400">
-                                                <Clock size={10} /> Revisado {lastCheckLabel}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
+                    {dataConflictPending && (
+                        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded space-y-2">
+                            <p className="text-xs font-bold text-amber-800 dark:text-amber-400 flex items-center gap-1.5">
+                                <AlertTriangle size={14} /> Conflicto de datos detectado
+                            </p>
+                            <p className="text-[11px] text-amber-700 dark:text-amber-500/90 leading-relaxed">
+                                Hay datos tanto en este dispositivo como en la nube. Elige qué versión conservar:
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handleDataConflictChoice('cloud')}
+                                    className="flex-1 py-2.5 px-3 text-xs font-bold text-white bg-sky-500 hover:bg-sky-600 rounded active:scale-95 transition-all"
+                                >
+                                    Usar los de la Nube
+                                </button>
+                                <button
+                                    onClick={() => handleDataConflictChoice('local')}
+                                    className="flex-1 py-2.5 px-3 text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded active:scale-95 transition-all"
+                                >
+                                    Subir los de este Equipo
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </SectionCard>
+                )}
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <button
-                                        type="button"
-                                        data-testid="lan-settings-open-center"
-                                        onClick={() => triggerManualUpdateCheck()}
-                                        className="px-2.5 py-2 min-h-[38px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
-                                    >
-                                        Ver detalles
-                                    </button>
-                                    <button
-                                        type="button"
-                                        data-testid="check-update"
-                                        onClick={handleCheckUpdate}
-                                        disabled={isBusy}
-                                        className="flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-xl bg-brand hover:bg-brand-dark disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-xs"
-                                    >
-                                        <RefreshCw size={13} className={isBusy ? 'animate-spin' : ''} />
-                                        {isBusy ? 'Buscando…' : 'Buscar actualizaciones'}
-                                    </button>
+                {/* Nube/LAN: reinicio de fábrica de TODA la cuenta, solo el dueño (apilado en Columna 1 sin dejar huecos). */}
+                {isNubeAccountsEnabled() && isOwnerHere() && <NubeAccountReset fullSpan={false} />}
+            </div>
+
+            {/* COLUMNA 2: Apariencia + Salud del sistema (apiladas para eliminar el hueco central) */}
+            <div className="space-y-4 min-w-0">
+                <SectionCard icon={Palette} title="Apariencia" subtitle="Estilo visual de la app" iconColor="text-pink-500">
+                    <div>
+                        <div className="flex items-center gap-3 mb-3">
+                            <ZoomIn size={18} className="text-brand shrink-0" />
+                            <div>
+                                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Tamaño de Pantalla</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Ajusta si la interfaz se ve muy grande o muy pequeña</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => adjustScale(-5)}
+                                disabled={uiScale <= 60}
+                                className="w-10 h-10 flex items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-light hover:text-brand-dark dark:hover:bg-surface-800/20 dark:hover:text-brand transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                            >
+                                <ZoomOut size={16} />
+                            </button>
+                            <div className="flex-1 relative">
+                                <input
+                                    type="range"
+                                    min="60"
+                                    max="140"
+                                    step="5"
+                                    value={uiScale}
+                                    onChange={e => { setUiScale(parseInt(e.target.value)); triggerHaptic?.(); }}
+                                    className="w-full h-2 rounded-full appearance-none cursor-pointer bg-slate-200 dark:bg-slate-700 accent-brand"
+                                />
+                                <div className="flex justify-between mt-1 px-0.5">
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">60%</span>
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">100%</span>
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">140%</span>
                                 </div>
                             </div>
-
-                            {isDownloading && (
-                                <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                                        <span>Descargando versión v{st?.availableVersion || 'nueva'}…</span>
-                                        <span>{pct}%</span>
-                                    </div>
-                                    <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                                        <div className="h-full bg-brand rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
-                                    </div>
-                                </div>
+                            <button
+                                onClick={() => adjustScale(5)}
+                                disabled={uiScale >= 140}
+                                className="w-10 h-10 flex items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-light hover:text-brand-dark dark:hover:bg-surface-800/20 dark:hover:text-brand transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                            >
+                                <ZoomIn size={16} />
+                            </button>
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs font-black text-brand-dark dark:text-brand bg-brand-light dark:bg-surface-800/20 px-2.5 py-1 rounded-sm">{uiScale}%</span>
+                            {uiScale !== 100 && (
+                                <button
+                                    onClick={() => { setUiScale(100); triggerHaptic?.(); }}
+                                    className="text-xs font-bold text-slate-550 hover:text-brand flex items-center gap-1 transition-colors"
+                                >
+                                    <RotateCcw size={12} /> Restablecer
+                                </button>
                             )}
+                        </div>
+                    </div>
+                </SectionCard>
 
-                            {isDownloaded && (
-                                <div className="rounded-xl border border-emerald-300/80 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/30 p-3 space-y-2.5">
-                                    <div className="flex items-start gap-2.5">
-                                        <div className="p-1.5 rounded-lg bg-emerald-500 text-white shrink-0">
-                                            <Rocket size={14} />
+                {/* Salud del sistema (Fase 3): reloj vs servidor, último comando y última sincronización */}
+                <SystemHealthPanel triggerHaptic={triggerHaptic} />
+            </div>
+
+            {/* COLUMNA 3: Dispositivo */}
+            <div className="space-y-4 min-w-0">
+                <SectionCard icon={Fingerprint} title="Dispositivo" subtitle="Información técnica" iconColor="text-slate-500">
+                    <div className="flex flex-col sm:flex-row items-center gap-3.5 p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded">
+                        <div className="p-2 bg-white dark:bg-slate-950 rounded-sm border border-slate-200/60 dark:border-slate-800 shadow-xs shrink-0">
+                            <canvas ref={qrCanvasRef} className="w-[112px] h-[112px] block rounded-xs" />
+                        </div>
+                        <div className="min-w-0 flex-1 w-full">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400 mb-1">ID de instalación</p>
+                                    <p className="font-mono text-xs font-black text-slate-700 dark:text-slate-200 select-all break-all leading-relaxed">{deviceId || '...'}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!deviceId) return;
+                                        navigator.clipboard.writeText(deviceId).then(() => {
+                                            setIdCopied(true);
+                                            setTimeout(() => setIdCopied(false), 2000);
+                                        });
+                                    }}
+                                    className="shrink-0 p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-sm text-slate-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all"
+                                    title={idCopied ? '¡Copiado!' : 'Copiar ID completo'}
+                                    aria-label="Copiar ID de instalación"
+                                >
+                                    {idCopied ? <Check size={14} className="text-emerald-500" /> : <Fingerprint size={14} />}
+                                </button>
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 leading-snug">
+                                Comparte este ID o escanea su código QR para soporte técnico o activación de licencia.
+                            </p>
+                        </div>
+                    </div>
+
+                    {electronUpdater ? (() => {
+                        const st = desktopUpdateState;
+                        const displayVersion = st?.currentVersion || import.meta.env.VITE_APP_VERSION;
+                        const isBusy = checkingUpdate || st?.status === 'checking';
+                        const isDownloading = st?.status === 'downloading' || st?.status === 'available';
+                        const isDownloaded = st?.status === 'downloaded' && st?.downloaded;
+                        const badge = DESKTOP_UPDATE_BADGES[st?.status] || null;
+                        const lastCheckLabel = formatCheckTime(st?.lastCheckedAt);
+                        const pct = Math.min(100, Math.max(0, Number(st?.progressPercent || 0)));
+
+                        return (
+                            <div
+                                data-testid="lan-settings-updates"
+                                className="mt-3 rounded border border-slate-200/80 dark:border-slate-700/70 bg-slate-50/90 dark:bg-slate-800/50 p-3.5 space-y-3"
+                            >
+                                <div className="flex flex-wrap items-center justify-between gap-2.5">
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400">
+                                                Actualizaciones del sistema
+                                            </p>
+                                            {badge && (
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-wider ${badge.cls}`}>
+                                                    {isDownloading ? `Descargando ${pct}%` : badge.label}
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-black text-emerald-900 dark:text-emerald-200">
-                                                Nueva actualización lista: v{st?.availableVersion}
+                                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                                            <p data-testid="app-version" className="font-mono text-xs font-black text-slate-800 dark:text-slate-100">
+                                                v{displayVersion}
                                             </p>
-                                            <p className="text-[11px] font-medium text-emerald-800/80 dark:text-emerald-300/80">
-                                                {desktopUpdatePostponed
-                                                    ? 'La dejaste para más tarde. Se instalará al cerrar la app o cuando pulses Instalar ahorita.'
-                                                    : 'Ya se descargó completa. Elige si quieres reiniciar ahorita o continuar trabajando.'}
-                                            </p>
+                                            {lastCheckLabel && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400">
+                                                    <Clock size={10} /> Revisado {lastCheckLabel}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap items-center justify-end gap-2">
-                                        {!desktopUpdatePostponed && (
-                                            <button
-                                                type="button"
-                                                data-testid="lan-settings-later-btn"
-                                                onClick={() => {
-                                                    setDesktopUpdatePostponed(true);
-                                                    showToast(`v${st?.availableVersion} se instalará más tarde`, 'info');
-                                                }}
-                                                className="px-3 py-1.5 min-h-[34px] rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white/80 dark:bg-slate-900/80 hover:bg-white text-[11px] font-bold text-emerald-800 dark:text-emerald-200 cursor-pointer"
-                                            >
-                                                Más tarde
-                                            </button>
-                                        )}
+
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <button
                                             type="button"
-                                            data-testid="lan-settings-install-btn"
-                                            onClick={handleInstallDesktopUpdate}
-                                            disabled={installingDesktopUpdate}
-                                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[34px] rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-wider shadow-xs cursor-pointer"
+                                            data-testid="lan-settings-open-center"
+                                            onClick={() => triggerManualUpdateCheck()}
+                                            className="px-3 py-2 min-h-[38px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 transition-colors cursor-pointer whitespace-nowrap"
                                         >
-                                            <Download size={12} />
-                                            {installingDesktopUpdate ? 'Reiniciando…' : 'Instalar ahorita (reiniciar)'}
+                                            Ver detalles
+                                        </button>
+                                        <button
+                                            type="button"
+                                            data-testid="check-update"
+                                            onClick={handleCheckUpdate}
+                                            disabled={isBusy}
+                                            className="flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] rounded bg-brand hover:bg-brand-dark disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap"
+                                        >
+                                            <RefreshCw size={13} className={`shrink-0 ${isBusy ? 'animate-spin' : ''}`} />
+                                            <span>{isBusy ? 'Buscando…' : 'Buscar actualizaciones'}</span>
                                         </button>
                                     </div>
                                 </div>
-                            )}
 
-                            {!isDownloaded && st?.status === 'up-to-date' && (
-                                <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                                    Ya tienes instalada la última versión disponible (v{displayVersion}).
-                                </p>
-                            )}
+                                {isDownloading && (
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                                            <span>Descargando versión v{st?.availableVersion || 'nueva'}…</span>
+                                            <span>{pct}%</span>
+                                        </div>
+                                        <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                            <div className="h-full bg-brand rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                                        </div>
+                                    </div>
+                                )}
 
-                            {(st?.status === 'error' || st?.status === 'offline' || st?.status === 'unsupported') && st?.error && (
-                                <p className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                                    {st.error}
-                                </p>
-                            )}
+                                {isDownloaded && (
+                                    <div className="rounded border border-emerald-300/80 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/30 p-3 space-y-2.5">
+                                        <div className="flex items-start gap-2.5">
+                                            <div className="p-1.5 rounded-sm bg-emerald-500 text-white shrink-0">
+                                                <Rocket size={14} />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-black text-emerald-900 dark:text-emerald-200">
+                                                    Nueva actualización lista: v{st?.availableVersion}
+                                                </p>
+                                                <p className="text-[11px] font-medium text-emerald-800/80 dark:text-emerald-300/80">
+                                                    {desktopUpdatePostponed
+                                                        ? 'La dejaste para más tarde. Se instalará al cerrar la app o cuando pulses Instalar ahorita.'
+                                                        : 'Ya se descargó completa. Elige si quieres reiniciar ahorita o continuar trabajando.'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center justify-end gap-2">
+                                            {!desktopUpdatePostponed && (
+                                                <button
+                                                    type="button"
+                                                    data-testid="lan-settings-later-btn"
+                                                    onClick={() => {
+                                                        setDesktopUpdatePostponed(true);
+                                                        showToast(`v${st?.availableVersion} se instalará más tarde`, 'info');
+                                                    }}
+                                                    className="px-3 py-1.5 min-h-[34px] rounded-sm border border-emerald-300 dark:border-emerald-700 bg-white/80 dark:bg-slate-900/80 hover:bg-white text-[11px] font-bold text-emerald-800 dark:text-emerald-200 cursor-pointer"
+                                                >
+                                                    Más tarde
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                data-testid="lan-settings-install-btn"
+                                                onClick={handleInstallDesktopUpdate}
+                                                disabled={installingDesktopUpdate}
+                                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[34px] rounded-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-wider shadow-xs cursor-pointer"
+                                            >
+                                                <Download size={12} className="shrink-0" />
+                                                {installingDesktopUpdate ? 'Reiniciando…' : 'Instalar ahorita (reiniciar)'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!isDownloaded && st?.status === 'up-to-date' && (
+                                    <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                                        Ya tienes instalada la última versión disponible (v{displayVersion}).
+                                    </p>
+                                )}
+
+                                {(st?.status === 'error' || st?.status === 'offline' || st?.status === 'unsupported') && st?.error && (
+                                    <p className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                                        {st.error}
+                                    </p>
+                                )}
+                            </div>
+                        );
+                    })() : (
+                        <div className="mt-3 flex items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded">
+                            <div className="min-w-0">
+                                <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400">Versión de la app</p>
+                                <p data-testid="app-version" className="font-mono text-xs font-black text-slate-700 dark:text-slate-200">v{import.meta.env.VITE_APP_VERSION}</p>
+                            </div>
+                            <button
+                                type="button"
+                                data-testid="check-update"
+                                onClick={handleCheckUpdate}
+                                disabled={checkingUpdate}
+                                className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-60 whitespace-nowrap ${updateReady ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+                            >
+                                <RefreshCw size={13} className={`shrink-0 ${checkingUpdate ? 'animate-spin' : ''}`} />
+                                {updateReady ? 'Actualizar ahora' : checkingUpdate ? 'Buscando…' : 'Buscar actualización'}
+                            </button>
                         </div>
-                    );
-                })() : (
-                    <div className="mt-4 flex items-center justify-between gap-3 p-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl">
-                        <div className="min-w-0">
-                            <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400">Versión de la app</p>
-                            <p data-testid="app-version" className="font-mono text-xs font-black text-slate-700 dark:text-slate-200">v{import.meta.env.VITE_APP_VERSION}</p>
-                        </div>
+                    )}
+
+                    {/* Dos equipos con el mismo ID: separar esta estación */}
+                    <div className="mt-3 p-3.5 rounded border border-amber-200/70 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20">
+                        <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300 leading-snug">
+                            ¿Dos equipos muestran el mismo ID? Genera uno propio y único para esta estación.
+                        </p>
                         <button
-                            type="button"
-                            data-testid="check-update"
-                            onClick={handleCheckUpdate}
-                            disabled={checkingUpdate}
-                            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-60 ${updateReady ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+                            onClick={() => { triggerHaptic?.(); setShowIdFixConfirm(true); }}
+                            disabled={fixingId}
+                            className="mt-2.5 w-full flex items-center justify-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-wider transition-all"
                         >
-                            <RefreshCw size={13} className={checkingUpdate ? 'animate-spin' : ''} />
-                            {updateReady ? 'Actualizar ahora' : checkingUpdate ? 'Buscando…' : 'Buscar actualización'}
+                            <Fingerprint size={13} className="shrink-0" />
+                            <span>{fixingId ? 'Generando ID único…' : 'Generar ID único para esta estación'}</span>
                         </button>
+                        <p className="mt-1.5 text-[10px] text-amber-700/80 dark:text-amber-300/80">
+                            No borra ventas, inventario ni la licencia actual; solo cambia el ID de esta estación.
+                        </p>
                     </div>
-                )}
-
-                {/* Dos equipos con el mismo ID: separar esta estación */}
-                <div className="mt-4 p-3 rounded-2xl border border-amber-200/70 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20">
-                    <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
-                        ¿Dos equipos muestran el mismo ID? Genera uno propio y único para esta estación.
-                    </p>
-                    <button
-                        onClick={() => { triggerHaptic?.(); setShowIdFixConfirm(true); }}
-                        disabled={fixingId}
-                        className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-wider transition-all"
-                    >
-                        <Fingerprint size={13} />
-                        {fixingId ? 'Generando ID único…' : 'Generar ID único para esta estación'}
-                    </button>
-                    <p className="mt-1.5 text-[10px] text-amber-700/80 dark:text-amber-300/80">
-                        No borra ventas, inventario ni la licencia actual; solo cambia el ID de esta estación.
-                    </p>
-                </div>
-            </SectionCard>
-
-            {/* Salud del sistema (Fase 3): reloj vs servidor, último comando y última sincronización */}
-            <SystemHealthPanel triggerHaptic={triggerHaptic} />
+                </SectionCard>
+            </div>
 
             {/* Confirmación antes de cambiar el ID de la estación */}
             <ConfirmModal
@@ -664,9 +676,6 @@ export default function SettingsTabSistema({
                     </SectionCard>
                 </div>
             )}
-
-            {/* Nube: reinicio de fábrica de TODA la cuenta, solo el dueño (con su correo). */}
-            {isNubeAccountsEnabled() && isOwnerHere() && <NubeAccountReset />}
 
             {/* Zona de Peligro — Habilitado para Administradores. Nube: no aparece. Los dos
                 botones son de Bodega: «Borrar historial» borraba en el servidor el turno de esta
