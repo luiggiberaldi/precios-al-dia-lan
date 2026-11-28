@@ -24,6 +24,7 @@ import { useSecurity } from '../hooks/useSecurity';
 import { useAudit } from '../hooks/useAudit';
 import { useAuthStore } from '../hooks/store/useAuthStore';
 import { usePermissions, PERMISSIONS } from '../hooks/usePermissions';
+import { readRbacConfig } from '../security/rbacConfig';
 import PermissionPinPrompt from '../components/security/PermissionPinPrompt';
 import { getLocalISODate } from '../utils/dateHelpers';
 import { CASH_SHIFT_TYPES, isRecordInOpenCashShift } from '../utils/cashShift';
@@ -290,6 +291,10 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     // ── Funciones de Historial Avanzado ──
     const handleVoidSale = async (sale) => {
         if (!can(PERMISSIONS.SALES_VOID)) {
+            if (!readRbacConfig().allowQuickAuth) {
+                showToast('No tienes permiso para anular ventas.', 'error');
+                return;
+            }
             setPendingVoidAuthSale(sale);
             return;
         }

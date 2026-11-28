@@ -18,6 +18,8 @@ import { showToast } from '../Toast';
 export default function LockScreen({ onOpenPairing, onOpenPairingIssuer = () => {}, adminLoginRequest = 0, installPrompt, onInstall, showIOSButton, onShowIOSInstall, onOpenRemotion }) {
   const { logoSrc: brandLogoSrc } = useBrandLogo();
   const { usuarios, login, loginDirect, loginWithBadge, requireCajeroPin, requireAdminPin, resetPinEmergency } = useAuthStore();
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
 
   // Permite iniciar sesión directamente mostrando el Carnet al lector de código de barras / QR.
   useBarcodeScanner({
@@ -33,8 +35,6 @@ export default function LockScreen({ onOpenPairing, onOpenPairingIssuer = () => 
       }
     },
   });
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [logoClickCount, setLogoClickCount] = useState(0);
   const clickTimeoutRef = useRef(null);
   const [showWelcome, setShowWelcome] = useState(() => {

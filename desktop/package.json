@@ -1,6 +1,6 @@
 {
   "name": "preciosaldia-lan-desktop",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Aplicación de escritorio multicaja en red local (LAN) para Precios al Día",
   "main": "main.js",
   "type": "commonjs",

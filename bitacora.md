@@ -551,3 +551,14 @@ mostraba $0 aunque la caja había confirmado las 8 compras: invitaba a cargarlas
 - **RBAC Fase 3 (Carnet de acceso + permisos especiales):** generación y verificación segura de carnets `PDA-XXXXXXXXXXXX` con hash PBKDF2 y codificador SVG Code 39 + QR (`src/security/badgeToken.js`, `EmployeeBadgeModal.jsx`); inicio de sesión por lector de barras/QR en `LockScreen.jsx`; modal `PermissionPinPrompt.jsx` para autorizar anulaciones con PIN o carnet sin cerrar la sesión del cajero; 5 interruptores de permisos especiales por empleado en `UsersManager.jsx`.
 - **Nómina y pulido visual:** ajustes en `PayrollPanel.jsx`, `PayrollGoodsModal.jsx`, `PayrollEntryModal.jsx`, `payrollModel.js`, estilos (`tokens.css`, `components.css`, `index.css`, `main.jsx`) y modales varios.
 **Verificación:** `9/9` suites (`80/80` tests pasando: `permissions.test.js` 15, `badgeAndOverrides.test.js` 5, `roleTabs.test.js` 4, `adminPinPolicy.test.js` 3, `supervisorUserCommand.test.js` 3, `payrollGoods.test.js` 20, `payrollUi.test.js` 3, `teamService.test.js` 15 con PGlite real, `nubeTeamScreens.test.jsx` 12), ESLint `0` errores y `bun run build` exitoso.
+
+
+## 2026-11-27 — Fix pantalla en blanco al salir al login + RBAC y Carnets 100% configurables en LAN/Nube (v1.5.1)
+
+**Contexto:** Al cerrar sesión y volver al `LockScreen` ocurría `ReferenceError: Cannot access 'L' before initialization` por declarar `useBarcodeScanner` antes de los `useState` `selectedUser`/`showEmergencyModal`. Además, en modo LAN/Nube (`NubeTeamSettings.jsx`) faltaban la interfaz 100% configurable de RBAC y la gestión de carnets QR/barras que solo estaban en `UsersManager.jsx`.
+**Cambios:**
+- **Fix TDZ en `LockScreen.jsx`:** se movió `useBarcodeScanner` debajo de `selectedUser` y `showEmergencyModal`.
+- **RBAC y Carnets 100% configurables y sincronizados en LAN (`src/security/rbacConfig.js`, `businessConfigSync.js`):** nueva clave sincronizada `pda_rbac_config_v1` que guarda la matriz personalizada por rol, excepciones individuales por empleado, hashes PBKDF2 de carnets y el interruptor global de autorización rápida.
+- **UI completa en Ajustes → Usuarios (`NubeTeamSettings.jsx`, `RbacConfigPanel.jsx`, `UsersManager.jsx`):** botones de Carnet (QR + Code 39) y Permisos especiales en cada fila de empleado + panel interactivo para editar cualquiera de los 25 permisos por rol y restaurar recomendados.
+- **Autorización y acceso con Carnet en LAN/Nube (`PermissionPinPrompt.jsx`, `NubeGate.jsx`):** `PermissionPinPrompt` valida carnets y PINs también contra el equipo LAN/Nube sin cerrar la sesión del cajero; `NubeGate` detecta escaneo de carnet en «¿Quién está operando?».
+**Verificación:** Vitest (`permissions`, `badgeAndOverrides`, `nubeTeamScreens`, `teamService`, `roleTabs`), ESLint `0` errores y release `v1.5.1` publicado en GitHub Releases.

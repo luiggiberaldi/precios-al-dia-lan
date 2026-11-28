@@ -37,6 +37,7 @@ export const SYNCED_BUSINESS_LS_KEYS = Object.freeze([
     'granel_unit_mode',
     'admin_auto_lock_minutes',
     'cash_drawer_mode',
+    'pda_rbac_config_v1',
 ]);
 
 export function readBusinessConfigSnapshot(storage = globalThis.localStorage) {

@@ -43,6 +43,9 @@ import { keepChannel } from './realtimeChannel';
 import LanSetupScreen from '../lan/LanSetupScreen';
 import LanPairingModal from '../lan/LanPairingModal';
 import LanUpdateBanner from '../lan/LanUpdateBanner';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
+import { isBadgeCode } from '../security/badgeToken';
+import { findMemberIdByBadge } from '../security/rbacConfig';
 
 /**
  * Regreso de un enlace de correo (recuperar contraseña o confirmar cuenta): se lee una vez y se borra de la URL.
@@ -645,6 +648,30 @@ function NubeGateFlow({ children }) {
             return { success: false, error: msg };
         }
     };
+
+    // Escaneo de Carnet (código de barras / QR) en la pantalla «¿Quién está operando?»
+    useBarcodeScanner({
+        enabled: phase === 'elegir' && !picked && !askOwnerPin,
+        onScan: async (code) => {
+            if (!isBadgeCode(code)) return;
+            const matchedId = await findMemberIdByBadge(code);
+            if (!matchedId) {
+                setError('Carnet no reconocido o revocado.');
+                return;
+            }
+            const target = (members || []).find((m) => String(m.id) === String(matchedId));
+            if (!target) {
+                setError('Este carnet no pertenece a un empleado activo en esta caja.');
+                return;
+            }
+            setError(null);
+            if (memberPinLength(target) === null) {
+                await handlePin('', target);
+            } else {
+                setPicked(target);
+            }
+        },
+    });
 
     if (recovery?.accessToken || recovery?.done) {
         return <NewPasswordScreen onSubmit={handleNewPassword} busy={busy} error={error} done={Boolean(recovery.done)}

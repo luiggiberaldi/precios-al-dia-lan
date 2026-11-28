@@ -4,7 +4,7 @@
  * las cajas. Dueño y administrador gestionan el equipo; cualquiera cambia su PIN.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Users, Lock, KeyRound, UserPlus, Pencil, UserX, UserCheck, Cloud, Info, Loader2, RotateCw } from 'lucide-react';
+import { Users, Lock, KeyRound, UserPlus, Pencil, UserX, UserCheck, Cloud, Info, Loader2, RotateCw, BadgeCheck, SlidersHorizontal, X } from 'lucide-react';
 import { SectionCard } from '../components/SettingsShared';
 import LoginAvatar from '../components/security/LoginAvatar';
 import { getDeviceClient } from './nubeSupabase';
@@ -13,10 +13,28 @@ import { readMemberSession } from './memberSession';
 import { roleLabel, canManageTeam, canEditMember, assignableRoles } from './teamRules';
 import { MemberFormModal, PinChangeModal, ConfirmModal } from './NubeTeamUI';
 import { notifyBusinessConfigChanged } from './businessConfigSync';
+import EmployeeBadgeModal from '../components/Settings/EmployeeBadgeModal';
+import RbacConfigPanel from '../components/Settings/RbacConfigPanel';
+import {
+    can as canPerm,
+    PERMISSION_GROUPS,
+    ROLE_PERMISSIONS,
+    normalizeRole,
+} from '../security/permissions';
+import {
+    generateMemberBadge,
+    revokeMemberBadge,
+    hasMemberBadge,
+    getMemberOverrides,
+    setMemberPermissionOverride,
+    readRbacConfig,
+    RBAC_UPDATED_EVENT,
+} from '../security/rbacConfig';
 
 const ROLE_BADGE = {
     dueno: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60',
     administrador: 'bg-brand-light text-brand border-brand/20',
+    inventario: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800/60',
     cajero: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60',
 };
 
@@ -29,7 +47,16 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [modal, setModal] = useState(null); // { kind: 'create' | 'edit' | 'pin' | 'mypin' | 'toggle', member? }
+    const [modal, setModal] = useState(null); // { kind: 'create' | 'edit' | 'pin' | 'mypin' | 'toggle' | 'badge' | 'perms', member? }
+    const [badgeCode, setBadgeCode] = useState('');
+    const [, setRbacTick] = useState(0);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const bump = () => setRbacTick((v) => v + 1);
+        window.addEventListener(RBAC_UPDATED_EVENT, bump);
+        return () => window.removeEventListener(RBAC_UPDATED_EVENT, bump);
+    }, []);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -75,6 +102,36 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
                     </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                    {m.active && (isMe || editable) && (
+                        <button
+                            type="button"
+                            title={hasMemberBadge(m.id) ? 'Carnet de barras/QR activo (clic para gestionar)' : 'Crear carnet de barras/QR'}
+                            aria-label={`Carnet de ${m.display_name}`}
+                            data-testid={`nube-badge-${m.display_name}`}
+                            onClick={() => { triggerHaptic?.(); setBadgeCode(''); setModal({ kind: 'badge', member: m }); }}
+                            className={`p-2 min-h-[40px] rounded-xl transition-colors ${hasMemberBadge(m.id)
+                                ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100'
+                                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            }`}
+                        >
+                            <BadgeCheck size={16} />
+                        </button>
+                    )}
+                    {m.active && me?.role === 'dueno' && m.role !== 'dueno' && (
+                        <button
+                            type="button"
+                            title="Permisos especiales de este empleado"
+                            aria-label={`Permisos de ${m.display_name}`}
+                            data-testid={`nube-perms-${m.display_name}`}
+                            onClick={() => { triggerHaptic?.(); setModal({ kind: 'perms', member: m }); }}
+                            className={`p-2 min-h-[40px] rounded-xl transition-colors ${getMemberOverrides(m.id)
+                                ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100'
+                                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            }`}
+                        >
+                            <SlidersHorizontal size={16} />
+                        </button>
+                    )}
                     {isMe && (
                         <button type="button" onClick={() => { triggerHaptic?.(); setModal({ kind: 'mypin' }); }} data-testid="nube-my-pin"
                             className="px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold text-brand bg-brand-light hover:opacity-90 flex items-center gap-1.5">
@@ -165,6 +222,110 @@ export default function NubeTeamSettings({ autoLockMinutes, setAutoLockMinutes, 
                     </div>
                 </SectionCard>
             </div>
+
+            {me?.role === 'dueno' && (
+                <RbacConfigPanel showToast={showToast} triggerHaptic={triggerHaptic} />
+            )}
+
+            {modal?.kind === 'badge' && modal.member && (
+                <EmployeeBadgeModal
+                    isOpen
+                    user={{
+                        id: modal.member.id,
+                        nombre: modal.member.display_name,
+                        rol: svc.toAppRole(modal.member.role),
+                        badgeHash: hasMemberBadge(modal.member.id) ? 'active' : null,
+                    }}
+                    badgeCode={badgeCode}
+                    onClose={() => { setBadgeCode(''); close(); }}
+                    onGenerate={async (uid) => {
+                        const res = await generateMemberBadge(uid);
+                        setBadgeCode(res.code);
+                        toast('Carnet generado. Imprímelo o guárdalo ahora.');
+                    }}
+                    onRevoke={(uid) => {
+                        revokeMemberBadge(uid);
+                        setBadgeCode('');
+                        showToast?.('Carnet revocado. El código anterior ya no funciona.', 'info');
+                    }}
+                />
+            )}
+
+            {modal?.kind === 'perms' && modal.member && (() => {
+                const m = modal.member;
+                const appUser = { id: m.id, nombre: m.display_name, rol: svc.toAppRole(m.role) };
+                const appRole = normalizeRole(appUser);
+                const cfg = readRbacConfig();
+                const roleBaseHas = (permKey) => {
+                    const custom = cfg.rolePermissions?.[appRole];
+                    if (Array.isArray(custom)) return custom.includes(permKey);
+                    return Boolean(ROLE_PERMISSIONS[appRole]?.has(permKey));
+                };
+                return (
+                    <div
+                        className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+                        onClick={close}
+                    >
+                        <div
+                            className="w-full max-w-lg max-h-[85dvh] flex flex-col bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between mb-3 shrink-0">
+                                <div>
+                                    <h3 className="text-base font-black text-slate-800 dark:text-white">
+                                        Permisos especiales · {m.display_name}
+                                    </h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        Personaliza cualquier permiso solo para este empleado ({roleLabel(m.role)})
+                                    </p>
+                                </div>
+                                <button type="button" onClick={close} className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+                                {PERMISSION_GROUPS.map((group) => (
+                                    <div key={group.id} className="space-y-1.5">
+                                        <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 px-1">{group.title}</h4>
+                                        {group.items.map((item) => {
+                                            const active = canPerm(appUser, item.key, { requireLogin: true });
+                                            return (
+                                                <button
+                                                    key={item.key}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setMemberPermissionOverride(m.id, item.key, !active, roleBaseHas(item.key));
+                                                        triggerHaptic?.();
+                                                    }}
+                                                    className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl border text-left transition-all ${active
+                                                        ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+                                                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'
+                                                    }`}
+                                                >
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-bold text-slate-800 dark:text-white">{item.label}</p>
+                                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">{item.description}</p>
+                                                    </div>
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shrink-0 ${active ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}`}>
+                                                        {active ? 'Sí' : 'No'}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={close}
+                                className="mt-4 w-full py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold text-xs uppercase tracking-wider shrink-0"
+                            >
+                                Listo
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {modal?.kind === 'create' && (
                 <MemberFormModal roles={assignableRoles(me?.role)} onClose={close}

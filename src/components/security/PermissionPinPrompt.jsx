@@ -1,5 +1,5 @@
 /**
- * PermissionPinPrompt.jsx — Modal de autorización puntual (Fase 3).
+ * PermissionPinPrompt.jsx — Modal de autorización puntual (Fase 3, Local + LAN/Nube).
  *
  * Permite que un cajero ejecute una acción restringida (ej. anular venta o aplicar descuento)
  * sin cerrar su sesión: un Dueño o Encargado autoriza ingresando su PIN O simplemente
@@ -10,6 +10,11 @@ import { ShieldCheck, ScanBarcode, KeyRound, X, AlertCircle, Loader2 } from 'luc
 import { useAuthStore } from '../../hooks/store/useAuthStore';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { isBadgeCode, normalizeBadgeScan } from '../../security/badgeToken';
+import { findMemberIdByBadge } from '../../security/rbacConfig';
+import { can as canPerm } from '../../security/permissions';
+import { isNubeAccountsEnabled, getDeviceClient } from '../../nube/nubeSupabase';
+import * as svc from '../../nube/accountService';
+import { logEvent } from '../../services/auditService';
 
 export default function PermissionPinPrompt({
     isOpen,
@@ -19,7 +24,8 @@ export default function PermissionPinPrompt({
     actionLabel = 'esta acción',
     description = 'Un Dueño o Encargado puede aprobar con su PIN o pasando su carnet por el lector.',
 }) {
-    const authorizeAction = useAuthStore((s) => s.authorizeActionWithPinOrBadge);
+    const authorizeLocal = useAuthStore((s) => s.authorizeActionWithPinOrBadge);
+    const usuarioActivo = useAuthStore((s) => s.usuarioActivo);
     const [credential, setCredential] = useState('');
     const [error, setError] = useState('');
     const [checking, setChecking] = useState(false);
@@ -34,13 +40,67 @@ export default function PermissionPinPrompt({
         }
     }, [isOpen]);
 
+    const authorizeInNube = async (rawValue) => {
+        const client = getDeviceClient();
+        const team = await svc.listTeam(client).catch(() => []);
+        const eligible = (team || [])
+            .filter((m) => m.active)
+            .filter((m) => canPerm({ id: m.id, nombre: m.display_name, rol: svc.toAppRole(m.role) }, requiredPermission, { requireLogin: true }));
+
+        if (eligible.length === 0) {
+            return { ok: false, error: 'No hay usuarios activos con permiso para autorizar esta acción' };
+        }
+
+        // 1) Autorización instantánea por Carnet (código de barras / QR)
+        if (isBadgeCode(rawValue)) {
+            const matchedId = await findMemberIdByBadge(rawValue);
+            const authorizer = matchedId ? eligible.find((m) => String(m.id) === String(matchedId)) : null;
+            if (!authorizer) {
+                return { ok: false, error: 'Carnet inválido o sin permiso para esta acción' };
+            }
+            const summary = { id: authorizer.id, nombre: authorizer.display_name, rol: svc.toAppRole(authorizer.role) };
+            logEvent(
+                'AUTH',
+                'AUTORIZACION_PUNTUAL',
+                `Acción (${requiredPermission}) autorizada con carnet por ${summary.nombre}`,
+                usuarioActivo,
+                { permission: requiredPermission, method: 'badge', authorizedBy: summary },
+            );
+            return { ok: true, authorizer: summary, method: 'badge' };
+        }
+
+        // 2) Autorización por PIN contra el servidor LAN/Nube (sin cerrar la sesión del cajero)
+        for (const candidate of eligible) {
+            try {
+                const tempSession = await svc.loginWithPin(client, candidate.id, rawValue);
+                if (tempSession?.token) {
+                    svc.logoutMember(client, tempSession.token).catch(() => {});
+                }
+                const summary = { id: candidate.id, nombre: candidate.display_name, rol: svc.toAppRole(candidate.role) };
+                logEvent(
+                    'AUTH',
+                    'AUTORIZACION_PUNTUAL',
+                    `Acción (${requiredPermission}) autorizada con PIN por ${summary.nombre}`,
+                    usuarioActivo,
+                    { permission: requiredPermission, method: 'pin', authorizedBy: summary },
+                );
+                return { ok: true, authorizer: summary, method: 'pin' };
+            } catch {
+                // Probar siguiente candidato elegible
+            }
+        }
+        return { ok: false, error: 'PIN incorrecto o sin permiso para autorizar' };
+    };
+
     const verifyCredential = async (rawValue) => {
         const value = String(rawValue ?? '').trim();
         if (!value || checking) return;
         setChecking(true);
         setError('');
         try {
-            const res = await authorizeAction(value, requiredPermission);
+            const res = isNubeAccountsEnabled()
+                ? await authorizeInNube(value)
+                : await authorizeLocal(value, requiredPermission);
             if (res?.ok) {
                 onAuthorized?.(res);
                 onClose?.();
@@ -75,7 +135,6 @@ export default function PermissionPinPrompt({
         const val = e.target.value;
         setCredential(val);
         if (error) setError('');
-        // Si el lector escaneó dentro del campo de texto, autorizar en cuanto complete el patrón PDA-XXXXXXXXXXXX
         if (isBadgeCode(normalizeBadgeScan(val))) {
             void verifyCredential(val);
         }

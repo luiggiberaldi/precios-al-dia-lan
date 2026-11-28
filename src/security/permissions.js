@@ -14,6 +14,8 @@
  * @module security/permissions
  */
 
+import { readRbacConfig } from './rbacConfig';
+
 export const ROLES = Object.freeze({
     DUENO: 'DUENO',
     ENCARGADO: 'ENCARGADO',
@@ -243,18 +245,84 @@ export function can(userOrRole, permission, { requireLogin = true } = {}) {
 
     const role = normalizeRole(userOrRole);
     if (!role) return false;
+    if (role === ROLES.DUENO) return true;
 
-    const overrides = typeof userOrRole === 'object' && userOrRole !== null ? userOrRole.permisos : null;
-    if (overrides && Array.isArray(overrides.deny) && overrides.deny.includes(permission)) {
-        return false;
+    const cfg = readRbacConfig();
+    const userId = typeof userOrRole === 'object' && userOrRole !== null ? (userOrRole.id ?? userOrRole.memberId) : null;
+    const storedOverrides = userId !== null && userId !== undefined ? cfg.memberOverrides?.[String(userId)] : null;
+    const inlineOverrides = typeof userOrRole === 'object' && userOrRole !== null ? userOrRole.permisos : null;
+
+    // 1) Overrides inline o persistidos en rbacConfig (deny tiene precedencia)
+    for (const ov of [inlineOverrides, storedOverrides]) {
+        if (ov && Array.isArray(ov.deny) && ov.deny.includes(permission)) return false;
     }
-    if (overrides && Array.isArray(overrides.allow) && overrides.allow.includes(permission)) {
-        return true;
+    for (const ov of [inlineOverrides, storedOverrides]) {
+        if (ov && Array.isArray(ov.allow) && ov.allow.includes(permission)) return true;
     }
 
+    // 2) Matriz personalizada por rol (si el dueño la editó en Ajustes → Usuarios)
+    const customRolePerms = cfg.rolePermissions?.[role];
+    if (Array.isArray(customRolePerms)) {
+        return customRolePerms.includes(permission);
+    }
+
+    // 3) Matriz recomendada por defecto
     const base = ROLE_PERMISSIONS[role];
     return Boolean(base && base.has(permission));
 }
+
+/** Catálogo agrupado en español para el editor 100% configurable de RBAC en Ajustes. */
+export const PERMISSION_GROUPS = Object.freeze([
+    {
+        id: 'tabs',
+        title: 'Pantallas visibles',
+        items: [
+            { key: PERMISSIONS.TAB_DASHBOARD, label: 'Inicio / Resumen', description: 'Ver pantalla de inicio y resumen del turno.' },
+            { key: PERMISSIONS.TAB_SALES, label: 'Vender (Caja)', description: 'Acceder al punto de venta para cobrar.' },
+            { key: PERMISSIONS.TAB_PRODUCTS, label: 'Inventario / Productos', description: 'Ver el catálogo de productos.' },
+            { key: PERMISSIONS.TAB_CUSTOMERS, label: 'Gestión: Clientes', description: 'Ver y gestionar clientes y fiados.' },
+            { key: PERMISSIONS.TAB_SUPPLIERS, label: 'Gestión: Proveedores', description: 'Ver proveedores y facturas de compra.' },
+            { key: PERMISSIONS.TAB_PAYROLL, label: 'Gestión: Nómina', description: 'Ver y gestionar pagos de empleados.' },
+            { key: PERMISSIONS.TAB_REPORTS, label: 'Reportes', description: 'Acceder a reportes e historial general.' },
+            { key: PERMISSIONS.TAB_SETTINGS, label: 'Ajustes', description: 'Acceder a la pantalla de configuración.' },
+        ],
+    },
+    {
+        id: 'sales',
+        title: 'Ventas y Caja',
+        items: [
+            { key: PERMISSIONS.SALES_CREATE, label: 'Cobrar ventas', description: 'Registrar ventas en caja.' },
+            { key: PERMISSIONS.SALES_VOID, label: 'Anular ventas', description: 'Anular tickets sin pedir PIN o carnet.' },
+            { key: PERMISSIONS.SALES_DISCOUNT, label: 'Aplicar descuentos', description: 'Dar rebajas al cobrar.' },
+            { key: PERMISSIONS.SALES_VIEW_ALL_CAJAS, label: 'Ver ventas de todas las cajas', description: 'Consultar historial consolidado.' },
+            { key: PERMISSIONS.CASH_MANAGE, label: 'Abrir / cerrar caja y aportes', description: 'Apertura, arqueo, gastos internos y cierre.' },
+            { key: PERMISSIONS.RATES_ADJUST, label: 'Ajustar tasa manual', description: 'Cambiar la tasa de cambio en caja.' },
+        ],
+    },
+    {
+        id: 'inventory',
+        title: 'Inventario y Catálogo',
+        items: [
+            { key: PERMISSIONS.PRODUCTS_EDIT, label: 'Crear / editar productos y precios', description: 'Modificar catálogo y precios de venta.' },
+            { key: PERMISSIONS.PRODUCTS_DELETE, label: 'Eliminar productos', description: 'Borrar productos del catálogo.' },
+            { key: PERMISSIONS.PRODUCTS_VIEW_COST, label: 'Ver costos y valoración', description: 'Ver precios de costo y márgenes.' },
+            { key: PERMISSIONS.INVENTORY_ADJUST, label: 'Ajustar stock y compras', description: 'Entradas, salidas y compras por lote.' },
+        ],
+    },
+    {
+        id: 'admin',
+        title: 'Clientes, Equipo y Finanzas',
+        items: [
+            { key: PERMISSIONS.CUSTOMERS_CREDIT, label: 'Vender fiado / cobrar abonos', description: 'Registrar créditos y abonos de clientes.' },
+            { key: PERMISSIONS.CUSTOMERS_DELETE, label: 'Eliminar / fusionar clientes', description: 'Borrar clientes o reiniciar saldos.' },
+            { key: PERMISSIONS.REPORTS_PROFIT, label: 'Ver utilidades y ganancias', description: 'Ver márgenes y ganancia neta en reportes.' },
+            { key: PERMISSIONS.PAYROLL_MANAGE, label: 'Gestionar nómina', description: 'Crear/editar pagos y vales de personal.' },
+            { key: PERMISSIONS.USERS_MANAGE_STAFF, label: 'Gestionar cajeros e inventario', description: 'Crear o editar personal operativo.' },
+            { key: PERMISSIONS.USERS_MANAGE_ADMINS, label: 'Gestionar encargados', description: 'Crear o editar encargados.' },
+            { key: PERMISSIONS.SETTINGS_CRITICAL, label: 'Ajustes críticos', description: 'Respaldos, licencia y reinicio de cuenta.' },
+        ],
+    },
+]);
 
 /** Devuelve `true` si el usuario tiene AL MENOS UNO de los permisos listados. */
 export function canAny(userOrRole, permissions, options) {

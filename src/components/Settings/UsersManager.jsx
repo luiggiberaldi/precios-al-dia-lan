@@ -18,6 +18,7 @@ import {
     normalizeRole,
 } from '../../security/permissions';
 import EmployeeBadgeModal from './EmployeeBadgeModal';
+import RbacConfigPanel from './RbacConfigPanel';
 
 const ROLE_CONFIG = {
     ADMIN: {
@@ -392,6 +393,13 @@ export default function UsersManager({ triggerHaptic }) {
                     />
                 ))}
             </div>
+
+            {/* ─── Panel 100% Configurable de RBAC (solo Dueño) ──────────────── */}
+            {isOwnerRole(usuarioActivo) && (
+                <div className="pt-2">
+                    <RbacConfigPanel showToast={showToast} triggerHaptic={triggerHaptic} />
+                </div>
+            )}
 
             {/* ─── Clave Maestra de Emergencia Section ────────────────────── */}
             <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 my-4">
