@@ -8,6 +8,8 @@
  * Los errores se devuelven como `NubeError` con un mensaje listo para mostrar.
  */
 
+import { normalizeRole, ROLES } from '../security/permissions';
+
 export class NubeError extends Error {
     constructor(message, { code = null, cause = null } = {}) {
         super(message);
@@ -311,7 +313,7 @@ export async function logoutMember(deviceClient, token) {
     try { await rpc(deviceClient, 'member_logout', { p_session: token }); } catch { /* sin red: vence sola */ }
 }
 
-/** Rol de la nube → rol de la app heredada de Bodega. */
+/** Rol de la nube → rol RBAC de la app (conserva dueno vs administrador/encargado vs inventario vs cajero). */
 export function toAppRole(role) {
-    return role === 'cajero' ? 'CAJERO' : 'ADMIN';
+    return normalizeRole(role) || ROLES.CAJERO;
 }

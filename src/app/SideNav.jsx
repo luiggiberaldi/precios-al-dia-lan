@@ -5,6 +5,7 @@ import { ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import FullscreenButton from '../components/FullscreenButton';
 import { NUBE_BRAND } from '../nube/brand';
+import { getRoleLabel } from '../security/permissions';
 
 const ITEM_BASE = 'flex items-center gap-3 rounded-xl px-3 text-sm font-bold transition-colors';
 const ITEM_IDLE = 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5';
@@ -80,14 +81,14 @@ export default function SideNav({ tabs, activeTab, setActiveTab, triggerHaptic, 
           <div className={`flex items-center gap-2.5 rounded-xl bg-slate-100/80 dark:bg-white/5 ${collapsed ? 'flex-col p-1.5' : 'p-2'}`}>
             <div
               className="w-9 h-9 rounded-full bg-brand/15 text-brand-dark dark:text-brand border border-brand/25 font-black text-xs flex items-center justify-center shrink-0"
-              title={`${usuarioActivo.nombre} (${usuarioActivo.rol})`}
+              title={`${usuarioActivo.nombre} (${getRoleLabel(usuarioActivo)})`}
             >
               {(usuarioActivo.nombre || 'U').substring(0, 2).toUpperCase()}
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1 leading-tight">
                 <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{usuarioActivo.nombre}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{usuarioActivo.rol}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{getRoleLabel(usuarioActivo)}</p>
               </div>
             )}
             <button

@@ -240,7 +240,7 @@ export default function CheckoutCustomerPicker({
                                 <button
                                     onClick={handleCreateClient}
                                     disabled={!newClientName.trim() || savingClient}
-                                    className="flex-1 py-2.5 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-sm"
+                                    className="flex-1 py-2.5 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed active:scale-95 transition-all flex items-center justify-center gap-2 shadow-sm"
                                 >
                                     <Check size={15} />
                                     {savingClient ? 'Guardando…' : 'Crear y Usar'}

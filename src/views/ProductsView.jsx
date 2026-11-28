@@ -10,7 +10,7 @@ import { showToast } from '../components/Toast';
 import { Package, Plus, Trash2, X, Store, Tag, Pencil, Banknote, Search, ChevronLeft, ChevronRight, AlertTriangle, Box, Clock, Percent, Printer, CheckSquare } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { ProductShareModal } from '../components/ProductShareModal';
-import { useAuthStore } from '../hooks/store/useAuthStore';
+import { usePermissions, PERMISSIONS } from '../hooks/usePermissions';
 
 import ShareInventoryModal from '../components/ShareInventoryModal';
 import { formatBs, formatUsd, smartCashRounding, getCop, getUsd } from '../utils/calculatorUtils';
@@ -71,7 +71,11 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
         adjustStock: baseAdjustStock,
         setDirectStock: baseSetDirectStock
     } = useProductContext();
-    const isCajero = useAuthStore(s => s.requireLogin && s.usuarioActivo?.rol === 'CAJERO');
+    const { can } = usePermissions();
+    const canEditProducts = can(PERMISSIONS.PRODUCTS_EDIT);
+    const canDeleteProducts = can(PERMISSIONS.PRODUCTS_DELETE);
+    const canViewCost = can(PERMISSIONS.PRODUCTS_VIEW_COST);
+    const isCajero = !canEditProducts;
     const { log: auditLog } = useAudit();
 
     // Envolver adjustStock para incluir registro de movimiento + haptic
@@ -853,6 +857,7 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
                 selectedIds={selectedIds}
                 lowStockCount={lowStockCount}
                 isCajero={isCajero}
+                canViewCost={canViewCost}
                 categoryScrollRef={categoryScrollRef}
                 handleSetSearchTerm={handleSetSearchTerm}
                 onScanCode={handleScanCode}
@@ -1028,8 +1033,8 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
                                 // v1.2.0: hover lift wrapper para ProductCard (design system hover state).
                                 <div key={p.id} className="transition-transform duration-200 hover:-translate-y-1">
                                 <SwipeableItem
-                                    onEdit={isCajero ? undefined : () => handleEdit(p)}
-                                    onDelete={isCajero ? undefined : () => handleDelete(p.id)}
+                                    onEdit={canEditProducts ? () => handleEdit(p) : undefined}
+                                    onDelete={canDeleteProducts ? () => handleDelete(p.id) : undefined}
                                     triggerHaptic={triggerHaptic}
                                 >
                                     <ProductCard
@@ -1043,9 +1048,9 @@ export const ProductsView = ({ rates, triggerHaptic }) => {
                                         onAdjustStock={adjustStock}
                                         onSetDirectStock={setDirectStock}
                                         onShare={setShareProduct}
-                                        onEdit={isCajero ? undefined : handleEdit}
-                                        onDelete={isCajero ? undefined : handleDelete}
-                                        readOnly={isCajero}
+                                        onEdit={canEditProducts ? handleEdit : undefined}
+                                        onDelete={canDeleteProducts ? handleDelete : undefined}
+                                        readOnly={!canEditProducts}
                                         daysRemaining={
                                             salesVelocityMap[p.id] > 0 && (p.stock ?? 0) > 0
                                                 ? Math.round((p.stock ?? 0) / salesVelocityMap[p.id])

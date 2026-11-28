@@ -40,19 +40,24 @@ describe('teamRules', () => {
         expect(validateMemberName('María')).toBeNull();
     });
 
-    it('permisos: el dueño maneja todo, el administrador solo cajeros, el cajero nada', () => {
+    it('permisos: el dueño maneja todo, el encargado maneja cajeros e inventario, cajero e inventario nada', () => {
         expect(canManageTeam('dueno')).toBe(true);
         expect(canManageTeam('administrador')).toBe(true);
+        expect(canManageTeam('inventario')).toBe(false);
         expect(canManageTeam('cajero')).toBe(false);
-        expect(assignableRoles('dueno')).toEqual(['cajero', 'administrador']);
-        expect(assignableRoles('administrador')).toEqual(['cajero']);
+        expect(assignableRoles('dueno')).toEqual(['cajero', 'inventario', 'administrador']);
+        expect(assignableRoles('administrador')).toEqual(['cajero', 'inventario']);
+        expect(assignableRoles('inventario')).toEqual([]);
         const admin = { memberId: 'a', role: 'administrador' };
         expect(canEditMember(admin, { id: 'c', role: 'cajero' })).toBe(true);
+        expect(canEditMember(admin, { id: 'i', role: 'inventario' })).toBe(true);
         expect(canEditMember(admin, { id: 'b', role: 'administrador' })).toBe(false);
         expect(canEditMember(admin, { id: 'a', role: 'administrador' })).toBe(false);
         expect(canEditMember({ memberId: 'd', role: 'dueno' }, { id: 'o', role: 'dueno' })).toBe(false);
         expect(canEditMember({ memberId: 'd', role: 'dueno' }, { id: 'b', role: 'administrador' })).toBe(true);
         expect(roleLabel('dueno')).toBe('Dueño');
+        expect(roleLabel('administrador')).toBe('Encargado');
+        expect(roleLabel('inventario')).toBe('Inventario');
     });
 
     it('describe la caja sin repetir el nombre (antes: «Caja A · Caja A»)', () => {
@@ -103,6 +108,22 @@ describe('F1b · servicio del equipo contra el SQL real', () => {
         await teamUpsertMember(device, ownerToken, { id, name: 'Carlos', role: 'cajero', active: false });
         const carlos = (await listTeam(device)).find((m) => m.id === id);
         expect(carlos.active).toBe(false);
+    });
+
+    it('RBAC: crea un empleado de inventario (PIN 6+ obligatorio) y un encargado puede gestionarlo', async () => {
+        const invId = await teamUpsertMember(device, ownerToken, { name: 'Sofía Almacén', role: 'inventario', pin: '654321' });
+        expect((await loginWithPin(device, invId, '654321')).role).toBe('inventario');
+        // Inventario no puede quedar sin PIN ni con PIN de 4 dígitos
+        await expect(teamUpsertMember(device, ownerToken, { name: 'Otro Inv', role: 'inventario', sinPin: true }))
+            .rejects.toThrow(/Solo el cajero/);
+        await expect(teamUpsertMember(device, ownerToken, { name: 'Otro Inv', role: 'inventario', pin: '1234' }))
+            .rejects.toThrow(/6 y 32/);
+        // Encargado puede editar a inventario pero no crear otro encargado
+        const encId = await teamUpsertMember(device, ownerToken, { name: 'Luis Encargado', role: 'administrador', pin: '789012' });
+        const encToken = (await loginWithPin(device, encId, '789012')).token;
+        await teamUpsertMember(device, encToken, { id: invId, name: 'Sofía Stock', role: 'inventario' });
+        await expect(teamUpsertMember(device, encToken, { name: 'Otro Enc', role: 'administrador', pin: '890123' }))
+            .rejects.toThrow(/Solo el dueño/);
     });
 
     it('nombre repetido o sin sesión: errores claros', async () => {

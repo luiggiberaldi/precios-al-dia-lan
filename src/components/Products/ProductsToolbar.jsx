@@ -13,6 +13,7 @@ const ProductsToolbar = ({
     selectedIds,
     lowStockCount,
     isCajero,
+    canViewCost = !isCajero,
     categoryScrollRef,
     // Handlers
     handleSetSearchTerm,
@@ -143,8 +144,8 @@ const ProductsToolbar = ({
                         </span>
                     </div>
 
-                    {/* Chip de Valoración Financiera (Admin) */}
-                    {!isCajero && (
+                    {/* Chip de Valoración Financiera (requiere permiso products.view_cost) */}
+                    {canViewCost && (
                         <button
                             type="button"
                             onClick={() => {
@@ -366,7 +367,7 @@ const ProductsToolbar = ({
             {/* ═══════════════════════════════════════════════════════════════════
                 BANNER FINANCIERO DESPLEGABLE (Métricas Bento Grid)
             ═══════════════════════════════════════════════════════════════════ */}
-            {showFinancials && !isCajero && (
+            {showFinancials && canViewCost && (
                 <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm my-2 grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Valor Total (PVP)</span>

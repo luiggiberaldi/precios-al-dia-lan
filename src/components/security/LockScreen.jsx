@@ -11,10 +11,28 @@ import LoginPinModal from './LoginPinModal';
 import EmergencyPinResetModal from './EmergencyPinResetModal';
 import { NUBE_BRAND } from '../../nube/brand';
 import { isNubeAccountsEnabled } from '../../nube/nubeSupabase';
+import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
+import { isBadgeCode } from '../../security/badgeToken';
+import { showToast } from '../Toast';
 
 export default function LockScreen({ onOpenPairing, onOpenPairingIssuer = () => {}, adminLoginRequest = 0, installPrompt, onInstall, showIOSButton, onShowIOSInstall, onOpenRemotion }) {
   const { logoSrc: brandLogoSrc } = useBrandLogo();
-  const { usuarios, login, loginDirect, requireCajeroPin, requireAdminPin, resetPinEmergency } = useAuthStore();
+  const { usuarios, login, loginDirect, loginWithBadge, requireCajeroPin, requireAdminPin, resetPinEmergency } = useAuthStore();
+
+  // Permite iniciar sesión directamente mostrando el Carnet al lector de código de barras / QR.
+  useBarcodeScanner({
+    enabled: !selectedUser && !showEmergencyModal,
+    onScan: async (code) => {
+      if (!isBadgeCode(code)) return;
+      const res = await loginWithBadge(code);
+      if (res?.success) {
+        try { navigator.vibrate?.(30); } catch {}
+        showToast(`Bienvenido, ${res.user?.nombre || 'Usuario'}`, 'success');
+      } else {
+        showToast(res?.error || 'Carnet no válido', 'error');
+      }
+    },
+  });
   const [selectedUser, setSelectedUser] = useState(null);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [logoClickCount, setLogoClickCount] = useState(0);

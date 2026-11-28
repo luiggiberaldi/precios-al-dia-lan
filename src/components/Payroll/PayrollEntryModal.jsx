@@ -149,9 +149,9 @@ export default function PayrollEntryModal({ isOpen, tipo, employee, balance, rat
                             </div>
                         )}
                     </div>
-                    <input className={`${inputCls} text-lg font-mono tabular-nums`} type="number" inputMode="decimal" min="0" step="0.01" autoFocus
+                    <input className={`${inputCls} text-lg font-extrabold tabular-nums`} type="number" inputMode="decimal" min="0" step="0.01" autoFocus
                         data-testid="payroll-monto" value={monto} onChange={e => { setMonto(e.target.value); setExceso(null); }} />
-                    <span className="block text-xs font-mono tabular-nums text-slate-500 mt-1">{equivalente} · tasa de la tienda {rate || '—'}</span>
+                    <span className="block text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300 mt-1">{equivalente} · tasa de la tienda {rate || '—'}</span>
                 </label>
 
                 {isMoney && (
@@ -185,7 +185,7 @@ export default function PayrollEntryModal({ isOpen, tipo, employee, balance, rat
                 )}
 
                 <button type="submit" disabled={saving || !(montoNum > 0) || (isMoney && !metodoId)} data-testid="payroll-entry-submit"
-                    className={`w-full py-3 rounded-xl font-black text-white disabled:opacity-50 ${exceso ? 'bg-amber-500' : 'bg-brand hover:bg-brand-dark'}`}>
+                    className={`w-full min-h-[48px] py-3 rounded-xl font-extrabold text-sm tracking-wide transition-all cursor-pointer disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed ${exceso ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-brand hover:bg-brand-dark text-white'}`}>
                     {saving ? 'Guardando…' : exceso ? `Confirmar: queda debiendo $${formatUsd(exceso.excedenteUsd)}` : `Registrar ${(ENTRY_TYPE_LABELS[tipo] || '').toLowerCase()}`}
                 </button>
             </form>

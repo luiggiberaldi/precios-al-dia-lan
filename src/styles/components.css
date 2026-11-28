@@ -29,8 +29,16 @@
   white-space: nowrap;
 }
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
+}
+.btn-primary:disabled,
+.btn-accent:disabled,
+.btn-danger:disabled {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  opacity: 1;
+  box-shadow: none;
 }
 .btn-primary {
   background: var(--primary);

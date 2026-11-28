@@ -23,6 +23,8 @@ import { useCart } from '../context/CartContext';
 import { useSecurity } from '../hooks/useSecurity';
 import { useAudit } from '../hooks/useAudit';
 import { useAuthStore } from '../hooks/store/useAuthStore';
+import { usePermissions, PERMISSIONS } from '../hooks/usePermissions';
+import PermissionPinPrompt from '../components/security/PermissionPinPrompt';
 import { getLocalISODate } from '../utils/dateHelpers';
 import { CASH_SHIFT_TYPES, isRecordInOpenCashShift } from '../utils/cashShift';
 import { isSharedCashDrawerMode } from '../utils/cashDrawerMode';
@@ -93,8 +95,8 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     const { deviceId } = useSecurity();
     const requireLogin = useAuthStore(s => s.requireLogin);
     const usuarioActivo = useAuthStore(s => s.usuarioActivo);
-    const isCajero = requireLogin && usuarioActivo?.rol === 'CAJERO';
-    const isAdmin = !requireLogin || usuarioActivo?.rol === 'ADMIN';
+    const { can, isCajero, isManager } = usePermissions();
+    const isAdmin = isManager;
     const { log: auditLog } = useAudit();
     const { products, setProducts, isLoadingProducts, effectiveRate: bcvRate, copEnabled, copPrimary, tasaCop } = useProductContext();
     const { loadCart } = useCart();
@@ -109,6 +111,7 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [voidSaleTarget, setVoidSaleTarget] = useState(null);
+    const [pendingVoidAuthSale, setPendingVoidAuthSale] = useState(null);
     // F3: cómo queda la cuenta del cliente si se anula (se muestra en la confirmación).
     const voidImpactLines = useVoidImpact(voidSaleTarget, bcvRate);
     const [isCashReconOpen, setIsCashReconOpen] = useState(false);
@@ -228,8 +231,8 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
     });
 
     const handleSaveAporteFromDashboard = async (data) => {
-        if (requireLogin && usuarioActivo?.rol !== 'ADMIN') {
-            showToast('Solo el administrador puede registrar aportes de efectivo.', 'error');
+        if (!can(PERMISSIONS.CASH_MANAGE)) {
+            showToast('No tienes permiso para registrar aportes de efectivo.', 'error');
             return false;
         }
 
@@ -286,6 +289,10 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
 
     // ── Funciones de Historial Avanzado ──
     const handleVoidSale = async (sale) => {
+        if (!can(PERMISSIONS.SALES_VOID)) {
+            setPendingVoidAuthSale(sale);
+            return;
+        }
         setVoidSaleTarget(sale);
     };
 
@@ -981,6 +988,19 @@ export default function DashboardView({ rates, triggerHaptic, onNavigate, theme,
             />
 
             {/* Modal Confirmación: Anular Venta */}
+            <PermissionPinPrompt
+                isOpen={!!pendingVoidAuthSale}
+                onClose={() => setPendingVoidAuthSale(null)}
+                requiredPermission={PERMISSIONS.SALES_VOID}
+                actionLabel="anular venta"
+                onAuthorized={({ authorizer }) => {
+                    const sale = pendingVoidAuthSale;
+                    setPendingVoidAuthSale(null);
+                    showToast(`Autorizado por ${authorizer?.nombre || 'Encargado'}`, 'success');
+                    if (sale) setVoidSaleTarget(sale);
+                }}
+            />
+
             <ConfirmModal
                 isOpen={!!voidSaleTarget}
                 onClose={() => setVoidSaleTarget(null)}

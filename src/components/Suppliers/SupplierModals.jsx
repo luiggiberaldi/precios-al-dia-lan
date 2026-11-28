@@ -654,7 +654,7 @@ export function EditInvoiceModal({ invoice, onClose, onSave }) {
                     </div>
                     </div>
                     <div className="p-4 border-t border-slate-100 dark:border-slate-800 shrink-0">
-                        <button type="submit" disabled={!valid} className="w-full py-3 bg-brand-dark disabled:opacity-50 text-white font-bold rounded-xl text-sm">
+                        <button type="submit" disabled={!valid} className="w-full py-3 bg-brand-dark disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm">
                             Guardar cambios
                         </button>
                     </div>
@@ -715,7 +715,7 @@ export function SupplierReportRangeModal({ supplierName, historyData = [], initi
                         type="button"
                         disabled={count === 0 || invalidCustom}
                         onClick={() => onGenerate({ desde, hasta })}
-                        className="w-full py-3 bg-brand-dark hover:opacity-90 disabled:opacity-40 text-white font-bold rounded-xl active:scale-95 transition-all text-sm flex justify-center items-center gap-2"
+                        className="w-full py-3 bg-brand-dark hover:opacity-90 disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-xl active:scale-95 transition-all text-sm flex justify-center items-center gap-2"
                     >
                         <Download size={14} /> Generar PDF
                     </button>

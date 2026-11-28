@@ -1,24 +1,40 @@
 import { Users, Truck, Wallet } from 'lucide-react';
+import { can, PERMISSIONS } from '../../security/permissions';
+import { usePermissions } from '../../hooks/usePermissions';
 
 /**
  * Sub-pestañas de «Gestión» (antes «Clientes»): Clientes · Proveedores · Nómina.
- * Decisión D9 del plan de nómina (2026-11-14). El Cajero solo ve Clientes:
- * Proveedores ya estaba oculto para él y Nómina solo la usa el Administrador.
+ * RBAC:
+ *   - Clientes: DUENO, ENCARGADO, CAJERO (tab.customers)
+ *   - Proveedores: DUENO, ENCARGADO, INVENTARIO (tab.suppliers)
+ *   - Nómina: solo DUENO (tab.payroll)
  */
 export const GESTION_TABS = [
-    { id: 'clientes', label: 'Clientes', icon: Users, adminOnly: false },
-    { id: 'proveedores', label: 'Proveedores', icon: Truck, adminOnly: true },
-    { id: 'nomina', label: 'Nómina', icon: Wallet, adminOnly: true },
+    { id: 'clientes', label: 'Clientes', icon: Users, adminOnly: false, permission: PERMISSIONS.TAB_CUSTOMERS },
+    { id: 'proveedores', label: 'Proveedores', icon: Truck, adminOnly: true, permission: PERMISSIONS.TAB_SUPPLIERS },
+    { id: 'nomina', label: 'Nómina', icon: Wallet, adminOnly: true, permission: PERMISSIONS.TAB_PAYROLL },
 ];
 
-/** ¿Puede este rol abrir la sub-pestaña? */
-export function canOpenGestionTab(tab, isCajero) {
+/**
+ * ¿Puede este rol abrir la sub-pestaña?
+ * Acepta tanto booleano legacy `isCajero` como un objeto usuario RBAC.
+ */
+export function canOpenGestionTab(tab, userOrIsCajero, options = {}) {
     const def = GESTION_TABS.find(t => t.id === tab);
-    return !!def && !(isCajero && def.adminOnly);
+    if (!def) return false;
+    if (typeof userOrIsCajero === 'boolean') {
+        return !(userOrIsCajero && def.adminOnly);
+    }
+    return can(userOrIsCajero, def.permission, options);
 }
 
 export default function GestionTabs({ activeTab, onChange, isCajero, triggerHaptic }) {
-    const visible = GESTION_TABS.filter(t => canOpenGestionTab(t.id, isCajero));
+    const { usuarioActivo, requireLogin } = usePermissions();
+    const visible = GESTION_TABS.filter(t =>
+        typeof isCajero === 'boolean' && !usuarioActivo
+            ? canOpenGestionTab(t.id, isCajero)
+            : canOpenGestionTab(t.id, usuarioActivo, { requireLogin })
+    );
     return (
         <div className="px-3 sm:px-6 pt-3 sm:pt-6 shrink-0 z-10 bg-surface-50/80 dark:bg-surface-950/80 backdrop-blur-xl">
             <div role="tablist" aria-label="Secciones de Gestión" className="flex bg-surface-200/50 dark:bg-surface-800/80 p-1.5 rounded-2xl shadow-inner">

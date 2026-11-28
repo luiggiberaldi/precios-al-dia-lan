@@ -1,5 +1,6 @@
 import { writeVerifiedValue } from '../utils/verifiedWrite';
 import { canBypassPin } from '../utils/adminPinPolicy';
+import { isOwnerRole } from '../security/permissions';
 
 const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const PIN_HASH_PATTERN = /^pbkdf2\$\d+\$[^$]+\$[^$]+$/;
@@ -23,7 +24,7 @@ function requireUserName(value) {
 }
 
 function requireRole(value) {
-    if (!['CAJERO', 'ADMIN'].includes(value)) throw new Error('Rol de usuario inválido');
+    if (!['CAJERO', 'INVENTARIO', 'ENCARGADO', 'DUENO', 'ADMIN'].includes(value)) throw new Error('Rol de usuario inválido');
     return value;
 }
 
@@ -86,8 +87,8 @@ export async function applySupervisorUserCommand(storage, payload = {}, { onUser
         const userId = requireUserId(payload.userId);
         const target = users.find(user => Number(user.id) === userId);
         if (!target) throw new Error('Usuario no encontrado en la caja');
-        const adminCount = users.filter(user => user.rol === 'ADMIN').length;
-        if (target.rol === 'ADMIN' && adminCount <= 1) throw new Error('No se puede eliminar el último administrador');
+        const adminCount = users.filter(user => isOwnerRole(user)).length;
+        if (isOwnerRole(target) && adminCount <= 1) throw new Error('No se puede eliminar el último administrador');
         if (Number(state.usuarioActivo?.id) === userId) throw new Error('No se puede eliminar el usuario activo');
         nextUsers = users.filter(user => Number(user.id) !== userId);
         changedUser = target;

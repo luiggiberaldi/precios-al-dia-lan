@@ -63,6 +63,13 @@
     background: var(--primary-soft);
     color: var(--primary);
   }
+
+  /* Placeholders con contraste legible (WCAG AA) */
+  input::placeholder,
+  textarea::placeholder {
+    color: rgb(var(--color-surface-400));
+    opacity: 1;
+  }
 }
 
 /* Encabezado del inicio (src/views/dashboard/DashboardSummary.jsx).

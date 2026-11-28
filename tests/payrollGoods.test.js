@@ -76,13 +76,15 @@ describe('evaluateGoods (puro)', () => {
     });
 
     it('granel con decimales', () => {
-        expect(evaluateGoods({ ...base, input: goods('e', [{ id: 'queso', qty: 0.25 }]) }).montoUsd).toBe(1);
+        expect(evaluateGoods({ ...base, input: goods('e', [{ id: 'queso', qty: 0.25 }]) }).montoUsd).toBe(1.5);
+        expect(evaluateGoods({ ...base, input: goods('e', [{ id: 'queso', qty: 0.25 }]), valuation: 'costo' }).montoUsd).toBe(1);
     });
 
     it('rechaza sin stock, sin precio, repetidos, cantidades raras y productos que no existen', () => {
         expect(() => evaluateGoods({ ...base, input: goods('e', [{ id: 'aceite', qty: 3 }]) })).toThrow(/No hay suficiente Aceite/);
         expect(() => evaluateGoods({ ...base, input: goods('e', [{ id: 'aceite', qty: 3 }]), allowNegative: true })).not.toThrow();
-        expect(() => evaluateGoods({ ...base, input: goods('e', [{ id: 'gratis', qty: 1 }]) })).toThrow(/no tiene costo/);
+        expect(() => evaluateGoods({ ...base, input: goods('e', [{ id: 'gratis', qty: 1 }]) })).toThrow(/no tiene precio de venta/);
+        expect(() => evaluateGoods({ ...base, input: goods('e', [{ id: 'gratis', qty: 1 }]), valuation: 'costo' })).toThrow(/no tiene costo/);
         expect(() => evaluateGoods({ ...base, input: goods('e', [{ id: 'harina', qty: 1 }, { id: 'harina', qty: 1 }]) })).toThrow(/repetido/);
         expect(() => evaluateGoods({ ...base, input: goods('e', [{ id: 'harina', qty: 0 }]) })).toThrow(/Cantidad/);
         expect(() => evaluateGoods({ ...base, input: goods('e', [{ id: 'nada', qty: 1 }]) })).toThrow(/ya no existe/);
@@ -91,15 +93,16 @@ describe('evaluateGoods (puro)', () => {
 
     it('si se pasa del saldo pide confirmar (D6), como un adelanto', () => {
         const input = goods('e', [{ id: 'harina', qty: 10 }]);
-        expect(() => evaluateGoods({ ...base, balance: { saldoUsd: 5 }, input })).toThrow(expect.objectContaining({ code: 'EXCEDE_SALDO', excedenteUsd: 3 }));
-        expect(evaluateGoods({ ...base, balance: { saldoUsd: 5 }, input: { ...input, confirmarExceso: true } }).excedenteUsd).toBe(3);
+        expect(() => evaluateGoods({ ...base, balance: { saldoUsd: 5 }, input, valuation: 'costo' })).toThrow(expect.objectContaining({ code: 'EXCEDE_SALDO', excedenteUsd: 3 }));
+        expect(evaluateGoods({ ...base, balance: { saldoUsd: 5 }, input: { ...input, confirmarExceso: true }, valuation: 'costo' }).excedenteUsd).toBe(3);
     });
 
-    it('la opción de Ajustes vale «costo» si no hay nada o es rara', () => {
+    it('la opción de Ajustes vale «venta» de fábrica si no hay nada o es rara', () => {
         const store = (v) => ({ getItem: (key) => (key === GOODS_VALUATION_KEY ? v : null) });
-        expect(readGoodsValuation(store(null))).toBe('costo');
+        expect(readGoodsValuation(store(null))).toBe('venta');
+        expect(readGoodsValuation(store('costo'))).toBe('costo');
         expect(readGoodsValuation(store('venta'))).toBe('venta');
-        expect(readGoodsValuation(store('regalado'))).toBe('costo');
+        expect(readGoodsValuation(store('regalado'))).toBe('venta');
     });
 
     it('resumen corto de los productos', () => {

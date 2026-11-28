@@ -145,7 +145,7 @@ export function EmergencyPinResetModal({ onClose, usuarios = [], onResetPin }) {
                             <button
                                 type="submit"
                                 disabled={!emergencyInput.trim()}
-                                className="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-600 active:scale-95 disabled:opacity-50 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-amber-500/20"
+                                className="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-600 active:scale-95 disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-amber-500/20"
                             >
                                 Verificar
                             </button>
@@ -221,7 +221,7 @@ export function EmergencyPinResetModal({ onClose, usuarios = [], onResetPin }) {
                             <button
                                 type="submit"
                                 disabled={isSubmitting || newPin.length < 6 || newPin !== confirmPin}
-                                className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-50 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20"
+                                className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20"
                             >
                                 {isSubmitting ? 'Guardando...' : 'Guardar Nuevo PIN'}
                             </button>

@@ -4,7 +4,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('lucide-react', () => ({ Users: () => null, Truck: () => null, Wallet: () => null }));
+vi.mock('lucide-react', async (importOriginal) => ({ ...(await importOriginal()), Users: () => null, Truck: () => null, Wallet: () => null }));
 vi.mock('../src/config/paymentMethods', () => ({ getPaymentLabel: (id) => ({ pago_movil: 'Pago Móvil' })[id] }));
 
 import { canOpenGestionTab, GESTION_TABS } from '../src/components/Gestion/GestionTabs.jsx';

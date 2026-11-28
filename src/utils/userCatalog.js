@@ -7,7 +7,7 @@
 export function sanitizeUserCatalog(users) {
     if (!Array.isArray(users)) return [];
     return users.map(user => {
-        const { pin, plainPin, ...safeUser } = user;
+        const { pin, plainPin, badgeHash, ...safeUser } = user;
         return safeUser;
     });
 }

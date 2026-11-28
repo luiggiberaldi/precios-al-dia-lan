@@ -808,11 +808,12 @@ export default function SalesHistory({
                                             </button>
                                         )}
 
-                                        {isAdmin && !isAllCajas && !s._deviceId && !isCanceled && !s.cajaCerrada && (
+                                        {!isAllCajas && !s._deviceId && !isCanceled && !s.cajaCerrada && onVoidSale && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onVoidSale(s); }}
+                                                title={isAdmin ? 'Anular venta' : 'Anular venta (requiere PIN o carnet de encargado)'}
                                                 className="py-2 px-3 bg-slate-100 dark:bg-slate-900 text-red-600 dark:text-red-400 hover:bg-red-50 hover:dark:bg-red-900/30 font-bold rounded-lg transition-colors flex justify-center items-center gap-1.5 text-xs border border-slate-200 dark:border-slate-800 shadow-sm active:scale-95">
-                                                <Ban size={14} /> Anular
+                                                {isAdmin ? <Ban size={14} /> : <LockIcon size={13} />} Anular
                                             </button>
                                         )}
                                         {!isCanceled && s.cajaCerrada && (

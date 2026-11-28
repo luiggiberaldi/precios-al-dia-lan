@@ -712,7 +712,7 @@ export default function BulkPriceAdjustModal({
                                     setShowConfirm(true);
                                 }}
                                 disabled={affectedProducts.length === 0 || isApplying}
-                                className={`flex-1 py-3.5 text-white font-black rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg text-xs sm:text-sm ${
+                                className={`flex-1 py-3.5 text-white font-black rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed shadow-lg text-xs sm:text-sm ${
                                     isUp
                                         ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25'
                                         : 'bg-red-500 hover:bg-red-600 shadow-red-500/25'
@@ -736,7 +736,7 @@ export default function BulkPriceAdjustModal({
                                 type="button"
                                 onClick={handleApply}
                                 disabled={isApplying}
-                                className={`flex-1 py-3.5 text-white font-black rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 shadow-lg text-xs sm:text-sm ${
+                                className={`flex-1 py-3.5 text-white font-black rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed shadow-lg text-xs sm:text-sm ${
                                     isUp
                                         ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25'
                                         : 'bg-red-500 hover:bg-red-600 shadow-red-500/25'

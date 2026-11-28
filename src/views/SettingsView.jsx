@@ -24,6 +24,7 @@ import { pushLocalSync } from '../hooks/useCloudSync';
 import { notifyBusinessConfigChanged } from '../nube/businessConfigSync';
 import { useDataImportExport } from '../hooks/useDataImportExport';
 import { useAuthStore } from '../hooks/store/useAuthStore';
+import { usePermissions, PERMISSIONS } from '../hooks/usePermissions';
 import WalletView from './WalletView';
 import { getCachedBackupEntitlement } from '../services/backupEntitlement';
 import { NUBE_BRAND } from '../nube/brand';
@@ -53,9 +54,10 @@ export default function SettingsView({ onClose, theme, toggleTheme, triggerHapti
     } = useProductContext();
 
     const { requireLogin, setRequireLogin, usuarioActivo } = useAuthStore();
+    const { can } = usePermissions();
     const [autoLockMinutes, setAutoLockMinutes] = useState(() => localStorage.getItem('admin_auto_lock_minutes') || '3');
 
-    const isAdmin = !requireLogin || !usuarioActivo || usuarioActivo.rol === 'ADMIN';
+    const isAdmin = can(PERMISSIONS.SETTINGS_CRITICAL);
 
     const { deviceId, forceHeartbeat, isPremium, isDemo } = useSecurity();
     // El respaldo remoto, manual y automático, queda reservado para licencia

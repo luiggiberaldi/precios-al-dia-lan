@@ -304,7 +304,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                                 ].filter(([, v], i) => i === 0 || v > 0).map(([k, v, sign]) => (
                                     <div key={k} className="flex justify-between items-center">
                                         <span className="text-slate-500 dark:text-slate-400">{k}</span>
-                                        <span className="font-mono tabular-nums font-bold text-slate-800 dark:text-slate-200">
+                                        <span className="font-sans tabular-nums font-bold text-slate-800 dark:text-slate-200">
                                             {sign} ${formatUsd(v)}
                                         </span>
                                     </div>
@@ -315,7 +315,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                             <div className="space-y-1 pt-1">
                                 <div className="flex justify-between text-[10px] font-bold text-slate-400">
                                     <span>Consumido / Pagado</span>
-                                    <span className="font-mono tabular-nums">{consumedPct}%</span>
+                                    <span className="font-sans tabular-nums">{consumedPct}%</span>
                                 </div>
                                 <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                                     <div
@@ -329,7 +329,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
 
                             <div className="flex justify-between items-baseline border-t border-slate-100 dark:border-slate-800 pt-3">
                                 <span className="text-sm font-black text-slate-700 dark:text-slate-200">Por pagar</span>
-                                <span className="font-mono tabular-nums text-lg font-black text-brand" data-testid="payroll-detail-saldo">
+                                <span className="font-sans tabular-nums text-lg font-black text-brand" data-testid="payroll-detail-saldo">
                                     ${formatUsd(Math.max(0, b.saldoUsd))} · Bs {formatBs(mulR(Math.max(0, b.saldoUsd), rate))}
                                 </span>
                             </div>
@@ -466,7 +466,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                                                     )}
                                                 </div>
                                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                                    <span className="font-mono tabular-nums">{fechaHora}</span>
+                                                    <span className="font-sans tabular-nums">{fechaHora}</span>
                                                     {e.actor && (
                                                         <>
                                                             <span>·</span>
@@ -485,7 +485,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                                             </div>
 
                                             <div className="flex items-center gap-1 shrink-0">
-                                                <div className="text-right mr-1 font-mono tabular-nums">
+                                                <div className="text-right mr-1 font-sans tabular-nums">
                                                     <span className={`font-black text-sm ${isBono ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                                         {isBono ? '+' : '−'}${formatUsd(e.montoUsd)}
                                                     </span>
@@ -541,10 +541,10 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                                                 {e.items.map((item, idx) => (
                                                     <div key={`${item.id}-${idx}`} className="flex items-center justify-between gap-2 text-xs">
                                                         <span className="text-slate-700 dark:text-slate-200 font-semibold">
-                                                            <b className="font-mono tabular-nums">{item.qty}×</b> {item.name}
+                                                            <b className="font-sans tabular-nums">{item.qty}×</b> {item.name}
                                                             {item.presentationName && item.factorToBase > 1 ? ` (${item.presentationName})` : ''}
                                                         </span>
-                                                        <span className="font-mono tabular-nums text-slate-500 dark:text-slate-400 shrink-0">
+                                                        <span className="font-sans tabular-nums text-slate-500 dark:text-slate-400 shrink-0">
                                                             ${formatUsd(item.unitUsd)} c/u · <b className="text-slate-800 dark:text-white">${formatUsd(item.subtotalUsd)}</b>
                                                         </span>
                                                     </div>
@@ -599,7 +599,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                         <Wallet size={24} className="text-brand" aria-hidden="true" /> Nómina
                     </h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 font-mono tabular-nums" data-testid="payroll-total">
+                    <p className="text-sm text-slate-500 dark:text-slate-400 font-sans tabular-nums" data-testid="payroll-total">
                         Por pagar este periodo: <b className="text-slate-800 dark:text-white">${formatUsd(totalPorPagar)}</b> · Bs {formatBs(mulR(totalPorPagar, rate))}
                     </p>
                 </div>
@@ -620,7 +620,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
                             <Users size={11} /> Personal activo
                         </span>
-                        <p className="text-lg sm:text-xl font-black font-mono tabular-nums text-slate-900 dark:text-white mt-1">
+                        <p className="text-lg sm:text-xl font-black font-sans tabular-nums text-slate-900 dark:text-white mt-1">
                             {activeRows.length}
                         </p>
                     </div>
@@ -628,7 +628,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
                             <Wallet size={11} /> Pendiente ($)
                         </span>
-                        <p className="text-lg sm:text-xl font-black font-mono tabular-nums text-brand mt-1">
+                        <p className="text-lg sm:text-xl font-black font-sans tabular-nums text-brand mt-1">
                             ${formatUsd(totalPorPagar)}
                         </p>
                     </div>
@@ -636,7 +636,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
                             <CheckCircle2 size={11} /> Pagados
                         </span>
-                        <p className="text-lg sm:text-xl font-black font-mono tabular-nums text-emerald-600 dark:text-emerald-400 mt-1">
+                        <p className="text-lg sm:text-xl font-black font-sans tabular-nums text-emerald-600 dark:text-emerald-400 mt-1">
                             {paidCount}/{activeRows.length}
                         </p>
                     </div>
@@ -695,7 +695,7 @@ export default function PayrollPanel({ rate = 0, isActive = true, triggerHaptic 
                                         </div>
                                     </div>
                                     <div className="text-right shrink-0">
-                                        <p className="font-mono tabular-nums font-black text-base text-brand">${formatUsd(Math.max(0, b.saldoUsd))}</p>
+                                        <p className="font-sans tabular-nums font-black text-base text-brand">${formatUsd(Math.max(0, b.saldoUsd))}</p>
                                         <span className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-full ${est.cls}`}>{est.label}</span>
                                     </div>
                                 </div>

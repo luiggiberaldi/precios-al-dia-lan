@@ -24,6 +24,7 @@ import SwipeableItem from '../components/SwipeableItem';
 import { useProductContext } from '../context/ProductContext';
 import { useAudit } from '../hooks/useAudit';
 import { useAuthStore } from '../hooks/store/useAuthStore';
+import { usePermissions, PERMISSIONS } from '../hooks/usePermissions';
 import { useSupplierManagement } from '../hooks/useSupplierManagement';
 import { usePagination } from '../hooks/usePagination';
 import PaginationBar from '../components/PaginationBar';
@@ -49,8 +50,8 @@ export default function CustomersView({ triggerHaptic, isActive }) {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     const usuarioActivo = useAuthStore(state => state.usuarioActivo);
-    const isAdmin = !usuarioActivo || usuarioActivo.rol === 'ADMIN';
-    const isCajero = usuarioActivo?.rol === 'CAJERO';
+    const { requireLogin, can, isCajero } = usePermissions();
+    const isAdmin = can(PERMISSIONS.CUSTOMERS_DELETE);
 
     // Modal de Abono / Crédito
     const [transactionModal, setTransactionModal] = useState({ isOpen: false, type: null, customer: null }); // type: 'ABONO' | 'CREDITO'
@@ -100,12 +101,17 @@ export default function CustomersView({ triggerHaptic, isActive }) {
     };
 
     // ── ESTADOS DE PROVEEDORES ──
-    const [activeTab, setActiveTab] = useState('clientes'); // 'clientes' | 'proveedores' | 'nomina'
+    const defaultGestionTab = canOpenGestionTab('clientes', usuarioActivo, { requireLogin })
+        ? 'clientes'
+        : (canOpenGestionTab('proveedores', usuarioActivo, { requireLogin }) ? 'proveedores' : 'clientes');
+    const [activeTab, setActiveTab] = useState(defaultGestionTab); // 'clientes' | 'proveedores' | 'nomina'
 
-    // Cajero no puede ver proveedores ni nómina — forzar a clientes si accedió antes
+    // Forzar a una sub-pestaña permitida si el rol actual no tiene acceso
     useEffect(() => {
-        if (!canOpenGestionTab(activeTab, isCajero)) setActiveTab('clientes');
-    }, [isCajero, activeTab]);
+        if (!canOpenGestionTab(activeTab, usuarioActivo, { requireLogin })) {
+            setActiveTab(defaultGestionTab);
+        }
+    }, [usuarioActivo, requireLogin, activeTab, defaultGestionTab]);
 
     const {
         suppliers, invoices, selectedSupplier,
@@ -333,7 +339,7 @@ export default function CustomersView({ triggerHaptic, isActive }) {
         setPaymentMethod('efectivo_bs');
     };
 
-    if (activeTab === 'nomina' && canOpenGestionTab('nomina', isCajero)) {
+    if (activeTab === 'nomina' && canOpenGestionTab('nomina', usuarioActivo, { requireLogin })) {
         return (
             <div ref={revealRef} className="flex flex-col h-full bg-surface-50 dark:bg-surface-950 overflow-hidden relative">
                 <GestionTabs activeTab={activeTab} onChange={setActiveTab} isCajero={isCajero} triggerHaptic={triggerHaptic} />
@@ -344,7 +350,7 @@ export default function CustomersView({ triggerHaptic, isActive }) {
         );
     }
 
-    if (activeTab === 'proveedores') {
+    if (activeTab === 'proveedores' && canOpenGestionTab('proveedores', usuarioActivo, { requireLogin })) {
         return (
             // v1.2.0: revealRef reutilizado + surface tokens (warm cream).
             <div ref={revealRef} className="flex flex-col h-full bg-surface-50 dark:bg-surface-950 overflow-hidden relative">

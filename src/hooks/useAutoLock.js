@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { useAuthStore } from './store/useAuthStore';
 import { logEvent } from '../services/auditService';
 import { AUTOLOCK_POLICY } from '../utils/securityConstants';
+import { isManagerRole, normalizeRole, ROLES } from '../security/permissions';
 
 /**
  * useAutoLock — Bloqueo automático de sesión por inactividad o minimizar la app.
@@ -29,7 +30,7 @@ export function useAutoLock() {
     const isCloudConfigured = useAuthStore(s => s.isCloudConfigured);
     const logout = useAuthStore(s => s.logout);
     const unlock = useAuthStore(s => s.unlock);
-    const isCajeroNoPin = usuarioActivo?.rol === 'CAJERO' && requireCajeroPin === false;
+    const isCajeroNoPin = normalizeRole(usuarioActivo) === ROLES.CAJERO && requireCajeroPin === false;
 
     // SEC-004/HOOK-001: el auto-lock aplica cuando hay sesión activa y el login es requerido.
     // Si el usuario activo es Cajero y tiene deshabilitado el PIN, no requiere auto-lock.
@@ -64,8 +65,8 @@ export function useAutoLock() {
         // Si la sesión está bloqueada, no reiniciar el timer hasta que se desbloquee.
         if (isLocked) return;
 
-        // Timeout más corto para ADMIN (politica más estricta).
-        const isAdmin = usuarioActivo.rol === 'ADMIN';
+        // Timeout más corto para roles de gestión (Dueño/Encargado).
+        const isAdmin = isManagerRole(usuarioActivo);
         const defaultMs = isAdmin
             ? AUTOLOCK_POLICY.ADMIN_IDLE_TIMEOUT_MS
             : AUTOLOCK_POLICY.IDLE_TIMEOUT_MS;

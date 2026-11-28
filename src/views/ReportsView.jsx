@@ -16,6 +16,7 @@ import { rebuildAllCustomersFromLedger } from '../services/customerWalletService
 import { reconcileCustomersWithLedger } from '../utils/pocketReconciliation';
 import { logEvent } from '../services/auditService';
 import { useAuthStore } from '../hooks/store/useAuthStore';
+import { can as canPerm, PERMISSIONS } from '../security/permissions';
 import ReconciliationNotice from '../components/Reports/ReconciliationNotice';
 import { useReportExport } from '../hooks/useReportExport';
 import ReportsMetricsTab from '../components/Reports/ReportsMetricsTab';
@@ -250,8 +251,8 @@ export default function ReportsView({ rates, triggerHaptic, onNavigate, isActive
     const canRepairLedger = useMemo(() => {
         if (typeof localStorage === 'undefined') return false;
         if (localStorage.getItem('reportes_reparacion_ledger') !== 'true') return false;
-        const rol = useAuthStore.getState().usuarioActivo?.rol;
-        return rol !== 'CAJERO';
+        const { usuarioActivo, requireLogin } = useAuthStore.getState();
+        return canPerm(usuarioActivo, PERMISSIONS.SETTINGS_CRITICAL, { requireLogin });
     }, []);
 
     const handleRepairLedger = async () => {

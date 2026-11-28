@@ -117,7 +117,7 @@ describe('F1b · pantallas del equipo', () => {
         expect($('[data-testid="nube-clock"]')).not.toBeNull();
         expect($('img[alt="Precios al Día Nube"]')).not.toBeNull();
         expect(container.textContent).toContain('Dueño');
-        expect(container.textContent).toContain('Administrador');
+        expect(container.textContent).toContain('Encargado');
         await click($('[data-testid="nube-manage"]'));
         expect(onManage).toHaveBeenCalled();
     });

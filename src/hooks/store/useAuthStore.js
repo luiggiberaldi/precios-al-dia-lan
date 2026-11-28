@@ -27,6 +27,8 @@ import { persist } from 'zustand/middleware';
 import { logEvent } from '../../services/auditService';
 import { hashPin, verifyPin } from '../../utils/crypto';
 import { canBypassPin, validateNewAdminPin } from '../../utils/adminPinPolicy';
+import { can as canPerm, isOwnerRole, isPrivilegedRole, normalizeRole } from '../../security/permissions';
+import { findUserByBadge, generateBadgeCode, hashBadgeCode, isBadgeCode } from '../../security/badgeToken';
 import {
     PIN_POLICY,
     LOGIN_RATE_LIMIT,
@@ -119,8 +121,16 @@ function _validateSessionShape(obj) {
     if (typeof id !== 'number' || !Number.isFinite(id)) return null;
     if (typeof nombre !== 'string' || !nombre.trim()) return null;
     if (typeof rol !== 'string' || !rol.trim()) return null;
-    // SEC-013: devolver SOLO los campos mínimos.
-    return { id, nombre, rol };
+    // SEC-013: devolver SOLO los campos mínimos (sin pin ni badgeHash).
+    const safe = { id, nombre, rol };
+    if (obj.permisos && typeof obj.permisos === 'object') {
+        const allow = Array.isArray(obj.permisos.allow) ? obj.permisos.allow.filter((p) => typeof p === 'string') : [];
+        const deny = Array.isArray(obj.permisos.deny) ? obj.permisos.deny.filter((p) => typeof p === 'string') : [];
+        if (allow.length > 0 || deny.length > 0) {
+            safe.permisos = { allow, deny };
+        }
+    }
+    return safe;
 }
 
 /**
@@ -277,11 +287,12 @@ export const useAuthStore = create(
                 }
 
                 if (userEncontrado) {
-                    // SEC-013: persistir SOLO { id, nombre, rol }. Nunca el hash.
+                    // SEC-013: persistir SOLO { id, nombre, rol, permisos? }. Nunca el hash ni badgeHash.
                     const session = {
                         id: userEncontrado.id,
                         nombre: userEncontrado.nombre,
                         rol: userEncontrado.rol,
+                        ...(userEncontrado.permisos ? { permisos: userEncontrado.permisos } : {}),
                     };
                     set({
                         usuarioActivo: session,
@@ -570,14 +581,17 @@ export const useAuthStore = create(
             agregarUsuario: (nombre, rol, pin) => {
                 const err = validatePin(String(pin ?? ''));
                 if (err) return { ok: false, error: err };
+                const validRole = normalizeRole(rol);
+                if (!validRole) return { ok: false, error: 'Rol de usuario inválido' };
 
                 (async () => {
                     try {
                         const hashedPin = await hashPin(String(pin));
                         set((state) => {
                             const maxId = state.usuarios.reduce((max, u) => Math.max(max, u.id), 0);
+                            const requirePin = isPrivilegedRole(validRole) ? state.requireLogin : false;
                             return {
-                                usuarios: [...state.usuarios, { id: maxId + 1, nombre, rol, pin: hashedPin, requirePin: false }]
+                                usuarios: [...state.usuarios, { id: maxId + 1, nombre, rol, pin: hashedPin, requirePin }]
                             };
                         });
                         logEvent('USUARIO', 'USUARIO_CREADO', `Usuario "${nombre}" (${rol}) creado`, get().usuarioActivo);
@@ -590,9 +604,9 @@ export const useAuthStore = create(
 
             eliminarUsuario: (userId) => {
                 const { usuarios, usuarioActivo } = get();
-                const admins = usuarios.filter(u => u.rol === 'ADMIN');
+                const owners = usuarios.filter(u => isOwnerRole(u));
                 const target = usuarios.find(u => u.id === userId);
-                if (target?.rol === 'ADMIN' && admins.length <= 1) return false;
+                if (isOwnerRole(target) && owners.length <= 1) return false;
                 if (usuarioActivo?.id === userId) return false;
 
                 set({ usuarios: usuarios.filter(u => u.id !== userId) });
@@ -654,7 +668,7 @@ export const useAuthStore = create(
              */
             protegerAdministrador: async (userId, nuevoPin) => {
                 const target = get().usuarios.find(u => u.id === userId);
-                if (!target || target.rol !== 'ADMIN') return { ok: false, error: 'Administrador no encontrado' };
+                if (!target || !isPrivilegedRole(target)) return { ok: false, error: 'Administrador no encontrado' };
                 const err = validateNewAdminPin(nuevoPin);
                 if (err) return { ok: false, error: err };
                 try {
@@ -701,6 +715,7 @@ export const useAuthStore = create(
                     id: target.id,
                     nombre: target.nombre,
                     rol: target.rol,
+                    ...(target.permisos ? { permisos: target.permisos } : {}),
                 };
                 set({
                     usuarioActivo: session,
@@ -712,6 +727,172 @@ export const useAuthStore = create(
                 localStorage.setItem(SESSION_KEY, JSON.stringify(session));
                 logEvent('AUTH', 'LOGIN_DIRECTO', `${target.nombre} inicio sesion (sin PIN)`, session);
                 return { success: true };
+            },
+
+            /**
+             * Inicio de sesión rápido escaneando el Carnet (código de barras o QR) del empleado.
+             * @param {string} scannedCode
+             * @returns {Promise<{ success: boolean, user?: object, error?: string }>}
+             */
+            loginWithBadge: async (scannedCode) => {
+                const now = Date.now();
+                const state = get();
+                if (state.lockUntil && now < state.lockUntil) {
+                    const secsLeft = Math.ceil((state.lockUntil - now) / 1000);
+                    return { success: false, error: `Bloqueado. Intente en ${secsLeft}s` };
+                }
+                if (!isBadgeCode(scannedCode)) {
+                    return { success: false, error: 'Código de carnet no reconocido' };
+                }
+                const target = await findUserByBadge(scannedCode, state.usuarios);
+                if (!target) {
+                    const { newAttempts, lockUntil: newLock, newConsecutiveLockouts } = _computeLockout(
+                        state.failedAttempts,
+                        state.consecutiveLockouts,
+                    );
+                    set({
+                        failedAttempts: newAttempts,
+                        lockUntil: newLock,
+                        consecutiveLockouts: newConsecutiveLockouts,
+                        lastFailedAttemptTs: now,
+                    });
+                    return { success: false, error: 'Carnet no válido o revocado' };
+                }
+                const session = {
+                    id: target.id,
+                    nombre: target.nombre,
+                    rol: target.rol,
+                    ...(target.permisos ? { permisos: target.permisos } : {}),
+                };
+                set({
+                    usuarioActivo: session,
+                    failedAttempts: 0,
+                    lockUntil: null,
+                    consecutiveLockouts: 0,
+                    lastFailedAttemptTs: 0,
+                });
+                localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+                logEvent('AUTH', 'LOGIN_CARNET', `${target.nombre} inicio sesion con carnet`, session);
+                return { success: true, user: session };
+            },
+
+            /**
+             * Autoriza una acción puntual restringida sin cerrar la sesión del cajero,
+             * validando un PIN O un Carnet (`PDA-...`) de cualquier usuario con `requiredPermission`.
+             */
+            authorizeActionWithPinOrBadge: async (credential, requiredPermission) => {
+                const raw = String(credential ?? '').trim();
+                if (!raw) return { ok: false, error: 'Ingresa un PIN o escanea un carnet' };
+
+                const { usuarios, usuarioActivo } = get();
+                const eligible = (usuarios || []).filter((u) => canPerm(u, requiredPermission, { requireLogin: true }));
+                if (eligible.length === 0) {
+                    return { ok: false, error: 'No hay usuarios con permiso para autorizar esta acción' };
+                }
+
+                // 1) Intento por carnet (código de barras / QR)
+                if (isBadgeCode(raw)) {
+                    const authorizer = await findUserByBadge(raw, eligible);
+                    if (!authorizer) {
+                        return { ok: false, error: 'Carnet inválido o sin permiso para esta acción' };
+                    }
+                    const summary = { id: authorizer.id, nombre: authorizer.nombre, rol: authorizer.rol };
+                    logEvent(
+                        'AUTH',
+                        'AUTORIZACION_PUNTUAL',
+                        `Acción (${requiredPermission}) autorizada con carnet por ${authorizer.nombre}`,
+                        usuarioActivo,
+                        { permission: requiredPermission, method: 'badge', authorizedBy: summary },
+                    );
+                    return { ok: true, authorizer: summary, method: 'badge' };
+                }
+
+                // 2) Intento por PIN
+                for (const candidate of eligible) {
+                    if (!candidate.pin) continue;
+                    try {
+                        const res = await verifyPin(raw, candidate.pin);
+                        if (res?.valid) {
+                            const summary = { id: candidate.id, nombre: candidate.nombre, rol: candidate.rol };
+                            logEvent(
+                                'AUTH',
+                                'AUTORIZACION_PUNTUAL',
+                                `Acción (${requiredPermission}) autorizada con PIN por ${candidate.nombre}`,
+                                usuarioActivo,
+                                { permission: requiredPermission, method: 'pin', authorizedBy: summary },
+                            );
+                            return { ok: true, authorizer: summary, method: 'pin' };
+                        }
+                    } catch {
+                        // Continuar con el siguiente candidato
+                    }
+                }
+                return { ok: false, error: 'PIN incorrecto o sin permiso para autorizar' };
+            },
+
+            /** Genera (o regenera) un carnet de barras/QR para un usuario y guarda solo su hash. */
+            generarCarnetUsuario: async (userId) => {
+                const target = get().usuarios.find((u) => u.id === userId);
+                if (!target) return { ok: false, error: 'Usuario no encontrado' };
+                try {
+                    const code = generateBadgeCode();
+                    const badgeHash = await hashBadgeCode(code);
+                    const badgeCreatedAt = new Date().toISOString();
+                    set((state) => ({
+                        usuarios: state.usuarios.map((u) =>
+                            u.id === userId ? { ...u, badgeHash, badgeCreatedAt } : u,
+                        ),
+                    }));
+                    logEvent('USUARIO', 'CARNET_GENERADO', `Carnet generado para "${target.nombre}"`, get().usuarioActivo);
+                    return { ok: true, code, user: { ...target, badgeCreatedAt } };
+                } catch (e) {
+                    console.error('[useAuthStore] generarCarnetUsuario falló:', e);
+                    return { ok: false, error: 'No se pudo generar el carnet' };
+                }
+            },
+
+            /** Revoca el carnet activo de un usuario (queda inválido de inmediato). */
+            revocarCarnetUsuario: (userId) => {
+                const target = get().usuarios.find((u) => u.id === userId);
+                if (!target) return { ok: false, error: 'Usuario no encontrado' };
+                set((state) => ({
+                    usuarios: state.usuarios.map((u) => {
+                        if (u.id !== userId) return u;
+                        const { badgeHash: _h, badgeCreatedAt: _c, ...rest } = u;
+                        return rest;
+                    }),
+                }));
+                logEvent('USUARIO', 'CARNET_REVOCADO', `Carnet revocado para "${target.nombre}"`, get().usuarioActivo);
+                return { ok: true };
+            },
+
+            /** Actualiza los permisos extra/denegados (Fase 3) de un empleado. */
+            actualizarPermisosUsuario: (userId, permisos) => {
+                const target = get().usuarios.find((u) => u.id === userId);
+                if (!target) return { ok: false, error: 'Usuario no encontrado' };
+                const allow = Array.isArray(permisos?.allow) ? [...new Set(permisos.allow)] : [];
+                const deny = Array.isArray(permisos?.deny) ? [...new Set(permisos.deny)] : [];
+                const clean = allow.length > 0 || deny.length > 0 ? { allow, deny } : undefined;
+
+                set((state) => {
+                    const nextUsers = state.usuarios.map((u) => {
+                        if (u.id !== userId) return u;
+                        const next = { ...u };
+                        if (clean) next.permisos = clean;
+                        else delete next.permisos;
+                        return next;
+                    });
+                    let nextActive = state.usuarioActivo;
+                    if (nextActive && nextActive.id === userId) {
+                        nextActive = { ...nextActive };
+                        if (clean) nextActive.permisos = clean;
+                        else delete nextActive.permisos;
+                        try { localStorage.setItem(SESSION_KEY, JSON.stringify(nextActive)); } catch {}
+                    }
+                    return { usuarios: nextUsers, usuarioActivo: nextActive };
+                });
+                logEvent('USUARIO', 'PERMISOS_ACTUALIZADOS', `Permisos actualizados para "${target.nombre}"`, get().usuarioActivo, { allow, deny });
+                return { ok: true };
             },
 
             /**

@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { X, Loader2, KeyRound, UserPlus, Save, Eye, EyeOff } from 'lucide-react';
-import { validatePin, validateMemberName, onlyPinDigits, roleLabel, pinHint } from './teamRules';
+import { validatePin, validateMemberName, onlyPinDigits, roleLabel, roleDescription, pinHint } from './teamRules';
 import { isLanModeEnabled } from '../lan/lanConfig';
 
 const FIELD = 'w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 min-h-[48px] text-slate-800 dark:text-white outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition-colors';
@@ -123,7 +123,7 @@ export function MemberFormModal({ member = null, roles, onSubmit, onClose }) {
                                 <button key={r} type="button" onClick={() => setRole(r)} data-testid={`nube-member-role-${r}`}
                                     className={`rounded-xl border-2 px-3 py-2.5 text-left transition-colors ${role === r ? 'border-brand bg-brand-light' : 'border-slate-200 dark:border-slate-700'}`}>
                                     <p className="text-sm font-black text-slate-800 dark:text-white">{roleLabel(r)}</p>
-                                    <p className="text-[11px] text-slate-500 leading-snug">{r === 'cajero' ? 'Vende y cobra' : 'Ajustes, inventario y equipo'}</p>
+                                    <p className="text-[11px] text-slate-500 leading-snug">{roleDescription(r)}</p>
                                 </button>
                             ))}
                         </div>

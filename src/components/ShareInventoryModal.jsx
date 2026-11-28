@@ -280,7 +280,7 @@ export default function ShareInventoryModal({ isOpen, onClose }) {
                                 <button
                                     onClick={handleExport}
                                     disabled={loading || Object.values(selected).every(v => !v)}
-                                    className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-black rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                                    className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed text-white font-black rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
                                 >
                                     {loading ? <Loader2 size={18} className="animate-spin" /> : <Share2 size={18} />}
                                     {loading ? 'Generando código...' : 'Generar Código'}
@@ -328,7 +328,7 @@ export default function ShareInventoryModal({ isOpen, onClose }) {
                                 <button
                                     onClick={handleImport}
                                     disabled={loading || importCode.replace(/\D/g, '').length !== 6}
-                                    className="w-full py-3.5 bg-brand hover:bg-brand-dark text-white font-black rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                                    className="w-full py-3.5 bg-brand hover:bg-brand-dark text-white font-black rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
                                 >
                                     {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
                                     {loading ? 'Buscando...' : 'Importar Datos'}
@@ -383,7 +383,7 @@ export default function ShareInventoryModal({ isOpen, onClose }) {
                                     <button
                                         onClick={confirmImport}
                                         disabled={loading}
-                                        className="flex-1 py-3 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        className="flex-1 py-3 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl active:scale-95 transition-all disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {loading ? <Loader2 size={16} className="animate-spin" /> : null}
                                         {loading ? 'Importando...' : 'Confirmar'}

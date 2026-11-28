@@ -30,7 +30,8 @@ import { useRemoteCommands } from './hooks/useRemoteCommands';
 import { useIdentityMigrationOrder } from './hooks/useIdentityMigrationOrder';
 import CommandPalette from './components/CommandPalette';
 import SideNav from './app/SideNav';
-import { ADMIN_ONLY_TABS, canOpenTab } from './app/roleTabs';
+import { canOpenTab, safeTab, hiddenTabsForUser } from './app/roleTabs';
+import { defaultTabForUser, PERMISSIONS, can as canPerm } from './security/permissions';
 import { usePrefetchMainViews } from './app/usePrefetchMainViews';
 import LockScreen from './components/security/LockScreen';
 import { useAutoLock } from './hooks/useAutoLock';
@@ -143,22 +144,18 @@ export default function App() {
     if (requireLogin && !isNubeSession(useAuthStore.getState().usuarioActivo)) logout();
   }, []);
 
-  // Al iniciar sesión, redirigir al punto de venta si es cajero, o a inicio si es admin
+  // Al iniciar sesión, redirigir a la pantalla inicial según el rol RBAC
   useEffect(() => {
     if (usuarioActivo) {
       const shouldOpenSettings = sessionStorage.getItem('pda_open_settings_after_pairing') === 'true';
-      if (shouldOpenSettings && usuarioActivo.rol === 'ADMIN') {
+      if (shouldOpenSettings && canPerm(usuarioActivo, PERMISSIONS.TAB_SETTINGS, { requireLogin })) {
         sessionStorage.removeItem('pda_open_settings_after_pairing');
         setActiveTab('ajustes');
         return;
       }
-      if (usuarioActivo.rol === 'CAJERO') {
-        setActiveTab('ventas');
-      } else {
-        setActiveTab('inicio');
-      }
+      setActiveTab(defaultTabForUser(usuarioActivo, { requireLogin }));
     }
-  }, [usuarioActivo]);
+  }, [usuarioActivo, requireLogin]);
 
 
 
@@ -367,14 +364,22 @@ export default function App() {
     };
   }, []);
 
-  const isCajero = requireLogin && usuarioActivo?.rol === 'CAJERO';
+  const hiddenTabs = useMemo(
+    () => hiddenTabsForUser(usuarioActivo, { requireLogin }),
+    [usuarioActivo, requireLogin],
+  );
 
-  // Portero de pantallas (traído de Farmacia, ERR-118). Toda navegación pasa por aquí;
-  // si algo deja al Cajero en Reportes o Ajustes (paleta, aviso, enlace), vuelve a Vender.
-  const goTo = useCallback((tab) => { if (canOpenTab(tab, isCajero)) setActiveTab(tab); }, [isCajero]);
+  // Portero de pantallas (RBAC + ERR-118). Toda navegación pasa por aquí;
+  // si un rol intenta abrir una pestaña sin permiso, cae a su pantalla inicial.
+  const goTo = useCallback(
+    (tab) => { if (canOpenTab(tab, usuarioActivo, { requireLogin })) setActiveTab(tab); },
+    [usuarioActivo, requireLogin],
+  );
   useEffect(() => {
-    if (!canOpenTab(activeTab, isCajero)) setActiveTab('ventas');
-  }, [activeTab, isCajero]);
+    if (!canOpenTab(activeTab, usuarioActivo, { requireLogin })) {
+      setActiveTab(safeTab(activeTab, usuarioActivo, { requireLogin }));
+    }
+  }, [activeTab, usuarioActivo, requireLogin]);
 
   // Al cambiar de usuario se desmontan las pantallas que dejó abiertas el anterior
   // (si no, Reportes/Ajustes del Administrador quedarían montadas y escondidas con CSS).
@@ -389,11 +394,11 @@ export default function App() {
     { id: 'ventas', label: 'Vender', icon: ShoppingCart },
     { id: 'catalogo', label: 'Inventario', icon: Store, premiumOnly: true },
     { id: 'clientes', label: 'Gestión', icon: Users }, // Nómina D9: Clientes · Proveedores · Nómina
-    { id: 'reportes', label: 'Reportes', icon: BarChart3, adminOnly: true },
-    { id: 'ajustes', label: 'Ajustes', icon: Settings, adminOnly: true },
+    { id: 'reportes', label: 'Reportes', icon: BarChart3 },
+    { id: 'ajustes', label: 'Ajustes', icon: Settings },
   ];
   const TABS = ALL_TABS.filter(tab =>
-    (!tab.premiumOnly || isPremium) && (!tab.adminOnly || !isCajero)
+    (!tab.premiumOnly || isPremium) && canOpenTab(tab.id, usuarioActivo, { requireLogin })
   );
 
   if (isMonitorMode) {
@@ -653,7 +658,7 @@ export default function App() {
           onClose={() => setIsCommandPaletteOpen(false)} 
           onToggle={() => setIsCommandPaletteOpen(p => !p)} 
           navigateTo={goTo}
-          hiddenTabs={isCajero ? ADMIN_ONLY_TABS : null}
+          hiddenTabs={hiddenTabs}
       />
 
       {/* iOS Install Instructions Modal */}

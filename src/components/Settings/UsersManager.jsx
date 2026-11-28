@@ -5,18 +5,44 @@ import { verifyPin } from '../../utils/crypto';
 import { PIN_POLICY } from '../../utils/securityConstants';
 import { canBypassPin } from '../../utils/adminPinPolicy';
 import {
-    UserPlus, Trash2, KeyRound, Shield, ShoppingCart,
-    Crown, X, Check, Eye, EyeOff, AlertTriangle, Edit2, Lock, Unlock
+    UserPlus, Trash2, KeyRound, Shield, ShoppingCart, Package, UserCog,
+    Crown, X, Check, Eye, EyeOff, AlertTriangle, Edit2, Lock, Unlock,
+    BadgeCheck, SlidersHorizontal
 } from 'lucide-react';
+import {
+    can as canPerm,
+    getRoleDescription,
+    isOwnerRole,
+    OVERRIDABLE_PERMISSIONS,
+    ROLE_PERMISSIONS,
+    normalizeRole,
+} from '../../security/permissions';
+import EmployeeBadgeModal from './EmployeeBadgeModal';
 
 const ROLE_CONFIG = {
     ADMIN: {
-        label: 'Administrador',
+        label: 'Dueño',
         gradient: 'from-brand to-brand-dark',
         bg: 'bg-brand-light dark:bg-surface-800/20',
         text: 'text-brand-dark dark:text-brand',
         border: 'border-surface-300 dark:border-surface-800/40',
         icon: Shield,
+    },
+    ENCARGADO: {
+        label: 'Encargado',
+        gradient: 'from-indigo-500 to-violet-600',
+        bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+        text: 'text-indigo-600 dark:text-indigo-400',
+        border: 'border-indigo-200 dark:border-indigo-800/40',
+        icon: UserCog,
+    },
+    INVENTARIO: {
+        label: 'Inventario',
+        gradient: 'from-amber-500 to-orange-500',
+        bg: 'bg-amber-50 dark:bg-amber-900/20',
+        text: 'text-amber-700 dark:text-amber-400',
+        border: 'border-amber-200 dark:border-amber-800/40',
+        icon: Package,
     },
     CAJERO: {
         label: 'Cajero',
@@ -70,11 +96,11 @@ function PinInput({ value, onChange, label, length = 6, showDigits = false }) {
 }
 
 // ─── User Row ──────────────────────────────────────
-function UserRow({ user, currentUserId, onChangePin, onDelete, onEditName, onTogglePin, triggerHaptic, requireLogin }) {
-    const roleConf = ROLE_CONFIG[user.rol] || ROLE_CONFIG.CAJERO;
+function UserRow({ user, currentUserId, onChangePin, onDelete, onEditName, onTogglePin, onOpenBadge, onOpenPermissions, triggerHaptic, requireLogin }) {
+    const roleConf = ROLE_CONFIG[user.rol === 'DUENO' ? 'ADMIN' : user.rol] || ROLE_CONFIG.CAJERO;
     const RoleIcon = roleConf.icon;
     const isCurrentUser = user.id === currentUserId;
-    const isAdmin = user.rol === 'ADMIN';
+    const isAdmin = isOwnerRole(user);
     const requirePin = user.requirePin !== false;
     // Con la pantalla de inicio activa, el Administrador siempre usa PIN: no se muestra el interruptor.
     const showPinToggle = canBypassPin(user, requireLogin);
@@ -123,6 +149,28 @@ function UserRow({ user, currentUserId, onChangePin, onDelete, onEditName, onTog
                 </button>}
 
                 <button
+                    onClick={() => { triggerHaptic?.(); onOpenBadge(user); }}
+                    className={`p-2.5 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg transition-all active:scale-90 ${user.badgeHash
+                        ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/40'
+                        : 'text-slate-400 hover:text-brand hover:bg-brand-light dark:hover:bg-surface-800/20'
+                    }`}
+                    title={user.badgeHash ? 'Carnet de barras/QR activo (clic para gestionar)' : 'Crear carnet de barras/QR'}
+                >
+                    <BadgeCheck size={16} />
+                </button>
+                {!isAdmin && (
+                    <button
+                        onClick={() => { triggerHaptic?.(); onOpenPermissions(user); }}
+                        className={`p-2.5 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg transition-all active:scale-90 ${user.permisos
+                            ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100'
+                            : 'text-slate-400 hover:text-brand hover:bg-brand-light dark:hover:bg-surface-800/20'
+                        }`}
+                        title="Permisos especiales de este empleado"
+                    >
+                        <SlidersHorizontal size={16} />
+                    </button>
+                )}
+                <button
                     onClick={() => { triggerHaptic?.(); onChangePin(user); }}
                     className="p-2.5 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-slate-400 hover:text-brand hover:bg-brand-light dark:hover:bg-surface-800/20 transition-all active:scale-90"
                     title="Cambiar PIN"
@@ -152,7 +200,15 @@ function UserRow({ user, currentUserId, onChangePin, onDelete, onEditName, onTog
 
 // ═══════════════════════════════════════════════════ MAIN
 export default function UsersManager({ triggerHaptic }) {
-    const { usuarios, usuarioActivo, agregarUsuario, eliminarUsuario, cambiarPin, editarUsuario, requireLogin } = useAuthStore();
+    const {
+        usuarios, usuarioActivo, agregarUsuario, eliminarUsuario, cambiarPin, editarUsuario, requireLogin,
+        generarCarnetUsuario, revocarCarnetUsuario, actualizarPermisosUsuario,
+    } = useAuthStore();
+
+    // Fase 3: Carnet imprimible y permisos especiales por empleado
+    const [badgeModalUser, setBadgeModalUser] = useState(null);
+    const [badgeGeneratedCode, setBadgeGeneratedCode] = useState('');
+    const [permModalUser, setPermModalUser] = useState(null);
 
     // States
     const [showAddForm, setShowAddForm] = useState(false);
@@ -329,6 +385,8 @@ export default function UsersManager({ triggerHaptic }) {
                             showToast(newStatus ? `PIN activado para ${u.nombre}` : `Acceso directo activado para ${u.nombre}`, 'success');
                         }}
                         requireLogin={requireLogin}
+                        onOpenBadge={u => { setBadgeModalUser(u); setBadgeGeneratedCode(''); }}
+                        onOpenPermissions={u => setPermModalUser(u)}
                         onDelete={u => setDeleteUser(u)}
                         triggerHaptic={triggerHaptic}
                     />
@@ -419,6 +477,9 @@ export default function UsersManager({ triggerHaptic }) {
                                 );
                             })}
                         </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 leading-snug">
+                            {getRoleDescription(newRole)}
+                        </p>
                     </div>
 
                     {/* PIN */}
@@ -577,7 +638,7 @@ export default function UsersManager({ triggerHaptic }) {
                                     <button
                                         onClick={handleNextStep1}
                                         disabled={currentPinValue.length !== PIN_POLICY.MIN_LENGTH}
-                                        className="flex-1 py-3 text-xs font-bold text-white bg-brand rounded-xl hover:bg-brand-dark active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none shadow-md shadow-brand/20"
+                                        className="flex-1 py-3 text-xs font-bold text-white bg-brand rounded-xl hover:bg-brand-dark active:scale-95 transition-all disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none shadow-md shadow-brand/20"
                                     >
                                         Continuar
                                     </button>
@@ -595,7 +656,7 @@ export default function UsersManager({ triggerHaptic }) {
                                     <button
                                         onClick={handleNextStep2}
                                         disabled={pinValue.length !== PIN_POLICY.MIN_LENGTH}
-                                        className="flex-1 py-3 text-xs font-bold text-white bg-brand rounded-xl hover:bg-brand-dark active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none shadow-md shadow-brand/20"
+                                        className="flex-1 py-3 text-xs font-bold text-white bg-brand rounded-xl hover:bg-brand-dark active:scale-95 transition-all disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none shadow-md shadow-brand/20"
                                     >
                                         Continuar
                                     </button>
@@ -613,7 +674,7 @@ export default function UsersManager({ triggerHaptic }) {
                                     <button
                                         onClick={handleChangePin}
                                         disabled={confirmPinValue.length !== PIN_POLICY.MIN_LENGTH}
-                                        className="flex-1 py-3 text-xs font-bold text-white bg-brand rounded-xl hover:bg-brand-dark active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none shadow-md shadow-brand/20"
+                                        className="flex-1 py-3 text-xs font-bold text-white bg-brand rounded-xl hover:bg-brand-dark active:scale-95 transition-all disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none shadow-md shadow-brand/20"
                                     >
                                         Guardar PIN
                                     </button>
@@ -687,7 +748,7 @@ export default function UsersManager({ triggerHaptic }) {
                             <button
                                 onClick={handleEditName}
                                 disabled={!editNameValue.trim()}
-                                className="flex-1 py-3 text-sm font-bold text-white bg-brand rounded-xl hover:bg-brand-dark active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 py-3 text-sm font-bold text-white bg-brand rounded-xl hover:bg-brand-dark active:scale-95 transition-all disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
                             >
                                 Guardar
                             </button>
@@ -809,6 +870,109 @@ export default function UsersManager({ triggerHaptic }) {
                     </div>
                 </div>
             )}
+            {/* ─── Fase 3: Modal de Carnet de Barras / QR ────────────────────── */}
+            <EmployeeBadgeModal
+                isOpen={!!badgeModalUser}
+                user={badgeModalUser ? (usuarios.find(u => u.id === badgeModalUser.id) || badgeModalUser) : null}
+                badgeCode={badgeGeneratedCode}
+                onClose={() => { setBadgeModalUser(null); setBadgeGeneratedCode(''); }}
+                onGenerate={async (uid) => {
+                    const res = await generarCarnetUsuario(uid);
+                    if (res?.ok) {
+                        setBadgeGeneratedCode(res.code);
+                        showToast('Carnet generado. Imprímelo o guárdalo ahora.', 'success');
+                    } else {
+                        showToast(res?.error || 'No se pudo generar el carnet', 'error');
+                    }
+                }}
+                onRevoke={(uid) => {
+                    revocarCarnetUsuario(uid);
+                    setBadgeGeneratedCode('');
+                    showToast('Carnet revocado. El código anterior ya no funciona.', 'info');
+                }}
+            />
+
+            {/* ─── Fase 3: Modal de Permisos Especiales por Empleado ─────────── */}
+            {permModalUser && (() => {
+                const liveUser = usuarios.find(u => u.id === permModalUser.id) || permModalUser;
+                const baseRole = normalizeRole(liveUser);
+                const baseSet = ROLE_PERMISSIONS[baseRole] || new Set();
+                const togglePerm = (permKey) => {
+                    const currentlyAllowed = canPerm(liveUser, permKey, { requireLogin: true });
+                    const nextAllowed = !currentlyAllowed;
+                    const allow = new Set(liveUser.permisos?.allow || []);
+                    const deny = new Set(liveUser.permisos?.deny || []);
+                    allow.delete(permKey);
+                    deny.delete(permKey);
+                    if (nextAllowed && !baseSet.has(permKey)) allow.add(permKey);
+                    if (!nextAllowed && baseSet.has(permKey)) deny.add(permKey);
+                    actualizarPermisosUsuario(liveUser.id, { allow: [...allow], deny: [...deny] });
+                    triggerHaptic?.();
+                };
+                return (
+                    <div
+                        className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+                        onClick={() => setPermModalUser(null)}
+                    >
+                        <div
+                            className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-4"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-base font-black text-slate-800 dark:text-white">
+                                        Permisos especiales
+                                    </h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        {liveUser.nombre} · excepciones sobre su puesto
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setPermModalUser(null)}
+                                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {OVERRIDABLE_PERMISSIONS.map((item) => {
+                                    const active = canPerm(liveUser, item.key, { requireLogin: true });
+                                    return (
+                                        <button
+                                            key={item.key}
+                                            type="button"
+                                            onClick={() => togglePerm(item.key)}
+                                            className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl border text-left transition-all ${active
+                                                ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+                                                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'
+                                            }`}
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold text-slate-800 dark:text-white">{item.label}</p>
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">{item.description}</p>
+                                            </div>
+                                            <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase shrink-0 ${active
+                                                ? 'bg-emerald-600 text-white'
+                                                : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                                            }`}>
+                                                {active ? 'Sí' : 'No'}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setPermModalUser(null)}
+                                className="w-full py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold text-xs uppercase tracking-wider"
+                            >
+                                Listo
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }

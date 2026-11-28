@@ -364,13 +364,13 @@ export function canVoidEntry(entry, { entries = [], employee, movement = null, i
 
 // ─── Mercancía del empleado (F6) ────────────────────────────────────────────
 
-/** Valoración elegida en Ajustes; si no hay o es rara, «costo». */
+/** Valoración elegida en Ajustes; si no hay o es rara, «venta» (de fábrica). */
 export function readGoodsValuation(store = globalThis.localStorage) {
     try {
         const v = store?.getItem?.(GOODS_VALUATION_KEY);
-        return GOODS_VALUATIONS.includes(v) ? v : 'costo';
+        return GOODS_VALUATIONS.includes(v) ? v : 'venta';
     } catch {
-        return 'costo';
+        return 'venta';
     }
 }
 
@@ -399,10 +399,10 @@ export function goodsUnitPriceUsd(product, valuation, presentationId = null) {
  *
  * @returns {{ items, montoUsd, montoBs, tasa, excedenteUsd, saldoAntesUsd, valoracion }}
  */
-export function evaluateGoods({ input, products = [], balance, tasa, valuation = 'costo', allowNegative = false }) {
+export function evaluateGoods({ input, products = [], balance, tasa, valuation = 'venta', allowNegative = false }) {
     if (input?.tipo !== GOODS_TYPE) throw new Error('Tipo de movimiento no válido.');
     if (!input.idempotencyKey) throw new Error('Falta la llave del movimiento. Cierra y abre el formulario.');
-    const valoracion = GOODS_VALUATIONS.includes(valuation) ? valuation : 'costo';
+    const valoracion = GOODS_VALUATIONS.includes(valuation) ? valuation : 'venta';
     const raw = Array.isArray(input.items) ? input.items : [];
     if (raw.length === 0) throw new Error('Elige al menos un producto.');
 

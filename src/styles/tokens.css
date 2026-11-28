@@ -28,10 +28,10 @@
   --surface-2:         oklch(0.935 0.022 85);  /* #edeae2 */
   --surface-3:         oklch(0.91 0.018 85);   /* hover de filas */
 
-  /* ── Text (H=60: Marrón carbón cálido) ── */
+  /* ── Text (H=60: Marrón carbón cálido — contraste WCAG AA/AAA sobre cream) ── */
   --text:              oklch(0.28 0.020 60);   /* #2c2924 */
-  --text-muted:        oklch(0.50 0.020 60);   /* #605c56 */
-  --text-faint:        oklch(0.68 0.015 60);   /* #8d8881 */
+  --text-muted:        oklch(0.43 0.018 60);   /* #524e48 */
+  --text-faint:        oklch(0.52 0.015 60);   /* #6e6963 */
 
   /* ── Borders ── */
   --border:            oklch(0.89 0.018 85);   /* #e2dfd7 */
@@ -62,9 +62,9 @@
   --color-surface-50:  251 250 247;   /* #fbfaf7 bg */
   --color-surface-100: 245 243 238;   /* #f5f3ee surface */
   --color-surface-200: 237 234 226;   /* #edeae2 surface-2 */
-  --color-surface-300: 226 223 215;   /* #e2dfd7 border */
-  --color-surface-400: 141 136 129;   /* #8d8881 text-faint */
-  --color-surface-500: 96 92 86;      /* #605c56 text-muted */
+  --color-surface-300: 215 211 202;   /* #d7d3ca border más nítido */
+  --color-surface-400: 110 105 99;    /* #6e6963 text-faint (5.3:1 AA) */
+  --color-surface-500: 82 78 72;      /* #524e48 text-muted (7.9:1 AAA) */
   --color-surface-600: 60 57 53;      /* #3c3935 */
   --color-surface-700: 44 41 36;      /* #2c2924 text */
   --color-surface-800: 30 28 25;      /* #1e1c19 */
@@ -176,8 +176,8 @@
   --color-surface-100: 45 43 40;       /* surface dark */
   --color-surface-200: 34 33 31;       /* surface-2 dark */
   --color-surface-300: 56 54 51;       /* border dark */
-  --color-surface-400: 151 148 142;    /* text-muted dark */
-  --color-surface-500: 120 117 112;
+  --color-surface-400: 172 169 163;    /* text-muted dark (AA) */
+  --color-surface-500: 148 145 139;
   --color-surface-600: 90 88 84;
   --color-surface-700: 242 240 236;    /* text dark (invertido) */
   --color-surface-800: 230 228 224;
